@@ -555,8 +555,12 @@ int raycast_tilemap(
 	vec3 tp = curpos_f + ray * length_ae;
 	if (hit_wall) {
 	} else if (!pos3_inside(tp, 0.0 - epsilon, 1.0 + epsilon)) {
-	  // 断面と境界平面の境目の誤差を見えなくするためにepsilonだけ広げる
+          // 交点がボクセルの外側
+	  // (断面と境界平面の境目の誤差を見えなくするためにepsilonだけ広げる)
 	  hit_flag = false;
+        } else if (length_ae < 0.0) {
+          // 交点が現在位置より手前なので接触しない
+          hit_flag = false;
 	} else {
 	  // ボクセル内で断面に接触
 	  dir = -sp_nor;
@@ -610,7 +614,7 @@ int raycast_tilemap(
 	    sp_center, sp_scale, sp_radius * sp_radius, ura, light_hit_wall,
             sp_nor);
           vec3 tp = curpos_f + ray * length_ae;
-          if (pos3_inside(tp, 0.0, 1.0)) {
+          if (length_ae >= 0.0 && pos3_inside(tp, 0.0, 1.0)) {
             lstr_para = lstr_para * selfshadow_para;
             break;
           }

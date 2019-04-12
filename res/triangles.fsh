@@ -481,6 +481,7 @@ void main(void)
     // float selfshadow_para = clamp(1.0 - dist_log2 * 0.1, 0.0, 1.0);
     float selfshadow_para = 0.0f;
     //if (option_value2 >= 0.0) {
+      // raycastで視線が衝突する位置と影を計算する
       hit = raycast_tilemap(pos, campos, dist_rnd, camera_local, light_local,
 	aabb_min, aabb_max, tex_val0, tex_val1, nor, selfshadow_para, lstr_para,
 	miplevel, option_value2 < 0.0);
@@ -503,16 +504,6 @@ void main(void)
       // <%fragcolor/> = vec4(1.0); return;
       discard;
     }
-    if (cam_inside_aabb && hit <= (option_value2 < 0 ? 1 : 0)) {
-      /* カメラが物体にめりこんでいる。depth計算で0除算がおきないよう
-       * ここでreturnする。mip_detailの処理によりhit == 1でもめりこんでいる
-       * ことがありうる(option_value2が-1のとき)。 */
-      <%fragcolor/> = vec4(0.0);
-      <%if><%eq><%update_frag_depth/>1<%/>
-	gl_FragDepth = -1.0;
-      <%/>
-      return;
-    }
     // ambient = max(0.0, 0.005 - float(hit) * 0.0001);
     nor = normal_matrix * nor; // local to global
     vec3 frag_tanpos = vary_aabb_or_tconv.xyz + pos * vary_aabb_or_tconv.w;
@@ -521,6 +512,16 @@ void main(void)
       // vary_model_matrixは接線空間からワールドへの変換
     frag_distance = length(frag_gpos.xyz - camera_pos);
       // frag_distanceを更新。合っているか？
+    if (frag_distance < epsilon) {
+      /* カメラが物体にめりこんでいる。0除算がおきないようここでreturnする。
+       * さもないとめりこんだときの描画が乱れる。
+       */
+      <%fragcolor/> = vec4(0.0);
+      <%if><%eq><%update_frag_depth/>1<%/>
+	gl_FragDepth = -1.0;
+      <%/>
+      return;
+    }
     <%if><%eq><%stype/>1<%/>
       vec4 frag_vpos = view_projection_matrix * frag_gpos;
       float frag_depth = (frag_vpos.z / frag_vpos.w + 1.0) * 0.5;
