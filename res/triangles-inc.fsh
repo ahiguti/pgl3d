@@ -368,13 +368,14 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
     // TODO: LODバイアス調整できるようにする
 }
 
-vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn)
+vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
+  in vec3 tsize)
 {
   // rotとsgnを適用してtpat座標を返す
   float e = 1.0; // / 65536.0; // valueは整数なので1.0でよい
-  if (sgn.x < 0.0) { value.x = tile3_size.x - e - value.x; }
-  if (sgn.y < 0.0) { value.y = tile3_size.y - e - value.y; }
-  if (sgn.z < 0.0) { value.z = tile3_size.z - e - value.z; }
+  if (sgn.x < 0.0) { value.x = tsize.x - e - value.x; }
+  if (sgn.y < 0.0) { value.y = tsize.y - e - value.y; }
+  if (sgn.z < 0.0) { value.z = tsize.z - e - value.z; }
   if (rot.x != 0.0) { value.xy = value.yx; }
   if (rot.y != 0.0) { value.yz = value.zy; }
   if (rot.z != 0.0) { value.zx = value.xz; }
@@ -417,6 +418,7 @@ int raycast_tilemap(
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
+    // 0を超えるとtpatをmip、tile3_size_log2を超えるとtmapもmip
   bool mip_detail = false; // 詳細モードかどうか
   if (enable_variable_miplevel && max_vec3(aabb_max - aabb_min) > 0.125f) {
     // 長距離のイテレートを速くするために大きいmiplevelから開始する。
@@ -428,12 +430,17 @@ int raycast_tilemap(
   int tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
   int tpat_mip = min(miplevel, tile3_size_log2);
   float distance_unit_tmap_mip = float(<%lshift>16<%>tmap_mip<%/>);
+    // tmap mipの1ボクセルの大きさ
   float distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
+    // tpat mipの1ボクセルの大きさ
   // if (tpat_mip != 0) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
   vec3 ray = eye;
   vec3 dir = -hit_nor;
   vec3 curpos_f = pos * virt3_size;
   vec3 curpos_i = div_rem(curpos_f, 1.0);
+    // posはテクスチャ座標(0,1)。curpos_iはテクスチャ内位置の整数部分、
+    // curpos_fは小数部分。raycast処理のあいだ、小数部分が0.0と1.0ちょうど
+    // で境界を表すので、整数部分と小数部分を分離して保持する必要がある。
   value0_r = vec4(0.0, 0.0, 0.0, 1.0);
   value1_r = vec4(0.0, 0.0, 0.0, 1.0);
   int hit = -1;
@@ -454,8 +461,11 @@ int raycast_tilemap(
       distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
     }
     vec3 curpos_t = floor(curpos_i / tile3_size);
-    vec3 curpos_tr = curpos_i - curpos_t * tile3_size; // 0から15の整数
+      // タイルマップ座標
+    vec3 curpos_tr = curpos_i - curpos_t * tile3_size;
+      // タイルパターン座標(0から15の整数)
     vec3 tmap_coord = curpos_t;
+    // タイルマップテクスチャを引く
     <%if><%is_gl3_or_gles3/>
     vec4 value = texelFetch(sampler_voxtmap, ivec3(tmap_coord) >> tmap_mip, 
       tmap_mip);
@@ -470,23 +480,27 @@ int raycast_tilemap(
     }
     bool is_pat = (node_type == 1);
     float distance_unit = distance_unit_tmap_mip;
+      // 現在見ているボクセルの大きさ。パターン参照のmip0なら1, マップ即値の
+      // mip0なら16になる。
     vec3 tpat_rot = vec3(0.0);
     vec3 tpat_sgn = vec3(1.0);
     vec3 tpat_coord;
     if (is_pat) {
-      distance_unit = 1.0;
       vec3 vp = floor(value.rgb * 255.0 + 0.5);
+        // vpは下で変更されてタイルパターン番号を表す
       tpat_rot = div_rem(vp, 128.0);
+        // value.rgbの最上位bitがtpat_rot
       tpat_sgn = 1.0 - div_rem(vp, 64.0) * 2.0; // -1 or +1
-      // tpat_rot.y = 1.0; // FIXME
-      // tpat_sgn.z = -1.0; // FIXME
+        // value.rgbの第6bitがtpat_sgn。+1か-1。
+      vec3 tpat_scale = div_rem(vp, 16.0);
+        // パターンボクセルのスケーリング値。xだけ使う。
       vec3 curpos_tp = vp * tile3_size; // タイルパターンの始点 16刻み4096迄
       distance_unit = distance_unit_tpat_mip;
       tpat_coord = curpos_tp + tpat_sgn_rotate_tile(curpos_tr, tpat_rot,
-	tpat_sgn);
-	// tpat回転: curpos_trはタイル内オフセット。
-	// tile3_size未満の値。これをrotate_tile(curpos_tr, value.a)に
-	// 置き換える。
+	tpat_sgn, tile3_size);
+        // タイルパターンの座標。curpos_trはタイル内オフセット(0から15)で、
+	// tile3_size未満の値。回転と反転を適用する。
+      // タイルパターンを引く
       <%if><%is_gl3_or_gles3/>
       value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_mip,
 	tpat_mip);

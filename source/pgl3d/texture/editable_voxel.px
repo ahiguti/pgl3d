@@ -93,7 +93,7 @@ texture_edit()
   public texture_data_mip data_pri;
   public texture_data_mip data_sec;
   public texture_data grid;
-  public uvec3 data_size;
+  // public uvec3 data_size;
   public uvec3 grid_size = make_uvec3(1u, 1u, 1u);
     // タイルパターンのときのグリッドサイズを指定する。
     // タイルマップのときは(1,1,1)にする。
@@ -111,10 +111,13 @@ texture_edit()
   public function uint get_mip(uvec3 pos, texture_value_index_e idx,
     size_t miplevel)
   {
+    // debug_log("get_mip", pos, idx, miplevel);
     if (miplevel >= data_pri.size()) {
       miplevel = data_pri.size() - 1;
     }
-    if (!lt_all_uvec3(pos, data_size)) {
+    const datasz = data_pri[0].get_size_uvec3();
+    if (!lt_all_uvec3(pos, datasz)) {
+      // debug_log("get_mip range error", pos, datasz);
       return 0u;
     }
     pos.x >>= static_cast{uint}(miplevel);
@@ -153,7 +156,8 @@ texture_edit()
   }
   public function void set(uvec3 const& pos, texture_value_index_e idx, uint v)
   {
-    if (!lt_all_uvec3(pos, data_size)) {
+    const datasz = data_pri[0].get_size_uvec3();
+    if (!lt_all_uvec3(pos, datasz)) {
       return;
     }
     // debug_log("texture_edit set", pos);
@@ -175,7 +179,8 @@ texture_edit()
   public function void fill_range(uvec3 const& dpos, uvec3 const& sz,
     uint v_pri, uint v_sec)
   {
-    if (!lt_all_uvec3(dpos, data_size)) {
+    const datasz = data_pri[0].get_size_uvec3();
+    if (!lt_all_uvec3(dpos, datasz)) {
       return;
     }
     v_pri = is_space_voxel(v_pri) ? 0u : v_pri;
@@ -206,7 +211,7 @@ texture_edit()
     if (empty_range(sz)) {
       return;
     }
-    // debug_log("paste_range", spos, sz, dpos);
+    debug_log("editable_voxel paste_range", spos, sz, dpos);
     bool shape_modified = false;
     if ((index_mask & 1u) != 0) {
       // pri
@@ -219,6 +224,7 @@ texture_edit()
 	src_aux, spos, sz);
     }
     if (shape_modified) {
+      debug_log("editable_voxel paste_range recalc dist", spos, sz, dpos, grid_size.x);
       recalc_distance_range(dpos, sz, false);
     } else {
       modified.set_modified(to_ivec3(dpos),
@@ -230,11 +236,11 @@ texture_edit()
   {
     /* 領域の更新に伴う距離の更新をおこなう。領域が全て空白になったと
      * わかっている場合はclear_flagを真にしてよい。*/
-    // debug_log("recalc_distance_range", pos, sz, clear_flag);
+    debug_log("recalc_distance_range", pos, sz, clear_flag);
     ivec3 mod_mi = to_ivec3(pos);
     ivec3 mod_mx = mod_mi + to_ivec3(sz) - make_ivec3(1, 1, 1);
     if (grid_size.x == 1) {
-      // debug_log("recalc_distance_range nogrid", mod_mi, mod_mx); // FIXME
+      debug_log("recalc_distance_range nogrid", mod_mi, mod_mx); // FIXME
       if (clear_flag) {
         /* 遅すぎるので更新しない。うまい実装があるか? */
         /* update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag); */
@@ -244,7 +250,7 @@ texture_edit()
         modified.set_modified(mod_mi, mod_mx);
       }
     } else {
-      // debug_log("recalc_distance_range grid");
+      debug_log("recalc_distance_range grid");
       if (grid_work.get_width_l2() == 0u) {
 	grid_work.set_size_l2(
 	  integral_log2(grid_size.x), 
@@ -259,7 +265,7 @@ texture_edit()
 	    const p = map{uvec3, operator::mul}(
 	      make_uvec3(ui(x), ui(y), ui(z)),
 	      grid_size);
-	    // debug_log("recalc_distance_range grid", x, y, z);
+	    debug_log("recalc_distance_range grid", x, y, z);
 	    texture_data_copy_range(grid_work, uvec3(), data_pri[0], p,
 	      grid_size);
 	    set_distance(true, grid_work);

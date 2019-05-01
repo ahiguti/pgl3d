@@ -62,7 +62,7 @@ private function texture_format get_depth_format(string const& s)
 public struct drawer_setfb(shader_config const& glc,
   drawer_shared const& ds, ptr{glm::uvec2} const& src_size0,
   ptr{glm::uvec2} const& dst_size0, string const& fbname0, bool owner_flag0,
-  cslice{string} const& color_fmt0, string const& depth_fmt0)
+  cslice{string} const& color_fmt0, string const& depth_fmt0, bool bilinear0)
 <drawstep_i>
 {
   /* draw()されるとフレームバッファをbindする。owner_flagが真ならフレーム
@@ -77,6 +77,7 @@ public struct drawer_setfb(shader_config const& glc,
   bool depth_tex = false;
   varray{texture_format} color_fmt;
   texture_format depth_fmt;
+  bool const bilinear = bilinear0;
   /*
   GLenum color_ifmt;
   GLenum color_efmt;
@@ -145,7 +146,7 @@ public struct drawer_setfb(shader_config const& glc,
       fbo_own.some->width = static_cast{int}(src_size->x);
       fbo_own.some->height = static_cast{int}(src_size->y);
       if (color_tex) {
-        init_color_fbo(glc, *fbo_own.some, color_fmt, depth_fmt);
+        init_color_fbo(glc, *fbo_own.some, color_fmt, depth_fmt, bilinear);
         debug_log("setfb color fbo");
       } else {
         init_shadowmap_fbo(glc, *fbo_own.some);

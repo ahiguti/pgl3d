@@ -1,6 +1,7 @@
 <%import>pre.fsh<%/>
 <%import>triangles-inc.fsh<%/>
 <%import>fnoise.fsh<%/>
+<%import>pnoise.fsh<%/>
 
 // #pragma optionNV(inline all)
 // #pragma optionNV(unroll none)
@@ -866,8 +867,8 @@ void main(void)
     if (frag_depth < 1.7f + dist_rnd * 0.25f)
     {
 
-      // mate_specular.r += clamp(fnoise3(pos), 0.1, 1.0);
-      // mate_diffuse.r += clamp(fnoise3(pos), 0.1, 1.0);
+      // mate_specular.r += clamp(fnoise3(pos / 16.0), 0.1, 1.0);
+      // mate_diffuse.r += clamp(fnoise3(pos / 16.0), 0.1, 1.0);
 
       // float v = clamp(fnoise3(pos / 16.0) * 2.0, 0.0, 1.0);
       // if (v < 0.001) {
@@ -880,7 +881,8 @@ void main(void)
       // mate_emit = vec3(v * 0.9, v * 2.0, v * 2.0) * clamp(16.0 - frag_distance * 0.9, 0.0, 0.5);
 
 
-      // mate_alpha = clamp(pnoise3(pos * 82492.0) * 1.01, 0.01, 1.0);
+      // nor.x += 0.01 * clamp(pnoise3(pos * 8122.0) * 1.01, 0.01, 1.0);
+      // mate_alpha = clamp(pnoise3(pos * 8122.0) * 1.01, 0.01, 1.0);
       // mate_alpha = 0.01;
       // <%fragcolor/> = vec4(1.0,1.0,0.0,1.0); return;
       /*
@@ -888,14 +890,17 @@ void main(void)
 	0.0, 0.5);
       */
       /*
-      vec2 nt_coord = fract(vec2(pos.x + pos.z, pos.y + pos.z) * 256.0);
+      vec2 nt_coord = fract(vec2(pos.x + pos.z, pos.y + pos.z) * 16.0 * 256.0);
       float nval = texelFetch(sampler_noise,
 	// ivec2(gl_FragCoord.xy),
 	ivec2(nt_coord * 1024.0),
 	0).r;
+      // nor.x -= nval * 0.001;
+      // nor.y -= nval * 0.001;
+      // nor.z -= nval * 0.001;
+      mate_diffuse += vec3(nval, nval, nval) / 8.0;
+      mate_specular += vec3(nval, nval, nval) / 8.0;
       */
-      // mate_diffuse = vec3(nval, nval, nval);
-      // mate_specular = vec3(nval, nval, nval);
       // mate_alpha = 0.3;
       // mate_alpha = clamp(mate_alpha - nval / 8.0f, 0.0, 0.5);
       // float p = 7.0 / 32.0;

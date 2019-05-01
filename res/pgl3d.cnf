@@ -5,7 +5,7 @@ option_value2=-1
 
 auto_reload=1
 capture_filter=0
-aberration_filter=0
+aberration_filter=1
 
 dbgval=0
 gldebug=0
@@ -55,7 +55,6 @@ perspective_far=10000
 fps=60
 frame_sleep=0
 blur_param=0.8
-blur_bilinear=1
 blur_filter=1
 bokeh=0
 virt_scale=1.0

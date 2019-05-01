@@ -30,6 +30,7 @@ public import debug_helper -;
 public import pgl3d::aux::d3axim -;
 public import pgl3d::aux::enumerate_device -; // FIXME
 public import pgl3d::aux::motion_controller -;
+public import pgl3d::aux::nvapi -;
 
 // public import pgl3d::texture::generator -;
 // public import pgl3d::numeric::interpolation -; // FIXME
@@ -124,6 +125,7 @@ public struct demoapp_application()
   {
     debug_log("init_drawstep");
     app.sconf.some = make_ptr{shader_config}(conf);
+    app.virt_scale = conf.conf.get("virt_scale", 1.0f, 0.125f, 16.0f);
     const r = init_drawsteps(app, conf, ds);
     app.option_value2 = static_cast{float}(
       conf.conf.get("option_value2", -1, -1, 9));
@@ -194,6 +196,8 @@ public struct demoapp_application()
   }
   public function void on_frame()
   {
+    // debug_log("gpu usage", pgl3d::aux::nvapi::nvapi_mem_usage(0),
+    //   pgl3d::aux::nvapi::nvapi_gpu_usage(0));
     // debug_log("app on_frame");
     mutable& tup = *app.tup;
     // debug_log("app on_frame 1");
@@ -512,6 +516,7 @@ private struct app_demoapp()
     proj_df);
   public ptr{drawer_blur_params} dp_blur = make_ptr{drawer_blur_params}();
   public ptr{glm::uvec2} pviewport_main = make_ptr{glm::uvec2}();
+  public ptr{glm::uvec2} pviewport_disp = make_ptr{glm::uvec2}();
   public ptr{glm::uvec2} pviewport_sm = make_ptr{glm::uvec2}();
   public input_control_target player;
   public joystick_state player_joystick;
@@ -542,6 +547,7 @@ private struct app_demoapp()
   public ptr{varray{uchar}} capt_data = make_ptr{varray{uchar}}();
   public ftd3_aximaster axim;
   public option{ptr{motion_controller_serial}} mctrl;
+  public float virt_scale = 1.0;
   init();
   private function void init() {
     string s;
@@ -783,11 +789,10 @@ function bool update_window_geometry(app_demoapp mutable& app,
     sdl_log("display geometry not changed");
     return false;
   }
-  const virt_scale = glc.conf.get("virt_scale", 1.0f, 0.125f, 16.0f);
   const virt_width = static_cast{int}(static_cast{float}(drsz.x)
-    / virt_scale);
+    / app.virt_scale);
   const virt_height = static_cast{int}(static_cast{float}(drsz.y)
-    / virt_scale);
+    / app.virt_scale);
   const sm_size = glc.shadowmap_resolution;
   sdl_log("disp size", drsz.x, drsz.y);
   sdl_log("virt size", virt_width, virt_height);
@@ -799,6 +804,9 @@ function bool update_window_geometry(app_demoapp mutable& app,
   cam.window_height = static_cast{int}(wsz.y);
   cam.shadowmap_size = sm_size;
   *app.pviewport_main = glm::make_uvec2(
+    static_cast{uint}(cam.virt_width),
+    static_cast{uint}(cam.virt_height));
+  *app.pviewport_disp = glm::make_uvec2(
     static_cast{uint}(cam.display_width),
     static_cast{uint}(cam.display_height));
   *app.pviewport_sm = glm::make_uvec2(
@@ -1170,6 +1178,7 @@ private function varray{ptr{pgldrawer_export_i}} init_drawsteps(
   app_demoapp mutable& app, shader_config const& sconf,
   drawer_shared const& ds)
 {
+  debug_log("init_drawsteps", *app.pviewport_disp, *app.pviewport_main);
   app.raycast_cull_front = sconf.conf.get("raycast_cull_front", 0, 0, 1) != 0;
   app.raycast_layer = sconf.conf.get("raycast_layer", 15, 0, 63);
     // 0のときソートしない
@@ -1196,13 +1205,14 @@ private function varray{ptr{pgldrawer_export_i}} init_drawsteps(
     r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_sm,
       app.pviewport_sm, shadowmap_name + to_string(i), true,
       make_varray{string}(),
-      "GL_DEPTH_COMPONENT"));
+      "GL_DEPTH_COMPONENT", false));
       // set shadowmap framebuffer i
     r.append(shadow[static_cast{size_t}(i)]); // draw shadow
   }
   r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
     app.pviewport_main,
-    "col1", true, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT"));
+    "col1", true, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+    false));
     // set color+depth framebuffer
   r.push_back(make_drawstep_chgmode(sconf, ds, "zprepass"));
   r.append(zpre); // draw solid z-prepass
@@ -1216,13 +1226,15 @@ private function varray{ptr{pgldrawer_export_i}} init_drawsteps(
   r.push_back(make_drawstep_particle_bb(sconf, ds, app.proj_df));
   r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
     app.pviewport_main,
-    "col0", true, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT"));
+    "col0", true, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+    false));
     // set color+depth framebuffer
   r.push_back(make_drawstep_ssao(sconf, ds, app.dp_ssao, "col1"));
     // col1からcol0へssaoフィルタ実行
   r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
     app.pviewport_main,
-    "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT"));
+    "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+    false));
     // col1再利用
   r.push_back(make_drawstep_fxaa(sconf, ds, app.dp_fxaa, "col0"));
     // col0からcol1へfxaaフィルタ実行
@@ -1230,7 +1242,8 @@ private function varray{ptr{pgldrawer_export_i}} init_drawsteps(
     debug_log("enable capture filter");
     r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
       app.pviewport_main,
-      "col0", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT"));
+      "col0", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+      false));
       // col0再利用
     r.push_back(make_drawstep_blur(sconf, ds, app.dp_blur, "col1"));
       // col1からcol0へblurフィルタ実行
@@ -1239,27 +1252,48 @@ private function varray{ptr{pgldrawer_export_i}} init_drawsteps(
     r.push_back(make_drawstep_font2(sconf, ds, app.pviewport_main));
     r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
       app.pviewport_main,
-      "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT"));
+      "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+      false));
       // col1再利用
     r.push_back(make_drawstep_chgmode(sconf, ds, "solid"));
     r.push_back(make_drawstep_capture(sconf, ds, app.pviewport_main,
       app.capt_data, "col0"));
       // col0からcol1へcaptureフィルタ実行
-    r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
-      app.pviewport_main,
-      "", false, make_varray{string}(), "")); // set toplevel framebuffer
+    r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_disp,
+      app.pviewport_disp,
+      "", false, make_varray{string}(), "", false));
+      // set toplevel framebuffer
     r.push_back(make_drawstep_passthrough(sconf, ds, "col0"));
       // col0からtoplevelへpassthroughフィルタ実行
-  } else {
-    debug_log("disable capture filter");
+  } else if (app.virt_scale != 1.0) {
+    debug_log("scaling draw");
     r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
       app.pviewport_main,
-      "", true, make_varray{string}(), "")); // set toplevel framebuffer
+      "col2", true, make_varray{string}("GL_RGBA"), "", true));
+      // set color framebuffer, bilinear
+    r.push_back(make_drawstep_blur(sconf, ds, app.dp_blur, "col1"));
+      // col1からcol2へblurフィルタ実行
+    r.push_back(make_drawstep_chgmode(sconf, ds, "blend"));
+    r.push_back(make_drawstep_rect2d(sconf, ds));
+    r.push_back(make_drawstep_font2(sconf, ds, app.pviewport_main));
+    r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_disp,
+      app.pviewport_disp,
+      "", true, make_varray{string}(), "", false));
+      // set toplevel framebuffer
+    r.push_back(make_drawstep_chgmode(sconf, ds, "solid"));
+    r.push_back(make_drawstep_blur(sconf, ds, app.dp_blur, "col2"));
+      // col2からtoplevelへblurフィルタ実行
+  } else {
+    debug_log("direct draw");
+    r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_disp,
+      app.pviewport_disp,
+      "", true, make_varray{string}(), "", false));
+      // set toplevel framebuffer
     r.push_back(make_drawstep_blur(sconf, ds, app.dp_blur, "col1"));
       // col1からtoplevelへblurフィルタ実行
     r.push_back(make_drawstep_chgmode(sconf, ds, "blend"));
     r.push_back(make_drawstep_rect2d(sconf, ds));
-    r.push_back(make_drawstep_font2(sconf, ds, app.pviewport_main));
+    r.push_back(make_drawstep_font2(sconf, ds, app.pviewport_disp));
   }
   for (const i, const& p: r) {
     if (const em: p->get_edit_mode().some) {

@@ -81,10 +81,10 @@ public function drawer_ptr
 make_drawstep_setfb(shader_config const& glc, drawer_shared const& ds,
   ptr{glm::uvec2} const& src_size, ptr{glm::uvec2} const& dst_size,
   string const& fbname, bool owner_flag, cslice{string} const& col,
-  string const& dep)
+  string const& dep, bool bilinear)
 {
   return make_ptr{drawer_setfb}(glc, ds, src_size, dst_size, fbname,
-    owner_flag, col, dep);
+    owner_flag, col, dep, bilinear);
 }
 
 public function drawer_ptr

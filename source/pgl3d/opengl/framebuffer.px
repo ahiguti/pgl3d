@@ -197,7 +197,7 @@ public struct texture_format()
 
 public function void init_color_fbo(shader_config const& glc,
   gl_framebuffer mutable& ppfbo, cslice{texture_format} const& cfmt,
-  texture_format const& dfmt)
+  texture_format const& dfmt, bool bilinear)
 {
   sdl_log("framebuffer size", ppfbo.width, ppfbo.height);
   int saved_fb;
@@ -213,9 +213,9 @@ public function void init_color_fbo(shader_config const& glc,
     ppfbo.texture_color[i].generate();
     glBindTexture(GL_TEXTURE_2D, ppfbo.texture_color[i].get());
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-      cast_int(GL_NEAREST)); // TODO: parameter
+      cast_int(bilinear ? GL_LINEAR : GL_NEAREST));
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-      cast_int(GL_NEAREST)); // TODO: parameter
+      cast_int(bilinear ? GL_LINEAR : GL_NEAREST));
     sdl_log("no depth_texture rbga byte");
     glTexImage2D(GL_TEXTURE_2D, 0, cast_int(f.ifmt), ppfbo.width,
       ppfbo.height, 0, f.efmt, f.etyp, offset_to_void_cp(0));

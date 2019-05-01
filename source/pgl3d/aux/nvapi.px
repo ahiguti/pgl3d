@@ -1,0 +1,120 @@
+public namespace pgl3d::aux::nvapi "use-unsafe";
+public import common -;
+public import meta m;
+
+nvapi_init();
+
+private function extern "pgl3d::nvapi_init" void
+nvapi_init();
+public function extern "pgl3d::nvapi_physical_gpus" uint
+nvapi_physical_gpus();
+public function extern "pgl3d::nvapi_mem_usage" size_t
+nvapi_mem_usage(uint idx);
+public function extern "pgl3d::nvapi_gpu_usage" int
+nvapi_gpu_usage(uint idx);
+
+extern "implementation" inline
+
+#ifdef _MSC_VER
+
+#include "nvapi.h"
+#ifdef _WIN64
+#pragma comment(lib,"amd64/nvapi64.lib")
+#else
+#pragma comment(lib,"x86/nvapi.lib")
+#endif
+
+namespace pgl3d {
+
+bool nvapi_initialized = false;
+unsigned num_physical_gpus = 0;
+NvPhysicalGpuHandle physical_gpu_handle[NVAPI_MAX_LOGICAL_GPUS];
+
+void
+nvapi_init()
+{
+  if (nvapi_initialized) {
+    return;
+  }
+  auto r = NvAPI_Initialize();
+  nvapi_initialized = (r == NVAPI_OK);
+  if (!nvapi_initialized) {
+    return;
+  }
+  NvU32 num = 0;
+  if (NvAPI_EnumPhysicalGPUs(physical_gpu_handle, &num) == NVAPI_OK) {
+    num_physical_gpus = num;
+  }
+}
+
+pxcrt::bt_uint
+nvapi_physical_gpus()
+{
+  return num_physical_gpus;
+}
+
+pxcrt::bt_size_t
+nvapi_mem_usage(pxcrt::bt_uint idx)
+{
+  if (idx >= num_physical_gpus) {
+    return 0;
+  }
+  NV_DISPLAY_DRIVER_MEMORY_INFO info{};
+  info.version = NV_DISPLAY_DRIVER_MEMORY_INFO_VER;
+  if (NvAPI_GPU_GetMemoryInfo(physical_gpu_handle[idx], &info) == NVAPI_OK) {
+    return info.dedicatedVideoMemory - info.curAvailableDedicatedVideoMemory;
+  }
+  return 0;
+}
+
+pxcrt::bt_int
+nvapi_gpu_usage(pxcrt::bt_uint idx)
+{
+  if (idx >= num_physical_gpus) {
+    return -1;
+  }
+  NV_GPU_DYNAMIC_PSTATES_INFO_EX info{};
+  info.version = NV_GPU_DYNAMIC_PSTATES_INFO_EX_VER;
+  if (NvAPI_GPU_GetDynamicPstatesInfoEx(physical_gpu_handle[idx], &info)
+    == NVAPI_OK) {
+    if (info.utilization[0].bIsPresent > 0) {
+      return info.utilization[0].percentage;
+    }
+  }
+  return -1;
+}
+
+}; // namespace pgl3d
+
+#else
+
+namespace pgl3d {
+
+void
+nvapi_init()
+{
+}
+
+pxcrt::bt_uint
+nvapi_physical_gpus()
+{
+  return 0;
+}
+
+pxcrt::bt_size_t
+nvapi_mem_usage(pxcrt::bt_uint idx)
+{
+  return 0;
+}
+
+pxcrt::bt_int
+nvapi_gpu_usage(pxcrt::bt_uint idx)
+{
+  return -1;
+}
+
+}; // namespace pgl3d
+
+#endif
+
+;

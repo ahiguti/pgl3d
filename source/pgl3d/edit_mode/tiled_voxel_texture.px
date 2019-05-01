@@ -12,6 +12,11 @@ public multithreaded struct tiled_voxel_texture()
   public texture_data voxtile;
   public tptr{texture_edit} tmap_edit = make_tptr{texture_edit}();
   public tptr{texture_edit} tpat_edit = make_tptr{texture_edit}();
+  init();
+  function void init() {
+    tmap_edit->grid_size = make_uvec3(1u, 1u, 1u);
+    tpat_edit->grid_size = make_uvec3(16u, 16u, 16u);
+  }
 }
 
 private metafunction texture_data_mip_v0 varray{ptr{texture_data}};
@@ -48,11 +53,10 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
       const tpsz = (*v0.tpat_pri[0]).get_size_uvec3();
       const gridsz = vox.voxtile.get_size_uvec3();
       const nogridsz = make_uvec3(1u, 1u, 1u);
+      debug_log("tpat gridsz=", gridsz);
       vox.tmap_edit = make_tptr{texture_edit}();
       vox.tpat_edit = make_tptr{texture_edit}();
-      vox.tmap_edit->data_size = tmsz;
       vox.tmap_edit->grid_size = nogridsz;
-      vox.tpat_edit->data_size = tpsz;
       vox.tpat_edit->grid_size = gridsz;
       function void conv_one(texture_data_mip_v0 const& src,
         texture_data_mip mutable& dest)
@@ -69,6 +73,9 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
       conv_one(v0.tpat_sec, vox.tpat_edit->data_sec);
     } else {
       vox = from_string_compact_pod{tiled_voxel_texture}(buf);
+      vox.tmap_edit->grid_size = make_uvec3(1u, 1u, 1u);
+      vox.tpat_edit->grid_size = vox.voxtile.get_size_uvec3();
+      debug_log("tpat gridsz=", vox.tpat_edit->grid_size);
     }
   }
 }

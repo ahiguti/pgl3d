@@ -19,6 +19,7 @@ public import pgl3d::opengl::aggregated_ibuffer -;
 public import pgl3d::opengl::resource_pool -;
 public import pgl3d::opengl::framebuffer -;
 public import pgl3d::drawer::base -;
+public import pgl3d::drawer::setfb -;
 public import pgl3d::engine::pglbase -;
 public import pgl3d::engine::intern_pool -;
 
@@ -41,7 +42,6 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     // 同じvbidを返すdrawstepが複数あるときは最初のものだけが入る。
   public tptr{prepinstf_table} const pidft = make_tptr{prepinstf_table}();
   private auto_vertexarray vtxarr;
-  init();
   // resize_screen(width0, height0, width0, height0);
   public function void set_vertex_buffer(vbid_t vbid,
     ptr{vertex_buffer} const& p) {
@@ -51,6 +51,8 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     }
     ddata.vertex_buffers[vbid] = p;
   }
+  public size_t lastpass_index = 0;
+  init();
   private function void init()
   {
     sdl_log("pglshader init");
@@ -110,6 +112,12 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
       }
       pidftv[j] = p->get_prepare_instance_data_funcptr();
       set_vertex_buffer(vbid, p->make_vertex_buffer());
+    }
+    for (const i, const& p: drawsteps) {
+      if (instanceof{drawer_setfb, drawstep_i}(*p)) {
+        debug_log("is setfb", i);
+        lastpass_index = i;
+      }
     }
     sdl_log("pglshader init done");
   }
@@ -352,13 +360,15 @@ pglshader_frame_end(pglshader mutable& pgs)
 function varray{uint}
 pglshader_draw_frame_internal(bool lastpass, pglshader mutable& pgs)
 {
-  // TODO: lastpassが真なら、ディスプレイ直近のフレームバッファからの描画のみを
-  // 実行する。これはdummy_flipのために使う。それ以外の描画ではlastpassは偽。
   const tick1 = SDL_GetTicks();
   int saved_fb = 0;
   glGetIntegerv(GL_FRAMEBUFFER_BINDING, address(saved_fb));
   pgs.ddata.toplevel_fb = static_cast{uint}(saved_fb);
-  for (const i, const& ds: pgs.drawsteps) {
+  // lastpassが真なら、ディスプレイ直近のフレームバッファからの描画のみを
+  // 実行する。これはdummy_flipのために使う。それ以外の描画ではlastpassは偽。
+  size_t i = lastpass ? pgs.lastpass_index : 0;
+  for (; i < pgs.drawsteps.size(); ++i) {
+    const& ds = pgs.drawsteps[i];
     ds->draw_drawstep(pgs.ddata);
   }
   const tick2 = SDL_GetTicks();

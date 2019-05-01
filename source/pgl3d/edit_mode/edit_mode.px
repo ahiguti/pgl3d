@@ -428,13 +428,16 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         }
       } else if (key == SDL_SCANCODE_0) {
         if (get_cursor_tpat()) {
+          debug_log("scancode_0");
           if (mod_shift) {
+            debug_log("convert_to_tmap");
             convert_to_tmap();
           } else {
             set_cursor_tpat(false);
           }
         } else {
           if (mod_shift) {
+            debug_log("convert_to_tpat");
             convert_to_tpat();
           } else {
             if (is_cur_tmap_node_reference()) {
@@ -756,35 +759,37 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   }
   private function void convert_to_tpat()
   {
-    // debug_log("convert_to_tpat");
+    debug_log("convert_to_tpat");
     if (get_cursor_tpat()) {
-      // debug_log("convert_to_tpat: 0");
+      debug_log("convert_to_tpat: 0");
       return;
     }
     const cur = ttev->get_cursor_pos().first;
     const v = ttev->tmap_edit_get(cur, texture_value_index_primary, 0u);
     if (is_node_reference(v)) {
-      // debug_log("convert_to_tpat: 1");
+      debug_log("convert_to_tpat: 1");
       return;
     }
     const nv = find_empty_tpat();
     if (!is_node_reference(nv)) {
-      // debug_log("convert_to_tpat: 2");
+      debug_log("convert_to_tpat: 2");
       return;
     }
-    // debug_log("find", to_hexstring(nv));
+    debug_log("find", to_hexstring(nv));
     ttev->set_cursor_pos(cur, cur);
-    // debug_log("convert_to_tpat: cursor:", ttev->get_cursor_pos());
-    copy_value(); // tmapの一個のボクセルをコピー
-    // debug_log("convert_to_tpat: copy_data:", copy_data, ttev->get_cursor_pos());
+    copy_data.cursor_offset = make_uvec3(0u, 0u, 0u);
     ttev->tmap_edit_set(cur, texture_value_index_primary, nv);
     // debug_log("convert_to_tpat: cursor1:", ttev->get_cursor_pos());
     set_cursor_tpat(true);
     // debug_log("convert_to_tpat: cursor2:", ttev->get_cursor_pos());
     paste_value(0xffu, merge_mode_opaque());
     // debug_log("convert_to_tpat: cursor3:", ttev->get_cursor_pos());
+    debug_log("convert_to_tpat: tile_size:", ttev->tile_size);
     const tsz = ttev->tile_size;
-    while (copy_data.copy_size.x < tsz.x) {
+    while (
+      copy_data.copy_size.x < tsz.x &&
+      copy_data.copy_size.y < tsz.y &&
+      copy_data.copy_size.z < tsz.z) {
       // debug_log("convert_to_tpat: copy_size", copy_data.copy_size);
       scale_range();
     }
@@ -820,6 +825,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
             const cp = make_uvec3(pbase.x + x, pbase.y + y, pbase.z + z);
             const cv = ttev->tpat_edit_get(cp, texture_value_index_primary,
               0u);
+            // debug_log("find_empty_tpat", pbase, cp, cv);
             is_space &= is_space_voxel(cv);
           }
         }
