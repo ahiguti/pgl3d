@@ -786,10 +786,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     // debug_log("convert_to_tpat: cursor3:", ttev->get_cursor_pos());
     debug_log("convert_to_tpat: tile_size:", ttev->tile_size);
     const tsz = ttev->tile_size;
-    while (
-      copy_data.copy_size.x < tsz.x &&
-      copy_data.copy_size.y < tsz.y &&
-      copy_data.copy_size.z < tsz.z) {
+    while (le_all_uvec3(copy_data.copy_size * 2u, tsz)) {
       // debug_log("convert_to_tpat: copy_size", copy_data.copy_size);
       scale_range();
     }
