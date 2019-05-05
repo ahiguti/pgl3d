@@ -183,20 +183,41 @@ float voxel_collision_sphere(in vec3 v, in vec3 a, in vec3 c,
 
 <%if><%eq><%stype/>1<%/>
 
-const vec3 tile3_size = vec3(<%tile3_size/>);
+/*
+const float tile3_size = <%tile3_size/>;
 const int tile3_size_log2 = <%tile3_size_log2/>.x;
-const vec3 pat3_size = vec3(<%pat3_size/>);
-const vec3 pattex3_size = tile3_size * pat3_size;
+const float pat3_size = <%pat3_size/>;
+const float pattex3_size = tile3_size * pat3_size;
 const vec3 map3_size = vec3(<%map3_size/>);
 const int map3_size_log2 = <%map3_size_log2/>.x;
-const vec3 virt3_size = vec3(<%virt3_size/>);
+const float virt3_size = float(<%virt3_size/>);
 const int virt3_size_log2 = tile3_size_log2 + map3_size_log2;
+*/
+// FIXME
+const int tile3_size = 16;
+const int tile3_size_log2 = 4;
+const float pat3_size = 16.0;
+// FIXME
+/*
+const int tile3_size = 32;
+const int tile3_size_log2 = 5;
+const float pat3_size = 8.0;
+*/
+
+const float pattex3_size = tile3_size * pat3_size;
+const vec3 map3_size = vec3(512.0, 512.0, 64.0);
+const int map3_size_log2 = 9;
+const float virt3_size = float(8192.0);
+const int virt3_size_log2 = tile3_size_log2 + map3_size_log2;
+/*
+*/
 
 uniform <%mediump_sampler3d/> sampler_voxtpat;
 uniform <%mediump_sampler3d/> sampler_voxtpax;
 uniform <%mediump_sampler3d/> sampler_voxtmap;
 uniform <%mediump_sampler3d/> sampler_voxtmax;
 
+// FIXME:remove
 int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
 {
   // float distance_unit = distance_unit_tmap_mip;
@@ -230,6 +251,7 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   return node_type;
 }
 
+// FIXME:remove
 int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
 {
   // float distance_unit = distance_unit_tmap_mip;
@@ -263,6 +285,7 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
   return node_type;
 }
 
+// FIXME:remove
 int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
   in vec3 mi, in vec3 mx, in int miplevel)
 {
@@ -369,20 +392,20 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
 }
 
 vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
-  in vec3 tsize)
+  in float tsize)
 {
   // rotとsgnを適用してtpat座標を返す
   float e = 1.0; // / 65536.0; // valueは整数なので1.0でよい
-  if (sgn.x < 0.0) { value.x = tsize.x - e - value.x; }
-  if (sgn.y < 0.0) { value.y = tsize.y - e - value.y; }
-  if (sgn.z < 0.0) { value.z = tsize.z - e - value.z; }
+  if (sgn.x < 0.0) { value.x = tsize - e - value.x; }
+  if (sgn.y < 0.0) { value.y = tsize - e - value.y; }
+  if (sgn.z < 0.0) { value.z = tsize - e - value.z; }
   if (rot.x != 0.0) { value.xy = value.yx; }
   if (rot.y != 0.0) { value.yz = value.zy; }
   if (rot.z != 0.0) { value.zx = value.xz; }
   return value;
 }
 
-vec3 tpat_rotate_distval(in vec3 value, in vec3 rot)
+vec3 tpat_rotate_valuerot(in vec3 value, in vec3 rot)
 {
   if (rot.z != 0.0) { value.zx = value.xz; }
   if (rot.y != 0.0) { value.yz = value.zy; }
@@ -397,7 +420,7 @@ void swap_float(inout float a, inout float b)
   a = t;
 }
 
-void tpat_sgn_distval(in vec3 i_p, in vec3 i_n, in vec3 sgn, out vec3 o_p,
+void tpat_sgn_valuerot(in vec3 i_p, in vec3 i_n, in vec3 sgn, out vec3 o_p,
   out vec3 o_n)
 {
   o_p = i_p;
@@ -406,6 +429,8 @@ void tpat_sgn_distval(in vec3 i_p, in vec3 i_n, in vec3 sgn, out vec3 o_p,
   if (sgn.y < 0) { swap_float(o_p.y, o_n.y); }
   if (sgn.z < 0) { swap_float(o_p.z, o_n.z); }
 }
+
+bool debug_scale = false;
 
 int raycast_tilemap(
   inout vec3 pos, in vec3 campos, in float dist_rand,
@@ -429,11 +454,10 @@ int raycast_tilemap(
   }
   int tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
   int tpat_mip = min(miplevel, tile3_size_log2);
-  float distance_unit_tmap_mip = float(<%lshift>16<%>tmap_mip<%/>);
+  float distance_unit_tmap_mip = float(<%lshift>tile3_size<%>tmap_mip<%/>);
     // tmap mipの1ボクセルの大きさ
   float distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
     // tpat mipの1ボクセルの大きさ
-  // if (tpat_mip != 0) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
   vec3 ray = eye;
   vec3 dir = -hit_nor;
   vec3 curpos_f = pos * virt3_size;
@@ -449,7 +473,10 @@ int raycast_tilemap(
   vec4 hit_value = vec4(0.0);
   int node_type = 0;
   int i;
-  const int imax = 64; // raycastループ回数の上限
+  int imax = 64; // raycastループ回数の上限
+  if (debug_scale) {
+    imax = 512;
+  }
   for (i = 0; i < imax; ++i) {
     if (mip_detail && hit < 0) {
       // 詳細モードであればカメラからの距離に応じたmiplevelでテクスチャを引く
@@ -457,14 +484,13 @@ int raycast_tilemap(
       miplevel = clamp(raycast_get_miplevel(ppos, campos, dist_rand), 0, 8);
       tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
       tpat_mip = min(miplevel, tile3_size_log2);
-      distance_unit_tmap_mip = float(<%lshift>16<%>tmap_mip<%/>);
+      distance_unit_tmap_mip = float(<%lshift><%tile3_size/><%>tmap_mip<%/>);
       distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
     }
-    vec3 curpos_t = floor(curpos_i / tile3_size);
+    vec3 tmap_coord = floor(curpos_i / tile3_size);
       // タイルマップ座標
-    vec3 curpos_tr = curpos_i - curpos_t * tile3_size;
-      // タイルパターン座標(0から15の整数)
-    vec3 tmap_coord = curpos_t;
+    vec3 tile_coord = curpos_i - tmap_coord * tile3_size;
+      // タイル内座標(0以上tile3_size未満)
     // タイルマップテクスチャを引く
     <%if><%is_gl3_or_gles3/>
     vec4 value = texelFetch(sampler_voxtmap, ivec3(tmap_coord) >> tmap_mip, 
@@ -483,8 +509,13 @@ int raycast_tilemap(
       // 現在見ているボクセルの大きさ。パターン参照のmip0なら1, マップ即値の
       // mip0なら16になる。
     vec3 tpat_rot = vec3(0.0);
+      // tpat参照時に適用する軸入れ替え。tpat参照しないときは入れ替えない。
     vec3 tpat_sgn = vec3(1.0);
+      // tpat参照時に適用する反転。tpat参照しないときは反転しない。
     vec3 tpat_coord;
+      // タイルパターンテクスチャ内の引いた座標を記録しておく。
+    vec3 lim_dist_n = vec3(tile3_size);
+    vec3 lim_dist_p = vec3(tile3_size);
     if (is_pat) {
       vec3 vp = floor(value.rgb * 255.0 + 0.5);
         // vpは下で変更されてタイルパターン番号を表す
@@ -492,15 +523,27 @@ int raycast_tilemap(
         // value.rgbの最上位bitがtpat_rot
       tpat_sgn = 1.0 - div_rem(vp, 64.0) * 2.0; // -1 or +1
         // value.rgbの第6bitがtpat_sgn。+1か-1。
-      vec3 tpat_scale = div_rem(vp, 16.0);
-        // パターンボクセルのスケーリング値。xだけ使う。
-      vec3 curpos_tp = vp * tile3_size; // タイルパターンの始点 16刻み4096迄
-      distance_unit = distance_unit_tpat_mip;
-      tpat_coord = curpos_tp + tpat_sgn_rotate_tile(curpos_tr, tpat_rot,
-	tpat_sgn, tile3_size);
-        // タイルパターンの座標。curpos_trはタイル内オフセット(0から15)で、
-	// tile3_size未満の値。回転と反転を適用する。
-      // タイルパターンを引く
+      vec3 patscale = div_rem(vp, 32.0);
+      int tpscale_log2 = int(patscale.x + patscale.y * 2.0 + patscale.z * 4.0);
+      // tpscale_log2 = 0;
+        // FIXME: これ
+      float tpscale = float(1 << tpscale_log2);
+      int tilesz_log2 = tile3_size_log2 - tpscale_log2;
+      float tilesz = float(1 << tilesz_log2);
+      // vpはタイルパターン番号を表す整数。tpat_coord_baseはタイルパターン
+      // の始点のテクスチャ内座標で、tile3_size刻みの値をとる。
+      vec3 tpat_coord_base = vp * tilesz;
+      distance_unit = distance_unit_tpat_mip * tpscale;
+      vec3 tile_coord_sc = floor(tile_coord / tpscale);
+      vec3 tpat_coord_offset = tpat_sgn_rotate_tile(tile_coord_sc,
+        tpat_rot, tpat_sgn, tilesz);
+        // 0からtpat3_sizeの値をとるが、スケールされるとそれより小さくなる
+      tpat_coord = tpat_coord_base + tpat_coord_offset;
+        // タイルパターンテクスチャの座標。tile_coordはタイル内座標
+        // で、0以上tile3_size未満の値。回転と反転を適用する。
+      // tpscaleが1以上ならそのぶんmiplevelを下げる
+      tpat_mip = max(tpat_mip - tpscale_log2, 0);
+      // タイルパターンテクスチャを引く
       <%if><%is_gl3_or_gles3/>
       value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_mip,
 	tpat_mip);
@@ -508,43 +551,63 @@ int raycast_tilemap(
       value = <%texture3d/>(sampler_voxtpat, (tpat_coord) / pattex3_size);
       <%/>
       node_type = int(floor(value.a * 255.0 + 0.5));
+      // ここの埋め込み空白値はデフォルトスケール(tile3_size)での境界まで
+      // の値をとりうる。スケールされた場合にはそのグリッドまでに抑える
+      // 必要がある。
+      lim_dist_n = floor(tile_coord_sc);
+      lim_dist_p = floor(tilesz - 1.0 - tile_coord_sc);
     }
-    // ボクセルの大きさを掛ける。タイルの移動なら16倍
-    curpos_t = floor(curpos_i / distance_unit);
-    curpos_tr = curpos_i - curpos_t * distance_unit;
-    curpos_f = (curpos_tr + curpos_f) / distance_unit;
-    curpos_f = clamp(curpos_f, 0.0, 1.0); // FIXME: 必要？
-    curpos_i = curpos_t * distance_unit;
-      // curpos_iだけはdistance_unit単位にはしない
-      // 現在座標は curpos_i + curpos_f * distance_unit で求まる
-    // 衝突判定
+    // curpos_iとcurpos_fを、今いるボクセルの大きさ(distance_unit)を単位と
+    // したもの再計算する。curpos_iはdistance_unit刻み、curpos_fは
+    // 1.0以下の値になる。本来の現在座標(curpos)は
+    // curpos_i + curpos_f * distance_unit で求まる。
+    {
+      vec3 curpos_i_du = floor(curpos_i / distance_unit);
+      vec3 curpos_du_rem = curpos_i - curpos_i_du * distance_unit;
+      curpos_f = (curpos_du_rem + curpos_f) / distance_unit;
+      curpos_f = clamp(curpos_f, 0.0, 1.0); // FIXME: 必要？
+        // curpos_fは(0, 1)範囲の値をとる。
+      curpos_i = curpos_i_du * distance_unit;
+        // curpos_iはdistance_unit刻みの値をとる。
+    }
+    // 衝突判定。spminとspmaxは今回のステップで移動可能な範囲のaabb。
+    // 空白以外のボクセルでは(0,1)範囲だが、空白のときは埋め込み空白値
+    // しだいで広げる。
     vec3 spmin = vec3(0.0);
     vec3 spmax = vec3(1.0);
-    vec3 distval = tpat_rotate_distval(floor(value.xyz * 255.0 + 0.5),
-      tpat_rot); // tpat回転だけ適用済み。sgnは未適用
-    vec3 distval_h = floor(distval / 16.0);
-    vec3 distval_l = distval - distval_h * 16.0;
-    vec3 dist_p;
-    vec3 dist_n;
-    tpat_sgn_distval(distval_h, distval_l, tpat_sgn, dist_p, dist_n);
+    // valueにtpat軸入れ替えを適用したものをvaluerotとする
+    vec3 valuerot = tpat_rotate_valuerot(floor(value.xyz * 255.0 + 0.5),
+      tpat_rot);
+    // valuerotを上位下位にわける
+    vec3 valuerot_h = floor(valuerot / 16.0);
+    vec3 valuerot_l = valuerot - valuerot_h * 16.0;
     if (node_type == 0) { // 空白
-      spmin = vec3(0.0) - dist_n;
-      spmax = vec3(1.0) + dist_p;
-      // if (dist_p.y > 14.5) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
+      vec3 dist_p;
+      vec3 dist_n;
+      // 埋め込み空白値を取得し、spminとspmaxに反映させる。
+      // valuerot上位下位にtpat反転を適用したものをdist_p, dist_nとする
+      tpat_sgn_valuerot(valuerot_h, valuerot_l, tpat_sgn, dist_p, dist_n);
+      // tpatスケールしたときに境界にクリップ
+      dist_p = min(dist_p, lim_dist_p);
+      dist_n = min(dist_n, lim_dist_n);
+      if (!debug_scale) {
+        spmin = vec3(0.0) - dist_n;
+        spmax = vec3(1.0) + dist_p;
+      }
     } else {
       bool hit_flag = true;
       bool hit_wall = false;
-      if (node_type == 255) { // 壁
+      if (node_type == 255) {
+        // 壁(filled)ボクセル
 	hit_wall = true;
-      } else { // 平面または二次曲面で切断
-	// node_type = 208 + 0; 
-	// dist_p = vec3(9.0,9.0,9.0);
+      } else {
+        // 平面または二次曲面で切断
 	vec3 sp_nor;
 	float length_ae;
 	if (node_type >= 160) {
 	  // 平面
 	  float param_d = float(node_type - 208); // -48, +46
-	  vec3 param_abc = distval_h - 8.0; // distval_lは未使用
+	  vec3 param_abc = valuerot_h - 8.0; // valuerot_lは未使用
 	  param_abc = param_abc * tpat_sgn; // tpat sgnを適用
 	  vec3 coord = (curpos_f - 0.5) * 2.0;
 	  float dot_abc_p = dot(param_abc, coord);
@@ -554,8 +617,8 @@ int raycast_tilemap(
 	  sp_nor = -normalize(param_abc);
 	} else {
 	  // 楕円体
-	  vec3 sp_scale = floor(distval / 64.0); // 上位2bit
-	  vec3 sp_center = distval - sp_scale * 64.0 - 32.0; // 下位6bit
+	  vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
+	  vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
 	  sp_center = sp_center * tpat_sgn; // tpat sgnを適用
 	  float sp_radius = float(node_type - 1);
           bool ura = (node_type - 1 > 64);
@@ -617,8 +680,8 @@ int raycast_tilemap(
 	if (node_type >= 2 + 64 && node_type < 160) {
           bool ura = true;
           bool light_hit_wall = false;
-	  vec3 sp_scale = floor(distval / 64.0); // 上位2bit
-	  vec3 sp_center = distval - sp_scale * 64.0 - 32.0; // 下位6bit
+	  vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
+	  vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
 	  sp_center = sp_center * tpat_sgn; // tpat sgnを適用
 	  float sp_radius = float(node_type - 64 - 1) * 1.0;
 	  vec3 sp_nor = vec3(0.0);
@@ -635,28 +698,17 @@ int raycast_tilemap(
         }
       }
     }
+    // ボクセル内で衝突しなかったので、spmin, spmax範囲の境界までrayを伸ばした
+    // 座標を取得し、そこへcurpos_iとcurpos_fを移動する。
     vec3 npos;
     dir = voxel_get_next(curpos_f, spmin, spmax, ray, npos);
-    // if (dot(dir, ray) <= 0.0) { dbgval=vec4(1,1,1,1); return -1; }
-    // npos = clamp(npos, spmin, spmax); // FIXME: ???
     npos *= distance_unit;
     vec3 npos_i = min(floor(npos), spmax * distance_unit - 1.0);
-    /*
-    vec3 npos_i;
-    if (is_pat) {
-      npos_i = min(floor(npos), spmax - 1.0); // ギリギリボクセル整数部分
-    } else {
-      npos *= 16.0;
-      npos_i = min(floor(npos), spmax * 16.0 - 1.0);
-    }
-    */
     npos_i += dir; // 壁を突破
     npos = npos - npos_i; // 0, 1の範囲に収まっているはず
-    // if (length(npos_i) < 0.1) {
-      // dbgval=vec4(0.0,1.0,1.0,1.0);  return -1;
-    // }
-    curpos_i += npos_i;
-    curpos_f = npos;
+    curpos_i += npos_i; // ここでdistance_unit無関係の1きざみの値になる。
+    curpos_f = npos; // ここでdistance_unit無関係の(0,1)範囲の値になる。
+    // もしraycast範囲aabbの外に出たならばループを抜ける。
     bool is_inside_aabb = pos3_inside_3(curpos_i /* + curpos_f */,
       aabb_min * virt3_size, aabb_max * virt3_size);
     if (!is_inside_aabb) {
@@ -757,9 +809,9 @@ int raycast_tilemap_em(
     // 衝突判定
     vec3 spmin = vec3(0.0);
     vec3 spmax = vec3(1.0);
-    vec3 distval = floor(value.xyz * 255.0 + 0.5);
-    vec3 dist_p = floor(distval / 16.0);
-    vec3 dist_n = distval - dist_p * 16.0;
+    vec3 valuerot = floor(value.xyz * 255.0 + 0.5);
+    vec3 dist_p = floor(valuerot / 16.0);
+    vec3 dist_n = valuerot - dist_p * 16.0;
     if (node_type == 0) { // 空白
       spmin = vec3(0.0) - dist_n;
       spmax = vec3(1.0) + dist_p;
@@ -785,8 +837,8 @@ int raycast_tilemap_em(
 	  sp_nor = -normalize(param_abc);
 	} else {
 	  // 楕円体
-	  vec3 sp_scale = floor(distval / 64.0); // 上位2bit
-	  vec3 sp_center = distval - sp_scale * 64.0 - 32.0; // 下位6bit
+	  vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
+	  vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
 	  // vec3 sp_scale = dist_p; // 拡大率
 	  // vec3 sp_center = dist_n - 8.0; // 球の中心の相対位置
 	  float sp_radius = float(node_type - 1) * 1.0;

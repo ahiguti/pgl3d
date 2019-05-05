@@ -9,7 +9,9 @@ primary 32bit rgba
         1. .xが真ならxyいれかえ
         2. .yが真ならyzいれかえ
         3. .zが真ならzxいれかえ
-    curpos_tp := value.rgbの下6bit
+    tpscale_log2 := value.rgbの上から3番目のbit。z*4+y*2+x*1。
+      2^tpscale_log2倍にパターンを拡大。
+    curpos_tp := value.rgbの下5bit
     tpat_coord := tpat_sgn_rotate_tile(...)で計算
     value = texelFetch(sampler_voxtpat, tpat_coord)
     node_type = int(value.a)

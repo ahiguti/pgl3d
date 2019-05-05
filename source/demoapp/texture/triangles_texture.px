@@ -16,6 +16,7 @@ public import glm -;
 
 struct demoapp_textures(bool edit_mode, int mw, int mh, int md)
 {
+  // public ivec3 const voxtile_size_l2 = make_ivec3(5, 5, 5);
   public ivec3 const voxtile_size_l2 = make_ivec3(4, 4, 4);
   // public ivec3 const voxtpat_size_l2 = make_ivec3(6, 6, 5);
   public ivec3 const voxtpat_size_l2 = make_ivec3(4, 4, 4); // FIXME

@@ -82,9 +82,7 @@ public threaded struct async_buffer() {
       if (rawptr_to_size_t(p) == 0) {
 	sdl_log("mapbufferrange returns null");
 	gl_check_error("mapbufferrange");
-/*
-	sdl_log("mapbufferrange err:", static_cast{int}(glGetError()));
-*/
+	// sdl_log("mapbufferrange err:", static_cast{int}(glGetError()));
       }
       glBindBuffer(GL_ARRAY_BUFFER, 0);
     }

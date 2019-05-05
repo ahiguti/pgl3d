@@ -593,7 +593,7 @@ private threaded function void pgen_set_plane_dir(uvec3 const& pos,
 }
 
 // procedural.px
-private threaded function {f} void range_foreach(uvec3 const& sz)
+public threaded function {f} void range_foreach(uvec3 const& sz)
 {
   for (const z: 0 .. sz.z) {
     for (const y: 0 .. sz.y) {
