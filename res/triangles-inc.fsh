@@ -440,6 +440,9 @@ int raycast_tilemap(
   in float selfshadow_para, inout float lstr_para, inout int miplevel,
   in bool enable_variable_miplevel)
 {
+  enable_variable_miplevel = false;
+    // falseのままがいいか？ 重いときにさらに重くなるのでメリット薄い。
+    // FIXME: trueのとき突き抜けるケースがある。
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
@@ -469,6 +472,8 @@ int raycast_tilemap(
   value1_r = vec4(0.0, 0.0, 0.0, 1.0);
   int hit = -1;
   bool hit_tpat;
+  int tpat_coord_mip;
+  int hit_tpat_coord_mip;
   vec3 hit_coord;
   vec4 hit_value = vec4(0.0);
   int node_type = 0;
@@ -525,15 +530,13 @@ int raycast_tilemap(
         // value.rgbの第6bitがtpat_sgn。+1か-1。
       vec3 patscale = div_rem(vp, 32.0);
       int tpscale_log2 = int(patscale.x + patscale.y * 2.0 + patscale.z * 4.0);
-      // tpscale_log2 = 0;
-        // FIXME: これ
+      // tpscale_log2 = 0; // FIXME: これ
       float tpscale = float(1 << tpscale_log2);
       int tilesz_log2 = tile3_size_log2 - tpscale_log2;
       float tilesz = float(1 << tilesz_log2);
       // vpはタイルパターン番号を表す整数。tpat_coord_baseはタイルパターン
       // の始点のテクスチャ内座標で、tile3_size刻みの値をとる。
       vec3 tpat_coord_base = vp * tilesz;
-      distance_unit = distance_unit_tpat_mip * tpscale;
       vec3 tile_coord_sc = floor(tile_coord / tpscale);
       vec3 tpat_coord_offset = tpat_sgn_rotate_tile(tile_coord_sc,
         tpat_rot, tpat_sgn, tilesz);
@@ -542,11 +545,14 @@ int raycast_tilemap(
         // タイルパターンテクスチャの座標。tile_coordはタイル内座標
         // で、0以上tile3_size未満の値。回転と反転を適用する。
       // tpscaleが1以上ならそのぶんmiplevelを下げる
-      tpat_mip = max(tpat_mip - tpscale_log2, 0);
+      tpat_coord_mip = max(tpat_mip - tpscale_log2, 0);
+      distance_unit = float(1 << (tpat_coord_mip + tpscale_log2));
+      // distance_unit = distance_unit_tpat_mip * tpscale;
+      // distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
       // タイルパターンテクスチャを引く
       <%if><%is_gl3_or_gles3/>
-      value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_mip,
-	tpat_mip);
+      value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_coord_mip,
+	tpat_coord_mip);
       <%else/>
       value = <%texture3d/>(sampler_voxtpat, (tpat_coord) / pattex3_size);
       <%/>
@@ -554,8 +560,11 @@ int raycast_tilemap(
       // ここの埋め込み空白値はデフォルトスケール(tile3_size)での境界まで
       // の値をとりうる。スケールされた場合にはそのグリッドまでに抑える
       // 必要がある。
-      lim_dist_n = floor(tile_coord_sc);
-      lim_dist_p = floor(tilesz - 1.0 - tile_coord_sc);
+      // lim_dist_n = floor(tile_coord_sc);
+      // lim_dist_p = floor(tilesz - 1.0 - tile_coord_sc);
+      lim_dist_n = vec3(ivec3(floor(tile_coord_sc)) >> tpat_coord_mip);
+      lim_dist_p = vec3(ivec3(floor(tilesz - 1.0 - tile_coord_sc))
+        >> tpat_coord_mip);
     }
     // curpos_iとcurpos_fを、今いるボクセルの大きさ(distance_unit)を単位と
     // したもの再計算する。curpos_iはdistance_unit刻み、curpos_fは
@@ -657,6 +666,7 @@ int raycast_tilemap(
 	hit_nor = -dir;
 	hit = i;
 	hit_tpat = is_pat;
+        hit_tpat_coord_mip = tpat_coord_mip;
 	hit_coord = is_pat ? tpat_coord : tmap_coord;
         hit_value = value;
 	pos = (curpos_i + curpos_f * distance_unit) / virt3_size;
@@ -730,8 +740,8 @@ int raycast_tilemap(
       <%/>
     } else {
       <%if><%is_gl3_or_gles3/>
-      value1_r = texelFetch(sampler_voxtpax, ivec3(hit_coord) >> tpat_mip,
-	tpat_mip);
+      value1_r = texelFetch(sampler_voxtpax,
+        ivec3(hit_coord) >> hit_tpat_coord_mip, hit_tpat_coord_mip);
       <%else/>
       value1_r = <%texture3d/>(sampler_voxtpax, (hit_coord) / pattex3_size);
       <%/>

@@ -978,70 +978,16 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   private function void rotate_range(imat3 const& m)
   {
     copy_value();
+    const sz = copy_data.copy_size;
     const spri = copy_data.tex[0]; // copy
+    const ssec = copy_data.tex[1]; // copy
     dbg_rotate() function void() {
       debug_log("tex[0]", copy_data.tex[0]);
       debug_log("spri", spri);
     }
-    const saux = copy_data.tex[1]; // copy
-    const sz = copy_data.copy_size;
-    for (const z: 0 .. sz.z) {
-      for (const y: 0 .. sz.y) {
-        for (const x: 0 .. sz.x) {
-          const vp = rotate_voxel_value(m, spri.get(x, y, z));
-          const va = saux.get(x, y, z);
-          const p = rotate_offset(m, glm::make_ivec3(si(x), si(y), si(z)), sz);
-          dbg_rotate() function void () {
-            debug_log("rotate_range", x, y, z, p, vp, va);
-          }
-          const up = to_uvec3(p);
-          if (lt_all_uvec3(up, sz)) {
-            copy_data.tex[0].set(ui(p.x), ui(p.y), ui(p.z), vp);
-            copy_data.tex[1].set(ui(p.x), ui(p.y), ui(p.z), va);
-          }
-        }
-      }
-    }
+    rotate_texture_range(m, spri, ssec, sz, copy_data.tex[0],
+      copy_data.tex[1]);
     paste_value(0xffu, merge_mode_opaque());
-  }
-  private function uint rotate_voxel_value(imat3 const& m, uint v)
-  {
-    dbg_rotate() function void () {
-      debug_log("rotate_voxel_value", to_hexstring(v), is_node_reference(v));
-    }
-    if (is_plane_node(v)) {
-      mutable pp = decode_plane_node(v);
-      pp.nor = m * pp.nor;
-      v = encode_plane_node(pp);
-    } else if (is_sphere_node(v)) {
-      mutable sp = decode_sphere_node(v);
-      sp.center = m * sp.center;
-      sp.scale = map{ivec3, abs}(m * sp.scale);
-      v = encode_sphere_node(sp);
-    } else if (is_node_reference(v)) {
-      mutable rp = decode_noderef_param(v);
-      dbg_rotate() function void () {
-        debug_log("old rp:", rp, "mat:", rp.get_imat3().to_cslice());
-        debug_log("rot mat:", m.to_cslice());
-      }
-      const rm = rp.get_imat3();
-        // これはシェーダがtmatの座標からtpatの座標に変換する際に適用する変換
-        // なので、表示の際にはtpatデータに対してこれの逆変換が適用されたパタン
-        // が表示されることになる
-      const& s = m.to_cslice();
-      const m_trans = make_imat3(
-        s[0], s[3], s[6],
-        s[1], s[4], s[7],
-        s[2], s[5], s[8]);
-      rp.set_imat3(rm * m_trans);
-      dbg_rotate() function void () {
-        debug_log("mod rp:", rp, "mat:", rp.get_imat3().to_cslice());
-      }
-      v = encode_noderef_param(rp);
-    } else if (is_space_voxel(v)) {
-      v = 0u;
-    }
-    return v;
   }
   private function void set_space()
   {

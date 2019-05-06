@@ -6,6 +6,8 @@ private import pgl3d::texture::voxel -;
 private import pgl3d::engine::util -;
 private import pgl3d::edit_mode::vecutil -;
 
+private metafunction dbg_rotate{f} no_operation;
+
 public function {t} void
 shrink_voxel_value(bool for_mipmap, t const& spri, t const& ssec,
   texel_value mutable& dpri, texel_value mutable& dsec, ivec3 const& p)
@@ -136,9 +138,48 @@ scale_voxel_value(uint v_pri, uint v_sec, t mutable& tex_pri,
             y * 2 - 1,
             z * 2 - 1),
             1, 0u);
+        } else if (is_node_reference(v_pri)) {
+          mutable p = decode_noderef_param(v_pri);
+          if (p.scale < 7) {
+            p.scale += 1;
+            mutable c = to_ivec3(p.coord) * 2;
+            mutable offset = make_ivec3(
+              x * 2 - 1,
+              y * 2 - 1,
+              z * 2 - 1);
+            offset = p.get_imat3() * offset;
+            c = (c * 2 + offset + 1) / 2;
+            p.coord = to_uvec3(c);
+            if (lt_all_uvec3(p.coord, make_uvec3(32, 32, 32))) {
+              cv = encode_noderef_param(p);
+            }
+          }
         }
         tex_pri.set(ui(x0 + x), ui(y0 + y), ui(z0 + z), cv);
         tex_sec.set(ui(x0 + x), ui(y0 + y), ui(z0 + z), v_sec);
+      }
+    }
+  }
+}
+
+public function {t} void
+rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
+  uvec3 const& sz, t mutable& dpri, t mutable& dsec)
+{
+  for (const z: 0 .. sz.z) {
+    for (const y: 0 .. sz.y) {
+      for (const x: 0 .. sz.x) {
+	const vp = rotate_voxel_value(m, spri.get(x, y, z));
+	const va = ssec.get(x, y, z);
+	const p = rotate_offset(m, glm::make_ivec3(si(x), si(y), si(z)), sz);
+	dbg_rotate() function void () {
+	  debug_log("rotate_range", x, y, z, p, vp, va);
+	}
+	const up = to_uvec3(p);
+	if (lt_all_uvec3(up, sz)) {
+	  dpri.set(ui(p.x), ui(p.y), ui(p.z), vp);
+	  dsec.set(ui(p.x), ui(p.y), ui(p.z), va);
+	}
       }
     }
   }
@@ -153,5 +194,46 @@ rotate_offset(imat3 const& m, ivec3 const& v, uvec3 const& sz)
   const r = map{glm::ivec3, operator::div}(vm, glm::make_ivec3(2, 2, 2));
   // debug_log("rotate", sz, v, r);
   return r;
+}
+
+public function uint
+rotate_voxel_value(imat3 const& m, uint v)
+{
+  dbg_rotate() function void () {
+    debug_log("rotate_voxel_value", to_hexstring(v), is_node_reference(v));
+  }
+  if (is_plane_node(v)) {
+    mutable pp = decode_plane_node(v);
+    pp.nor = m * pp.nor;
+    v = encode_plane_node(pp);
+  } else if (is_sphere_node(v)) {
+    mutable sp = decode_sphere_node(v);
+    sp.center = m * sp.center;
+    sp.scale = map{ivec3, abs}(m * sp.scale);
+    v = encode_sphere_node(sp);
+  } else if (is_node_reference(v)) {
+    mutable rp = decode_noderef_param(v);
+    dbg_rotate() function void () {
+      debug_log("old rp:", rp, "mat:", rp.get_imat3().to_cslice());
+      debug_log("rot mat:", m.to_cslice());
+    }
+    const rm = rp.get_imat3();
+      // これはシェーダがtmatの座標からtpatの座標に変換する際に適用する変換
+      // なので、表示の際にはtpatデータに対してこれの逆変換が適用されたパタン
+      // が表示されることになる
+    const& s = m.to_cslice();
+    const m_trans = make_imat3(
+      s[0], s[3], s[6],
+      s[1], s[4], s[7],
+      s[2], s[5], s[8]);
+    rp.set_imat3(rm * m_trans);
+    dbg_rotate() function void () {
+      debug_log("mod rp:", rp, "mat:", rp.get_imat3().to_cslice());
+    }
+    v = encode_noderef_param(rp);
+  } else if (is_space_voxel(v)) {
+    v = 0u;
+  }
+  return v;
 }
 
