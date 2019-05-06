@@ -439,10 +439,9 @@ int raycast_tilemap(
   inout vec3 hit_nor,
   in float selfshadow_para, inout float lstr_para, inout int miplevel,
   in bool enable_variable_miplevel)
+  // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
+  // 重くなるのでメリット薄い。
 {
-  enable_variable_miplevel = false;
-    // falseのままがいいか？ 重いときにさらに重くなるのでメリット薄い。
-    // FIXME: trueのとき突き抜けるケースがある。
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
@@ -504,9 +503,11 @@ int raycast_tilemap(
     vec4 value = <%texture3d/>(sampler_voxtmap, tmap_coord / map3_size);
     <%/>
     node_type = int(floor(value.a * 255.0 + 0.5));
-    if (node_type == 255 && !mip_detail && enable_variable_miplevel) {
+    // if (node_type == 255 && !mip_detail && enable_variable_miplevel) {
+    if (node_type != 0 && !mip_detail && enable_variable_miplevel) {
       // 詳細モードでなくてfilledと衝突したなら詳細モードに入る
       mip_detail = true;
+      // if (tmap_mip == 2) { dbgval = vec4(0.0, 1.0, 1.0, 1.0); }
       continue;
     }
     bool is_pat = (node_type == 1);
@@ -751,8 +752,8 @@ int raycast_tilemap(
       // value0_rはemissionのrgb値を保持する。filledならprimaryから、それ以外
       // ならsecondaryの色をそのまま使う。
   }
-  // if (i > 35) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
-  // if (hit > 32) { dbgval = vec4(1.0, 0.0, 0.0, 1.0); } // FIXME
+  // if (i > 10) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
+  // if (hit == 6) { dbgval = vec4(1.0, 0.0, 0.0, 1.0); }
   return hit;
 }
 

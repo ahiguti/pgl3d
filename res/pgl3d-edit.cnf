@@ -7,7 +7,7 @@ auto_reload=1
 capture_filter=0
 aberration_filter=0
 
-dbgval=0
+dbgval=1
 gldebug=0
 
 motion_serial=Arduino Due

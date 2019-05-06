@@ -504,8 +504,15 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         message += " space " + to_string(dv) + " mip " + to_string(mlpat)
           + " " + to_string(mlmap);
       } else if (is_node_reference(vp)) {
-        const rp = decode_noderef_param(vp);
-        message += " ref " + to_string(rp);
+// FIXME: 
+const vp1 = get_cur_value(texture_value_index_primary, 4, mlpat, mlmap);
+message += " ref(ml2) " + to_hexstring(vp1);
+const vp2 = get_cur_value(texture_value_index_primary, 5, mlpat, mlmap);
+const vp2s = get_cur_value(texture_value_index_secondary, 5, mlpat, mlmap);
+message += " " + to_hexstring(vp2);
+message += " " + to_hexstring(vp2s);
+//        const rp = decode_noderef_param(vp);
+//        message += " ref " + to_string(rp);
       } else if (is_filled(vp)) {
         message += " filled";
       } else if (is_plane_node(vp)) {

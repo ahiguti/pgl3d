@@ -148,13 +148,17 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
         mutable vpri = pri0.get(x, y, z);
         mutable vsec = sec0.get(x, y, z);
         if (is_node_reference(vpri)) {
-          // tpat回転反転パラメータが各byteの上位2bit、残りの6bitがオフセット値
-          const p = make_uvec3((vpri >> 0u) & 0x3fu, (vpri >> 8u) & 0x3fu,
-            (vpri >> 16u) & 0x3fu);
-          vpri = vox.tpat_edit->data_pri[pat_mip_num - 1].get(
-            p.x, p.y, p.z);
-          vsec = vox.tpat_edit->data_sec[pat_mip_num - 1].get(
-            p.x, p.y, p.z);
+          const p = decode_noderef_param(vpri);
+          const c = p.coord;
+          const sc = p.scale;
+          if (pat_mip_num >= sc + 1) {
+            const lv = pat_mip_num - 1 - sc;
+            vpri = vox.tpat_edit->data_pri[lv].get(c.x, c.y, c.z);
+            vsec = vox.tpat_edit->data_sec[lv].get(c.x, c.y, c.z);
+          } else {
+            vpri = make_filled_voxel();
+            vsec = 0u;
+          }
         }
         pri0.set(x, y, z, vpri);
         sec0.set(x, y, z, vsec);
