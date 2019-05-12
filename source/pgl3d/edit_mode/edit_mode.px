@@ -22,6 +22,7 @@ private metafunction dbg_console{f} no_operation;
 private metafunction dbg_gen{f} no_operation;
 private metafunction dbg_scale{f} no_operation;
 private metafunction dbg_rotate{f} no_operation;
+private metafunction dbg_noderef{f} no_operation;
 
 private metafunction save_dir "/build/saved/";
 
@@ -504,15 +505,19 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         message += " space " + to_string(dv) + " mip " + to_string(mlpat)
           + " " + to_string(mlmap);
       } else if (is_node_reference(vp)) {
-// FIXME: 
-const vp1 = get_cur_value(texture_value_index_primary, 4, mlpat, mlmap);
-message += " ref(ml2) " + to_hexstring(vp1);
-const vp2 = get_cur_value(texture_value_index_primary, 5, mlpat, mlmap);
-const vp2s = get_cur_value(texture_value_index_secondary, 5, mlpat, mlmap);
-message += " " + to_hexstring(vp2);
-message += " " + to_hexstring(vp2s);
-//        const rp = decode_noderef_param(vp);
-//        message += " ref " + to_string(rp);
+        if (m::eq{dbg_noderef{1}, 1}) {
+          const vp1 = get_cur_value(texture_value_index_primary, 4, mlpat,
+            mlmap);
+          message += " ref(ml2) " + to_hexstring(vp1);
+          const vp2 = get_cur_value(texture_value_index_primary, 5, mlpat,
+            mlmap);
+          const vp2s = get_cur_value(texture_value_index_secondary, 5, mlpat,
+            mlmap);
+          message += " " + to_hexstring(vp2);
+          message += " " + to_hexstring(vp2s);
+        }
+        const rp = decode_noderef_param(vp);
+        message += " ref " + to_string(rp);
       } else if (is_filled(vp)) {
         message += " filled";
       } else if (is_plane_node(vp)) {
@@ -663,7 +668,7 @@ message += " " + to_hexstring(vp2s);
     }
     // debug_log("color_param", p);
     fill_range_color(p, false);
-    // message = "edit_mode: set color " + to_string(p);
+    message = "edit_mode: set color " + to_string(p);
   }
   private function void set_param_plane(int v)
   {
@@ -687,7 +692,7 @@ message += " " + to_hexstring(vp2s);
     }
     p.clamp_param();
     fill_range_plane(p, false);
-    // message = "edit_mode: set plane params " + to_string(p);
+    message = "edit_mode: set plane params " + to_string(p);
   }
   private function void set_param_sphere_1(int v, uint modifier)
   {
@@ -798,13 +803,14 @@ message += " " + to_hexstring(vp2s);
     copy_data.cursor_offset = make_uvec3(0u, 0u, 0u);
     // カーソル位置へタイル値を書き込む
     range_foreach(patsz) function void (uint x, uint y, uint z) {
-      mutable node = get_node_reference(nv);
-      node |= (z << 16u) | (y << 8u) | (x << 0u);
+      mutable np = decode_noderef_param(nv);
+      np.coord += make_uvec3(x, y, z);
+      np.scale = integral_log2(ttev->tile_size.x) - 1u;
       const cur_p = cur + make_uvec3(x, y, z);
       dbg_conv() function void () { debug_log("convert_to_tpat: tmap set",
-        cur_p, node); }
+        cur_p, np); }
       ttev->tmap_edit_set(cur_p, texture_value_index_primary,
-        make_node_reference(node));
+        encode_noderef_param(np));
     }
     // 元データをtpatへ貼り付ける
     set_cursor_tpat(true);
@@ -948,14 +954,27 @@ message += " " + to_hexstring(vp2s);
     spri.set_size_l2(szl2.x, szl2.y, szl2.z);
     saux.set_size_l2(szl2.x, szl2.y, szl2.z);
     const sz = copy_data.copy_size;
+    const uint tile_size_log2 = integral_log2(ttev->tile_size.x);
+    bool succ = true;
+    function texel_value tpat_get(uvec3 const& p, texture_value_index_e idx,
+      size_t miplevel)
+    {
+      return ttev->tpat_edit_get(p, idx, miplevel);
+    }
     for (const z: 0 .. sz.z) {
       for (const y: 0 .. sz.y) {
         for (const x: 0 .. sz.x) {
-          scale_voxel_value(copy_data.tex[0].get(x, y, z),
+          succ &= scale_voxel_value{texture_reshaped, tpat_get}(
+            copy_data.tex[0].get(x, y, z),
             copy_data.tex[1].get(x, y, z), spri, saux,
-            si(x * 2), si(y * 2), si(z * 2));
+            si(x * 2), si(y * 2), si(z * 2), tile_size_log2);
         }
       }
+    }
+    if (!succ) {
+      // タイル番号がエンコード可能な範囲を超えているときに起きる
+      debug_log("scale_voxel_value failed");
+      return;
     }
     copy_data.tex[0] = spri;
     copy_data.tex[1] = saux;
@@ -1093,7 +1112,7 @@ message += " " + to_hexstring(vp2s);
   private function {f} void fill_range_func(bool clear_pri, bool clear_sec)
   {
     const cur = ttev->get_cursor_range();
-    debug_log("fill_range: cursor=", cur, clear_pri, clear_sec);
+    // debug_log("fill_range: cursor=", cur, clear_pri, clear_sec);
     if (clear_pri || clear_sec) {
       copy_value();
     }
@@ -1198,12 +1217,13 @@ message += " " + to_hexstring(vp2s);
     if (!is_node_reference(v)) {
       return glm::uvec3();
     }
-    const z = (v >> 16u) & 0x3f;
-    const y = (v >>  8u) & 0x3f;
-    const x = (v >>  0u) & 0x3f;
-    const p = make_uvec3(x, y, z);
+    const param = decode_noderef_param(v);
+    const p = param.coord;
     debug_log("cur_tpat_base:", p);
-    return map{uvec3, operator::mul}(p, ttev->tile_size);
+    const pts = p * ttev->tile_size;
+    const s = param.scale;
+    const psc = map{uvec3, operator::shiftr}(pts, make_uvec3(s, s, s));
+    return psc;
   }
   private function uint get_cur_value(texture_value_index_e idx,
     size_t miplevel, size_t mutable& mlpat_r, size_t mutable mlmap_r) const

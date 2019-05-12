@@ -140,8 +140,6 @@ float voxel_collision_sphere(in vec3 v, in vec3 a, in vec3 c,
   in vec3 mul_pt, in float rad2_pt, in bool ura, out bool hit_wall_r,
   out vec3 nor_r)
 {
-// FIXME: 裏返しテスト中
-// ura = true;
   hit_wall_r = false;
   nor_r = vec3(0.0);
   // vはray単位ベクトル, aは始点(-0.5,0.5)範囲, mul_ptはaからの拡大率,
@@ -183,41 +181,20 @@ float voxel_collision_sphere(in vec3 v, in vec3 a, in vec3 c,
 
 <%if><%eq><%stype/>1<%/>
 
-/*
-const float tile3_size = <%tile3_size/>;
-const int tile3_size_log2 = <%tile3_size_log2/>.x;
-const float pat3_size = <%pat3_size/>;
-const float pattex3_size = tile3_size * pat3_size;
-const vec3 map3_size = vec3(<%map3_size/>);
-const int map3_size_log2 = <%map3_size_log2/>.x;
-const float virt3_size = float(<%virt3_size/>);
-const int virt3_size_log2 = tile3_size_log2 + map3_size_log2;
-*/
-// FIXME
-const int tile3_size = 16;
 const int tile3_size_log2 = 4;
-const float pat3_size = 16.0;
-// FIXME
-/*
-const int tile3_size = 32;
-const int tile3_size_log2 = 5;
-const float pat3_size = 8.0;
-*/
-
-const float pattex3_size = tile3_size * pat3_size;
-const vec3 map3_size = vec3(512.0, 512.0, 64.0);
-const int map3_size_log2 = 9;
-const float virt3_size = float(8192.0);
-const int virt3_size_log2 = tile3_size_log2 + map3_size_log2;
-/*
-*/
+const int tile3_size = 1 << tile3_size_log2;
+const ivec3 pattex3_size_log2 = <%pattex3_size_log2/>;
+const ivec3 pattex3_size = 1 << pattex3_size_log2;
+const ivec3 maptex3_size_log2 = <%maptex3_size_log2/>;
+const ivec3 maptex3_size = 1 << maptex3_size_log2;
+const int virt3_size_log2 = maptex3_size_log2.x + tile3_size_log2;
+const int virt3_size = 1 << virt3_size_log2;
 
 uniform <%mediump_sampler3d/> sampler_voxtpat;
 uniform <%mediump_sampler3d/> sampler_voxtpax;
 uniform <%mediump_sampler3d/> sampler_voxtmap;
 uniform <%mediump_sampler3d/> sampler_voxtmax;
 
-// FIXME:remove
 int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
 {
   // float distance_unit = distance_unit_tmap_mip;
@@ -251,7 +228,6 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   return node_type;
 }
 
-// FIXME:remove
 int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
 {
   // float distance_unit = distance_unit_tmap_mip;
@@ -285,7 +261,6 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
   return node_type;
 }
 
-// FIXME:remove
 int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
   in vec3 mi, in vec3 mx, in int miplevel)
 {
@@ -384,10 +359,7 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
   // テクスチャ座標でのposとcamposからmiplevelを決める
   float dist_pos_campos_2 = dot(pos - campos, pos - campos) + 0.0001;
   float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
-  /// return int(dist_log2 + dist_rnd * 4.0 + float(virt3_size_log2) - 9.5);
-  // return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 9.5);
   return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 9.0);
-  // return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 7.5);
     // TODO: LODバイアス調整できるようにする
 }
 
@@ -488,7 +460,7 @@ int raycast_tilemap(
       miplevel = clamp(raycast_get_miplevel(ppos, campos, dist_rand), 0, 8);
       tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
       tpat_mip = min(miplevel, tile3_size_log2);
-      distance_unit_tmap_mip = float(<%lshift><%tile3_size/><%>tmap_mip<%/>);
+      distance_unit_tmap_mip = float(<%lshift>tile3_size<%>tmap_mip<%/>);
       distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
     }
     vec3 tmap_coord = floor(curpos_i / tile3_size);
@@ -530,26 +502,26 @@ int raycast_tilemap(
       tpat_sgn = 1.0 - div_rem(vp, 64.0) * 2.0; // -1 or +1
         // value.rgbの第6bitがtpat_sgn。+1か-1。
       vec3 patscale = div_rem(vp, 32.0);
-      int tpscale_log2 = int(patscale.x + patscale.y * 2.0 + patscale.z * 4.0);
-      // tpscale_log2 = 0; // FIXME: これ
-      float tpscale = float(1 << tpscale_log2);
-      int tilesz_log2 = tile3_size_log2 - tpscale_log2;
+      int tilesz_log2 = int(patscale.x + patscale.y * 2.0 + patscale.z * 4.0)
+        + 1;
       float tilesz = float(1 << tilesz_log2);
       // vpはタイルパターン番号を表す整数。tpat_coord_baseはタイルパターン
-      // の始点のテクスチャ内座標で、tile3_size刻みの値をとる。
+      // の始点のテクスチャ内座標で、tilesz刻みの値をとる。
       vec3 tpat_coord_base = vp * tilesz;
-      vec3 tile_coord_sc = floor(tile_coord / tpscale);
+      vec3 tile_coord_sc = floor(tile_coord * tilesz / tile3_size);
+        // tile_coordはtile3_size未満の値。tile_coord_scはtilesz未満の値
       vec3 tpat_coord_offset = tpat_sgn_rotate_tile(tile_coord_sc,
         tpat_rot, tpat_sgn, tilesz);
-        // 0からtpat3_sizeの値をとるが、スケールされるとそれより小さくなる
       tpat_coord = tpat_coord_base + tpat_coord_offset;
-        // タイルパターンテクスチャの座標。tile_coordはタイル内座標
-        // で、0以上tile3_size未満の値。回転と反転を適用する。
-      // tpscaleが1以上ならそのぶんmiplevelを下げる
-      tpat_coord_mip = max(tpat_mip - tpscale_log2, 0);
-      distance_unit = float(1 << (tpat_coord_mip + tpscale_log2));
-      // distance_unit = distance_unit_tpat_mip * tpscale;
-      // distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
+        // タイルパターンテクスチャの座標。
+      // x tpscaleが1以上ならそのぶんmiplevelを下げる
+      // tpat_mipはtilesz_log2がtile3_size_log2のときのtpat miplevelを指す。
+      // tilesz_log2がtiel3_size_log2未満ならそのぶんmiplevelを下げる
+      tpat_coord_mip = max(tpat_mip - (tile3_size_log2 - tilesz_log2), 0);
+      // tpat_coord_mip = max(tpat_mip - tpscale_log2, 0);
+      distance_unit = float(
+        1 << (tpat_coord_mip + (tile3_size_log2 - tilesz_log2)));
+      // distance_unit = float(1 << (tpat_coord_mip + tpscale_log2));
       // タイルパターンテクスチャを引く
       <%if><%is_gl3_or_gles3/>
       value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_coord_mip,

@@ -254,7 +254,7 @@ vertex_buffer(size_t num_float_per_vertex0, bool draw_mode_points0,
 	return false;
       }
       glBindBuffer(GL_ARRAY_BUFFER, vbo_values.get());
-      sdl_log("glbufferdata vertex_values.size():", vertex_values.size());
+      // debug_log("glbufferdata vertex_values.size():", vertex_values.size());
       if (vertex_values.size() != 0) {
 	glBufferData(GL_ARRAY_BUFFER,
 	  static_cast{GLsizeiptr}(vertex_values.size()) * 4,
@@ -262,7 +262,7 @@ vertex_buffer(size_t num_float_per_vertex0, bool draw_mode_points0,
       }
       glBindBuffer(GL_ARRAY_BUFFER, 0);
       glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_elems.get());
-      sdl_log("glbufferdata elements.size():", elements.size());
+      // debug_log("glbufferdata elements.size():", elements.size());
       if (elements.size() != 0) {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER,
 	  static_cast{GLsizeiptr}(elements.size()) * 4,

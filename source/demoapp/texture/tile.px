@@ -13,7 +13,8 @@ private import pgl3d::sdl::sdlutil -;
 
 public function void prepare_texture_data_3d_tmap(bool edit_mode,
   texture_reshaped mutable& tmap, texture_reshaped mutable& tmap_ax,
-  ivec3 const& voxtpat_size_l2, ivec3 const& voxtmap_size_l2)
+  int tile3_size_l2, ivec3 const& voxtpat_size_l2,
+  ivec3 const& voxtmap_size_l2)
 {
   tmap.set_size_l2(ui(voxtmap_size_l2.x), ui(voxtmap_size_l2.y),
     ui(voxtmap_size_l2.z));
@@ -94,8 +95,17 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
 	  const py = rv & ui(pat_mask.y);
 	  const tpat_rot_sgn = rnd->generate() & 0x00c0c0c0;
 	    // tpatの回転反転の値をランダムに指定
-	  const idx = (pz << 16u) | (py << 8u) | px | tpat_rot_sgn;
-	  const v = make_node_reference(idx); // const v = 0x01000000u | idx;
+          const rndval = rnd->generate();
+          noderef_param np;
+          np.coord = make_uvec3(px, py, pz);
+          np.rot = make_uvec3(
+            (rndval >> 5) & 1, (rndval >> 4) & 1, (rndval >> 3) & 1);
+          np.sgn = make_uvec3(
+            (rndval >> 2) & 1, (rndval >> 1) & 1, (rndval >> 0) & 1);
+          np.scale = ui(tile3_size_l2) - 1u;
+          const v = encode_noderef_param(np);
+	  // const idx = (pz << 16u) | (py << 8u) | px | tpat_rot_sgn;
+	  // const v = make_node_reference(idx);
 	  // debug_log("tmap detail", x, y, z, to_hexstring(v));
 	  set(x, y, z, v);
 	}
@@ -196,8 +206,13 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
     for (const z: 0 .. sz.z) {
       for (const y: 0 .. sz.y) {
 	for (const x: 0 .. sz.x) {
-	  const v = (ui(z) << 16u) | (ui(y) << 8u) | ui(x);
-	  set(x, y, z, make_node_reference(v));
+	  // const v = (ui(z) << 16u) | (ui(y) << 8u) | ui(x);
+          noderef_param np;
+          np.coord = make_uvec3(ui(x), ui(y), ui(z));
+          np.scale = ui(tile3_size_l2) - 1u;
+          const v = encode_noderef_param(np);
+          set(x, y, z, v);
+	  // set(x, y, z, make_node_reference(v));
 	}
       }
     }
@@ -207,17 +222,18 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
 
 public function void prepare_texture_data_3d_tpat(bool edit_mode,
   texture_reshaped mutable& tpat, texture_reshaped mutable& tpat_ax,
-  ivec3 const& tile_size_l2, ivec3 const& pat_size_l2)
+  int tile_size_l2_i, ivec3 const& pat_size_l2)
 {
   const color0 = 0x00000000u;
   const color1 = 0xff102020u;
   const color2 = 0xff201010u;
   metafunction si static_cast{int};
   metafunction ui static_cast{uint};
-  ivec3 const tex_size_l2 = map{ivec3, operator::add}(
-    tile_size_l2, pat_size_l2);
-  ivec3 const tile_size = map{ivec3, operator::shiftl}(
-    make_ivec3(1, 1, 1), tile_size_l2);
+  ivec3 const tile_size_l2 = make_ivec3(tile_size_l2_i, tile_size_l2_i,
+    tile_size_l2_i);
+  int const tile_size_i = 1 << tile_size_l2_i;
+  ivec3 const tile_size = make_ivec3(tile_size_i, tile_size_i, tile_size_i);
+  ivec3 const tex_size_l2 = pat_size_l2 + tile_size_l2;
   tpat.set_size_l2(ui(tex_size_l2.x), ui(tex_size_l2.y), ui(tex_size_l2.z));
   tpat_ax.set_size_l2(ui(tex_size_l2.x), ui(tex_size_l2.y), ui(tex_size_l2.z));
   if (false) {

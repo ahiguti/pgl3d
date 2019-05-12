@@ -423,7 +423,7 @@ public function void input_control_handle_keys(input_control mutable& ictl,
   // sdl_log("zdelta", zdelta);
   ictl.add_zdelta(zdelta, frame_speed);
   */
-  float frame_accel = 0.0001f * frame_speed;
+  float frame_accel = 0.001f * frame_speed;
   glm::vec3 pos_delta;
   pos_delta.x += get_axis(0) * frame_accel;
   pos_delta.y -= get_axis(1) * frame_accel;
@@ -453,11 +453,11 @@ public function void input_control_handle_keys(input_control mutable& ictl,
   target.pos_delta += target.angle * pos_delta * frame_speed;
   target.position += target.pos_delta * warp * frame_speed;
   if (get_key(SDL_SCANCODE_RETURN) != 0 || get_button(6) != 0) {
-    const len = glm::length(target.pos_delta) * 2048.0f;
+    const len = glm::length(target.pos_delta) * 256.0f;
     if (len < frame_speed) {
       target.pos_delta = glm::make_vec3(0.0, 0.0, 0.0);
     } else {
-      target.pos_delta -= target.pos_delta.normalize() * frame_speed / 2048.0f;
+      target.pos_delta -= target.pos_delta.normalize() * frame_speed / 256.0f;
     }
   }
   /*

@@ -9,6 +9,7 @@ public import pgl3d::edit_mode::sync_gl -;
 public import pgl3d::edit_mode::edit_mode_texture -;
 
 private metafunction dbg_cursor{f} no_operation;
+private metafunction dbg_paste{f} no_operation;
 
 public struct
 tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
@@ -250,7 +251,9 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     t const& src_sec, uvec3 const& spos, uint index_mask,
     merge_mode const& mmod)
   {
-    debug_log("edit_paste_range tpat=", get_cursor_tpat());
+    if (m::eq{dbg_paste{1}, 1}) {
+      debug_log("edit_paste_range tpat=", get_cursor_tpat());
+    }
     if (get_cursor_tpat()) {
       tpat_edit_paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
     } else {

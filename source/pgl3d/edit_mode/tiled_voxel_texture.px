@@ -98,11 +98,18 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     texture_reshaped mutable& sec1)
   {
     const sz = pri0.get_size_l2_uvec3();
+    mutable sz2 = make_uvec3(
+      max(sz.x, 1u) - 1u, 
+      max(sz.y, 1u) - 1u, 
+      max(sz.z, 1u) - 1u);
+    /*
     if (sz.x == 0u || sz.y == 0u || sz.z == 0u) {
-      debug_log("insane pri0", sz);
+      // pri0がすでに短辺1のテクスチャなのでそれ以上mipmapを作れない
+      debug_log("update_mipmap_one: pri0 sz", sz);
     }
-    pri1.set_size_l2(sz.x - 1u, sz.y - 1u, sz.z - 1u);
-    sec1.set_size_l2(sz.x - 1u, sz.y - 1u, sz.z - 1u);
+    */
+    pri1.set_size_l2(sz2.x, sz2.y, sz2.z);
+    sec1.set_size_l2(sz2.x, sz2.y, sz2.z);
     for (const z: 0 .. pri1.get_depth()) {
       for (const y: 0 .. pri1.get_height()) {
         for (const x: 0 .. pri1.get_width()) {
@@ -122,8 +129,10 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     }
   }
   // tpatのmipmap更新
-  const pat_mip_num = vox.voxtile.get_width_l2() + 1;
+  // vox.voxtile.get_width_l2() + 1;
     // タイルサイズが16なら16,8,4,2,1の5枚
+  const pat_mip_num = 8u + 1u;
+    // scale値が0から7まで、最大タイルサイズ256
   while (vox.tpat_edit->data_pri.size() < pat_mip_num) {
     vox.tpat_edit->data_pri.push_back(texture_reshaped());
   }
@@ -142,6 +151,8 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
   // tmapのmiplevel==0の代替となるテクスチャの作成
   texture_reshaped pri0 = vox.tmap_edit->data_pri[0]; // copy
   texture_reshaped sec0 = vox.tmap_edit->data_sec[0]; // copy
+  // node_reference以外の時はtmapのmip0のまま、node_referenceのときは
+  // tpatの対応するmiplevelから値を拾ってきて書き込む
   for (const z: 0 .. pri0.get_depth()) {
     for (const y: 0 .. pri0.get_height()) {
       for (const x: 0 .. pri0.get_width()) {
@@ -151,8 +162,8 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
           const p = decode_noderef_param(vpri);
           const c = p.coord;
           const sc = p.scale;
-          if (pat_mip_num >= sc + 1) {
-            const lv = pat_mip_num - 1 - sc;
+          const lv = sc + 1;
+          if (lv < pat_mip_num) {
             vpri = vox.tpat_edit->data_pri[lv].get(c.x, c.y, c.z);
             vsec = vox.tpat_edit->data_sec[lv].get(c.x, c.y, c.z);
           } else {

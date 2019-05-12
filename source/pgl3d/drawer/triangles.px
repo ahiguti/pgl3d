@@ -392,39 +392,26 @@ public struct drawer_triangles(shader_config const& glc0,
       tree_map{string, string} bnd;
       bnd["stype"] = to_string(stype);
       // bnd["ssubtype"] = to_string(ssubtype);
-      bnd["tile3_size"] = ivec3_string(voxtile_size);
-      bnd["tile3_size_log2"] = ivec3_string(ivec3_log2(voxtile_size));
-      ivec3 voxtpat_size;
-      ivec3 voxtmap_size;
-      int virt3_size;
+      ivec3 pattex3_size; // tpatテクスチャのサイズ
+      ivec3 maptex3_size; // tmapテクスチャのサイズ
+      // int virt3_size;
       if (stype == 1 && !emt->vox.tpat_edit->data_pri.empty()) {
-	voxtpat_size = make_ivec3(
+	pattex3_size = make_ivec3(
 	  si(emt->vox.tpat_edit->data_pri[0].get_width()),
 	  si(emt->vox.tpat_edit->data_pri[0].get_height()),
 	  si(emt->vox.tpat_edit->data_pri[0].get_depth()));
-	debug_log("voxtpat_size", voxtpat_size);
-	voxtpat_size = map{ivec3, operator::div}(voxtpat_size, voxtile_size);
-	voxtpat_size = map{ivec3, power_of_2}(voxtpat_size);
-	voxtmap_size = make_ivec3(
+	pattex3_size = map{ivec3, power_of_2}(pattex3_size);
+	maptex3_size = make_ivec3(
 	  si(emt->vox.tmap_edit->data_pri[0].get_width()),
 	  si(emt->vox.tmap_edit->data_pri[0].get_height()),
 	  si(emt->vox.tmap_edit->data_pri[0].get_depth()));
-	voxtmap_size = map{ivec3, power_of_2}(voxtmap_size);
-	const virt_size = map{ivec3, operator::mul}(voxtile_size,
-	  voxtmap_size);
-	virt3_size = fold_list{max}(0, virt_size);
+	maptex3_size = map{ivec3, power_of_2}(maptex3_size);
       }
       debug_log("stype: ", stype);
-      debug_log("pat3_size: ", voxtpat_size);
-      debug_log("map3_size: ", voxtmap_size);
-      debug_log("virt3_size: ", virt3_size);
-      bnd["pat3_size"] = ivec3_string(voxtpat_size);
-      bnd["pat3_size_log2"] = ivec3_string(ivec3_log2(voxtpat_size));
-      bnd["map3_size"] = ivec3_string(voxtmap_size);
-      bnd["map3_size_log2"] = ivec3_string(ivec3_log2(voxtmap_size));
-      bnd["virt3_size"] = "ivec3(" + to_string(virt3_size) + ")";
-      bnd["virt3_size_log2"] = "ivec3(" + to_string(integral_log2(virt3_size))
-	+ ")";
+      debug_log("pattex3_size: ", pattex3_size);
+      debug_log("maptex3_size: ", maptex3_size);
+      bnd["pattex3_size_log2"] = ivec3_string(ivec3_log2(pattex3_size));
+      bnd["maptex3_size_log2"] = ivec3_string(ivec3_log2(maptex3_size));
       bnd["smsz"] = to_string(num_shadowmaps);
       bnd["raycast_cull_front"] = to_string(raycast_cull_front ? 1 : 0);
       bnd["update_frag_depth"] = to_string(update_frag_depth ? 1 : 0);
@@ -440,7 +427,6 @@ public struct drawer_triangles(shader_config const& glc0,
       s0.some = init_triangles_shader(glc, bnd, stype);
       s1.some = init_zprepass_shader(glc, bnd, stype);
       s2.some = init_shadowmap_shader(glc, bnd, stype);
-      debug_log("triangles virt", virt3_size);
     } catch (runtime_error ex) {
       debug_log("reload failed: " + ex.message());
       return false;
