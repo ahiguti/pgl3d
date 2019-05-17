@@ -18,7 +18,6 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
   public texture_data_mip current_view_sec = current_edit->data_sec; // copy
   */
   private texture_data grid = current_edit->grid; // copy
-  private uvec3 const grid_size = grid.get_size_uvec3();
   private uint cursor_color_0 = 0xffffffff;
   private uint cursor_color_1 = 0xff00ffff;
   private uvec3 cursor_0 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
@@ -157,8 +156,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
         const zmx = tex_sz.z - 1;
         texture_data_clear_range_recalc_distance_quick(tview_pri,
           make_uvec3(rx, ry, zmi),
-          make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
-          grid_size);
+          make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
         texture_data_fill_range(tview_sec,
           make_uvec3(rx, ry, zmi),
           make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
@@ -174,8 +172,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       const rx = next_blk_base.x;
       const ry = next_blk_base.y;
       texture_data_clear_range_recalc_distance_quick(tview_pri,
-        make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
-        grid_size);
+        make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
       texture_data_fill_range(tview_sec,
         make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
         0u);
@@ -198,8 +195,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       const zmx = min(next_z + 15, tex_sz.z - 1);
         /* next_z + 15までの空白領域は距離を更新 */
       texture_data_clear_range_recalc_distance_quick(tview_pri,
-        make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
-        grid_size);
+        make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
       modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z) + 1), 
         make_ivec3(si(rx + blk_size) - 1, si(ry + blk_size) - 1, si(zmx)));
     }

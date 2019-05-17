@@ -181,7 +181,8 @@ float voxel_collision_sphere(in vec3 v, in vec3 a, in vec3 c,
 
 <%if><%eq><%stype/>1<%/>
 
-const int tile3_size_log2 = 4;
+const int tile3_size_log2 = 6;
+  // タイルの最大スケール値。これ以上大きくすると影がピーターパンをおこす
 const int tile3_size = 1 << tile3_size_log2;
 const ivec3 pattex3_size_log2 = <%pattex3_size_log2/>;
 const ivec3 pattex3_size = 1 << pattex3_size_log2;
@@ -210,6 +211,7 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   <%/>
   int node_type = int(floor(value.a * 255.0 + 0.5));
   bool is_pat = (node_type == 1);
+/*
   if (is_pat) {
     vec3 curpos_tp = floor(value.rgb * 255.0 + 0.5) * tile3_size;
       // 16刻み4096迄
@@ -225,6 +227,7 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
     // value.xyz = vec3(0.0);
     node_type = int(floor(value.a * 255.0 + 0.5));
   }
+*/
   return node_type;
 }
 
@@ -243,6 +246,7 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
   <%/>
   int node_type = int(floor(value.a * 255.0 + 0.5));
   bool is_pat = (node_type == 1);
+/*
   if (is_pat) {
     vec3 curpos_tp = floor(value.rgb * 255.0 + 0.5) * tile3_size;
       // 16刻み4096迄
@@ -258,6 +262,7 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
     // value.xyz = vec3(0.0);
     node_type = int(floor(value.a * 255.0 + 0.5));
   }
+*/
   return node_type;
 }
 
@@ -287,7 +292,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     for (float i = 0.0; i < di; i = i + 1.0, a.x = a.x + ad.x) {
       if (a.x > 0.0 && a.x < dist_max) {
 //vec3 p = pos + ray * a.x; if (!pos3_inside_3(p, mi, mx)) { break; }
-	if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) == 255) {
+	if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) != 0) {
 	  near = min(a.x, near);
 	  break;
 	}
@@ -296,7 +301,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     for (float i = 0.0; i < di; i = i + 1.0, a.y = a.y + ad.y) {
       if (a.y > 0.0 && a.y < dist_max) {
 //vec3 p = pos + ray * a.y; if (!pos3_inside_3(p, mi, mx)) { break; }
-	if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) == 255) {
+	if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) != 0) {
 	  near = min(a.y, near);
 	  break;
 	}
@@ -305,7 +310,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     for (float i = 0.0; i < di; i = i + 1.0, a.z = a.z + ad.z) {
       if (a.z > 0.0 && a.z < dist_max) {
 //vec3 p = pos + ray * a.z; if (!pos3_inside_3(p, mi, mx)) { break; }
-	if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) == 255) {
+	if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) != 0) {
 	  near = min(a.z, near);
 	  break;
 	}
@@ -320,14 +325,14 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
       if (a.x > 0.0 && a.x < dist_max) {
 //vec3 p = pos + ray * a.x; if (!pos3_inside_3(p, mi, mx)) { break; }
 	// if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) == 255) {
-	if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) == 255) {
+	if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) != 0) {
 	  near = min(a.x, near);
 	}
       }
       if (a.y > 0.0 && a.y < dist_max) {
 //vec3 p = pos + ray * a.y; if (!pos3_inside_3(p, mi, mx)) { break; }
 	// if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) == 255) {
-	if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) == 255) {
+	if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) != 0) {
 //if (p.z < 0.0001) break;
 	  near = min(a.y, near);
 	}
@@ -337,7 +342,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
 //tpat_mip = 0;
 //vec3 p = pos + ray * a.z; if (!pos3_inside_3(p, mi, mx)) { break; }
 	// if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) == 255) {
-	if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) == 255) {
+	if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) != 0) {
 //if (p.y >= 0.9) break;
 //break;
 	  near = min(a.z, near);
@@ -449,7 +454,9 @@ int raycast_tilemap(
   vec4 hit_value = vec4(0.0);
   int node_type = 0;
   int i;
-  int imax = 64; // raycastループ回数の上限
+  int imax = 64;
+    // raycastループ回数の上限。長い影が差すなどの場合、大きくしないと
+    // 上限に到達してしまうことがあるが、見た目上大差ないかぎり問題にしない。
   if (debug_scale) {
     imax = 512;
   }

@@ -115,25 +115,9 @@ shrink_voxel_value(bool for_mipmap, t const& spri, t const& ssec,
   }
 }
 
-/*
-// TODO
-public function {t, f} void
-extract_noderef(texel_value v, t mutable& tex_pri, t mutable& tex_sec,
-  uint tile_size_log2)
-{
-  if (!is_node_reference(v)) {
-    return;
-  }
-  const p = decode_sphere_node(v);
-  if (p.scale + 1 > tile_size_log2) {
-    return;
-  }
-}
-*/
-
 public function {t, f} bool
 scale_voxel_value(texel_value v_pri, texel_value v_sec, t mutable& tex_pri,
-  t mutable& tex_sec, int x0, int y0, int z0, uint tile_size_log2)
+  t mutable& tex_sec, int x0, int y0, int z0)
 {
   for (const z: 0 .. 2) {
     for (const y: 0 .. 2) {

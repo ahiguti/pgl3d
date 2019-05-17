@@ -203,8 +203,11 @@ get_dist_3d(texel_value v)
 }
 
 public threaded function texel_value
-dist_3d_to_texel_value(dist_3d const& dv)
+dist_3d_to_texel_value(dist_3d dv)
 {
+  expand (sym: m::field_names{dist_3d}) {
+    dv.sym = clamp(dv.sym, 0, 15);
+  }
   const xv = (dv.xp << 4) + dv.xn;
   const yv = (dv.yp << 4) + dv.yn;
   const zv = (dv.zp << 4) + dv.zn;

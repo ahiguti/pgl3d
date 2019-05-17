@@ -486,6 +486,8 @@ void main(void)
       hit = raycast_tilemap(pos, campos, dist_rnd, camera_local, light_local,
 	aabb_min, aabb_max, tex_val0, tex_val1, nor, selfshadow_para, lstr_para,
 	miplevel, option_value2 < 0.0);
+      /*
+      */
     //} else {
     //  hit = raycast_tilemap(pos, campos, dist_rnd, camera_local, light_local,
     //	aabb_min, aabb_max, tex_val1, nor, selfshadow_para, lstr_para,
@@ -495,7 +497,7 @@ void main(void)
     /*
     hit = raycast_waffle(pos, fragpos, camera_local,
       aabb_min, aabb_max, 0);
-    if (hit < 0) { <%fragcolor/> = vec4(1.0, 0.5, 0.5, 1.0); return; }
+    // if (hit < 0) { <%fragcolor/> = vec4(1.0, 0.5, 0.5, 1.0); return; }
     if (hit >= 0) { <%fragcolor/> = vec4(0.5, 0.5, 0.5, 1.0); return; }
     */
     <%if><%eq><%get_config dbgval/>1<%/>

@@ -97,10 +97,6 @@ texture_edit()
   public texture_data_mip data_sec;
   public texture_data grid;
   // public uvec3 data_size;
-  public uvec3 grid_size = make_uvec3(1u, 1u, 1u);
-    // タイルパターンのときのグリッドサイズを指定する。
-    // タイルマップのときは(1,1,1)にする。
-  private texture_data grid_work;
   private modified_range modified;
   public function pair{uvec3, uvec3} get_modified_merged(bool reset_flag)
   {
@@ -232,8 +228,7 @@ texture_edit()
     }
     if (shape_modified) {
       dbg_paste() function void() {
-        debug_log("editable_voxel paste_range recalc dist", spos, sz, dpos,
-        grid_size.x);
+        debug_log("editable_voxel paste_range recalc dist", spos, sz, dpos);
       }
       recalc_distance_range(dpos, sz, false);
     } else {
@@ -251,52 +246,16 @@ texture_edit()
     }
     ivec3 mod_mi = to_ivec3(pos);
     ivec3 mod_mx = mod_mi + to_ivec3(sz) - make_ivec3(1, 1, 1);
-    if (grid_size.x == 1) {
-      dbg_dist() function void () {
-        debug_log("recalc_distance_range nogrid", mod_mi, mod_mx);
-      }
-      if (clear_flag) {
-        /* 遅すぎるので更新しない。うまい実装があるか? */
-        /* update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag); */
-        modified.set_modified(mod_mi, mod_mx);
-      } else {
-        update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag);
-        modified.set_modified(mod_mi, mod_mx);
-      }
+    dbg_dist() function void () {
+      debug_log("recalc_distance_range nogrid", mod_mi, mod_mx);
+    }
+    if (clear_flag) {
+      /* 遅すぎるので更新しない。うまい実装があるか? */
+      /* update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag); */
+      modified.set_modified(mod_mi, mod_mx);
     } else {
-      dbg_dist() function void() {
-        debug_log("recalc_distance_range grid");
-      }
-      if (grid_work.get_width_l2() == 0u) {
-	grid_work.set_size_l2(
-	  integral_log2(grid_size.x), 
-	  integral_log2(grid_size.y), 
-	  integral_log2(grid_size.z));
-      }
-      ivec3 mod_mi_g = map{ivec3, operator::div}(mod_mi, to_ivec3(grid_size));
-      ivec3 mod_mx_g = map{ivec3, operator::div}(mod_mx, to_ivec3(grid_size));
-      for (const z: mod_mi_g.z .. mod_mx_g.z + 1) {
-	for (const y: mod_mi_g.y .. mod_mx_g.y + 1) {
-	  for (const x: mod_mi_g.x .. mod_mx_g.x + 1) {
-	    const p = map{uvec3, operator::mul}(
-	      make_uvec3(ui(x), ui(y), ui(z)),
-	      grid_size);
-            dbg_dist() function void() {
-              debug_log("recalc_distance_range grid", x, y, z);
-            }
-	    texture_data_copy_range(grid_work, uvec3(), data_pri[0], p,
-	      grid_size);
-	    set_distance(true, grid_work);
-	    texture_data_copy_range(data_pri[0], p, grid_work, uvec3(),
-	      grid_size);
-	  }
-	}
-      }
-      modified.set_modified(
-	map{ivec3, operator::mul}(mod_mi_g, to_ivec3(grid_size)),
-	map{ivec3, operator::mul}(mod_mx_g + make_ivec3(1, 1, 1),
-	  to_ivec3(grid_size))
-	- make_ivec3(1, 1, 1));
+      update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag);
+      modified.set_modified(mod_mi, mod_mx);
     }
   }
 }

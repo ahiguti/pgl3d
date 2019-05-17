@@ -1195,19 +1195,21 @@ private function varray{ptr{pgldrawer_export_i}} init_drawsteps(
   varray{drawer_ptr} solid;
   varray{varray{drawer_ptr}} shadow;
   varray{drawer_ptr} zpre;
-  const shadowmap_name = "sm";
-  const num_shadowmaps = sconf.num_shadowmaps;
-  make_drawstep_triangles_surface(sconf, ds, app.proj_df, shadowmap_name,
-    num_shadowmaps, solid, shadow, zpre);
-  make_drawstep_raycast(sconf, ds, app.proj_df, shadowmap_name,
-    sconf.num_shadowmaps, app.raycast_layer, solid, shadow, zpre);
-  for (int i: 0 .. num_shadowmaps) {
-    r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_sm,
-      app.pviewport_sm, shadowmap_name + to_string(i), true,
-      make_varray{string}(),
-      "GL_DEPTH_COMPONENT", false));
-      // set shadowmap framebuffer i
-    r.append(shadow[static_cast{size_t}(i)]); // draw shadow
+  {
+    const shadowmap_name = "sm";
+    const num_shadowmaps = sconf.num_shadowmaps;
+    make_drawstep_triangles_surface(sconf, ds, app.proj_df, shadowmap_name,
+      num_shadowmaps, solid, shadow, zpre);
+    make_drawstep_raycast(sconf, ds, app.proj_df, shadowmap_name,
+      num_shadowmaps, app.raycast_layer, solid, shadow, zpre);
+    for (int i: 0 .. num_shadowmaps) {
+      r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_sm,
+        app.pviewport_sm, shadowmap_name + to_string(i), true,
+        make_varray{string}(),
+        "GL_DEPTH_COMPONENT", false));
+        // set shadowmap framebuffer i
+      r.append(shadow[static_cast{size_t}(i)]);
+    }
   }
   r.push_back(make_drawstep_setfb(sconf, ds, app.pviewport_main,
     app.pviewport_main,

@@ -19,7 +19,6 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
   public uvec3 const tpat_size =
     emt->vox.tpat_edit->data_pri[0].get_size_uvec3();
-  public uvec3 const tile_size = emt->vox.voxtile.get_size_uvec3();
   private texture_edit_view tev_tmap = texture_edit_view(
     emt->vox.tmap_edit);
   private texture_edit_view tev_tpat = texture_edit_view(
@@ -184,12 +183,6 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   public function void tmap_edit_set(uvec3 const& pos,
     texture_value_index_e idx, uint v)
   {
-    const tmap_fixed = map{uvec3, operator::div}(tpat_size, tile_size);
-    if (le_all_uvec3(pos, tmap_fixed)) {
-      /* パターンが固定されている領域 */
-      debug_log("tmap_edit_set: fixed area", pos);
-      return;
-    }
     reset_cursor_flick_nosyncgl();
     tev_tmap.edit_set(pos, idx, v);
     cursor_flick();

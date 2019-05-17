@@ -57,6 +57,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   private bool console_mode;
   private string console_text;
   private size_t console_text_cursor;
+  private uint cur_tile_scale_log2 = 4;
   init();
   private function void init()
   {
@@ -179,9 +180,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     if (cmd == "save" && toks.size() == 2) {
       const fn = save_dir + toks[1];
       sdl_save_file(fn, to_string(copy_data));
-      dbg_save() function void () {
-        debug_log("saved", fn);
-      }
+      debug_log("saved", fn);
     } else if (cmd == "load" && toks.size() == 2) {
       string buf;
       const fn = save_dir + toks[1];
@@ -192,18 +191,21 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         copied = true;
         glm::vec3 cursor_move_r;
         move_cursor(0, 0, 0, cursor_move_r);
-        dbg_save() function void () {
-          debug_log("loaded", fn);
-        }
+        debug_log("loaded", fn);
       } else {
-        dbg_save() function void () {
-          debug_log("failed to load", fn);
-        }
+        debug_log("failed to load", fn);
+      }
+    } else if (cmd == "scale" && toks.size() == 2) {
+      const tsc = from_string{uint}(toks[1]);
+      if (tsc < 1u || tsc > 8) {
+        debug_log("invalid param:", toks[1]);
+      } else {
+        debug_log("tile scale:", tsc);
+        cur_tile_scale_log2 = tsc;
+        find_empty_cur = uvec3();
       }
     } else {
-      dbg_save() function void () {
-        debug_log("unrecognized command", toks);
-      }
+      debug_log("unrecognized command", toks);
     }
   }
   public function void on_key_pressed(int scancode, uint modmask,
@@ -589,8 +591,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       const tms_max = fold_list{max}(1u, ttev->tmap_size);
       cursor_move_r /= static_cast{float}(tms_max);
       if (get_cursor_tpat()) {
-        const ts_max = fold_list{max}(1u, ttev->tile_size);
-        cursor_move_r /= static_cast{float}(ts_max);
+        cursor_move_r /= static_cast{float}(1 << cur_tile_scale_log2);
       }
     }
     {
@@ -606,8 +607,12 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   private function void set_cursor_tpat(bool tpat)
   {
     if (tpat && !get_cursor_tpat()) {
-      const tppos = cur_tpat_base();
-      ttev->set_tpat_cursor_pos(tppos, tppos);
+      const tppos_sc = cur_tpat_base();
+      if (tppos_sc.second == 0u) {
+        return; // 何もしない
+      }
+      cur_tile_scale_log2 = tppos_sc.second;
+      ttev->set_tpat_cursor_pos(tppos_sc.first, tppos_sc.first);
     }
     ttev->set_cursor_tpat(tpat);
     /*
@@ -780,32 +785,32 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   {
     dbg_conv() function void () { debug_log("convert_to_tpat"); }
     if (get_cursor_tpat()) {
-      dbg_conv() function void () { debug_log("convert_to_tpat: 0"); }
+      debug_log("convert_to_tpat: failed(cursor tpat)");
       return;
     }
     const cur = ttev->get_cursor_pos().first;
     const v = ttev->tmap_edit_get(cur, texture_value_index_primary, 0u);
     if (is_node_reference(v)) {
-      dbg_conv() function void () { debug_log("convert_to_tpat: 1"); }
+      debug_log("convert_to_tpat: failed(noderef)");
       return;
     }
     const csz = copy_data.copy_size;
-    const tilesz = ttev->tile_size;
+    const tilesz = 1u << cur_tile_scale_log2;
     const patsz = (csz + tilesz - 1u) / tilesz;
       // タイルパターン数
     const nv = find_empty_tpat(patsz);
     if (!is_node_reference(nv)) {
-      dbg_conv() function void () { debug_log("convert_to_tpat: 2"); }
+      debug_log("convert_to_tpat: fialed(nomem)");
       return;
     }
-    dbg_conv() function void () { debug_log("find", to_hexstring(nv)); }
+    debug_log("convert_to_tpat: noderef=", to_hexstring(nv));
     ttev->set_cursor_pos(cur, cur);
     copy_data.cursor_offset = make_uvec3(0u, 0u, 0u);
     // カーソル位置へタイル値を書き込む
     range_foreach(patsz) function void (uint x, uint y, uint z) {
       mutable np = decode_noderef_param(nv);
       np.coord += make_uvec3(x, y, z);
-      np.scale = integral_log2(ttev->tile_size.x) - 1u;
+      np.scale = cur_tile_scale_log2 - 1u;
       const cur_p = cur + make_uvec3(x, y, z);
       dbg_conv() function void () { debug_log("convert_to_tpat: tmap set",
         cur_p, np); }
@@ -815,21 +820,20 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     // 元データをtpatへ貼り付ける
     set_cursor_tpat(true);
     paste_value(0xffu, merge_mode_opaque());
-    debug_log("convert_to_tpat: tile_size:", ttev->tile_size);
+    debug_log("convert_to_tpat: cur_tile_scale_log2:", cur_tile_scale_log2);
     // 元データが小さいときはタイルに収まる範囲で拡大する
     while (le_all_uvec3(copy_data.copy_size * 2u, tilesz)) {
-      dbg_conv() function void() {
-        debug_log("convert_to_tpat: copy_size", copy_data.copy_size);
-      }
+      debug_log("convert_to_tpat: scale to fit", copy_data.copy_size);
       scale_range();
     }
+    debug_log("convert_to_tpat: done");
   }
   private function texel_value find_empty_tpat(uvec3 blksz)
   {
     const p0 = find_empty_cur;
     mutable p = p0;
-    const tsz = ttev->tile_size;
-    const tpsz = map{uvec3, operator::div}(ttev->tpat_size, tsz);
+    const tsz = 1u << cur_tile_scale_log2;
+    const tpsz = ttev->tpat_size / tsz;
     while (true) {
       if (++p.x >= tpsz.x) {
         p.x = 0;
@@ -847,11 +851,11 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         continue;
       }
       function bool is_space_pat(uvec3 p) {
-        const pbase = map{uvec3, operator::mul}(p, tsz);
+        const pbase = p * tsz;
         bool r = true;
-        for (const z: 0 .. tsz.z) {
-          for (const y: 0 .. tsz.y) {
-            for (const x: 0 .. tsz.x) {
+        for (const z: 0 .. tsz) {
+          for (const y: 0 .. tsz) {
+            for (const x: 0 .. tsz) {
               const cp = make_uvec3(pbase.x + x, pbase.y + y, pbase.z + z);
               const cv = ttev->tpat_edit_get(cp, texture_value_index_primary,
                 0u);
@@ -870,7 +874,10 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       }
       if (is_space) {
         find_empty_cur = p;
-        return make_node_reference((p.z << 16) | (p.y << 8) | (p.x << 0));
+        noderef_param np;
+        np.coord = p;
+        np.scale = cur_tile_scale_log2 - 1u;
+        return encode_noderef_param(np);
       }
     }
     return make_space_voxel();
@@ -954,7 +961,6 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     spri.set_size_l2(szl2.x, szl2.y, szl2.z);
     saux.set_size_l2(szl2.x, szl2.y, szl2.z);
     const sz = copy_data.copy_size;
-    const uint tile_size_log2 = integral_log2(ttev->tile_size.x);
     bool succ = true;
     function texel_value tpat_get(uvec3 const& p, texture_value_index_e idx,
       size_t miplevel)
@@ -967,7 +973,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
           succ &= scale_voxel_value{texture_reshaped, tpat_get}(
             copy_data.tex[0].get(x, y, z),
             copy_data.tex[1].get(x, y, z), spri, saux,
-            si(x * 2), si(y * 2), si(z * 2), tile_size_log2);
+            si(x * 2), si(y * 2), si(z * 2));
         }
       }
     }
@@ -1210,32 +1216,28 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     fill_range_func{ffunc}(clear, false);
   }
-  private function uvec3 cur_tpat_base() const
+  private function pair{uvec3, uint} cur_tpat_base() const
   {
+    // tpmapカーソルにあるnoderefのパターン座標を返す
     const v = get_cur_tmap(texture_value_index_primary, 0u);
     debug_log("cur_tpat_base:", to_hexstring(v));
     if (!is_node_reference(v)) {
-      return glm::uvec3();
+      return pair(glm::uvec3(), 0u);
     }
     const param = decode_noderef_param(v);
     const p = param.coord;
     debug_log("cur_tpat_base:", p);
-    const pts = p * ttev->tile_size;
-    const s = param.scale;
-    const psc = map{uvec3, operator::shiftr}(pts, make_uvec3(s, s, s));
-    return psc;
+    const scale = 2u << param.scale;
+    const psc = p * scale;
+    return pair(psc, param.scale + 1u);
   }
   private function uint get_cur_value(texture_value_index_e idx,
     size_t miplevel, size_t mutable& mlpat_r, size_t mutable mlmap_r) const
   {
-    size_t tile_size_log2 = integral_log2(ttev->tile_size.x);
-    const mlpat = miplevel;
-    const mlmap = miplevel < tile_size_log2 ?
-      size_t() : miplevel - tile_size_log2;
-    mlpat_r = mlpat;
-    mlmap_r = mlmap;
+    mlpat_r = miplevel;
+    mlmap_r = miplevel;
     return ttev->get_cursor_tpat() ?
-      get_cur_tpat(idx, mlpat) : get_cur_tmap(idx, mlmap);
+      get_cur_tpat(idx, mlpat_r) : get_cur_tmap(idx, mlmap_r);
   }
   private function void set_cur_value(texture_value_index_e idx, uint value)
   {

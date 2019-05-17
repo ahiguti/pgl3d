@@ -6,11 +6,9 @@ private import pgl3d::edit_mode::vecutil -;
 
 public function {t} void
 texture_data_clear_range_recalc_distance_quick(t mutable& dest,
-  uvec3 const& dpos, uvec3 const& sz, uvec3 const& grid)
+  uvec3 const& dpos, uvec3 const& sz)
 {
   /* 指定領域を空白にし、最適ではないが距離をセットする。 */
-  const grid_mask = grid - make_uvec3(1, 1, 1);
-  // debug_log("tdcrrdq grid", grid);
   ivec3 const mi = to_ivec3(dpos);
   ivec3 const mx = mi + to_ivec3(sz) - make_ivec3(1, 1, 1);
   for (int z: mi.z .. mx.z + 1) {
@@ -23,7 +21,6 @@ texture_data_clear_range_recalc_distance_quick(t mutable& dest,
         dv.yn = y - mi.y;
         dv.zp = mx.z - z;
         dv.zn = z - mi.z;
-        dv = map{dist_3d, min}(dv, dist_3d_grid_limit(x, y, z, grid_mask));
         const wv = dist_3d_to_texel_value(dv);
         dest.set(ui(x), ui(y), ui(z), wv);
       }
@@ -102,31 +99,5 @@ texture_data_copy_range_merge_distance(t mutable& dest,
       }
     }
   }
-}
-
-private function dist_3d
-dist_3d_grid_limit(int x, int y, int z, uvec3 const& grid_mask)
-{
-  /* grid内に収めるために距離をどれだけまで制限すればよいのか計算 */
-  dist_3d r;
-  if (grid_mask.x == 0) {
-    r.xp = 15;
-    r.xn = 15;
-    r.yp = 15;
-    r.yn = 15;
-    r.zp = 15;
-    r.zn = 15;
-    return r;
-  }
-  const pos = make_uvec3(ui(x), ui(y), ui(z));
-  const nl = map{uvec3, operator::and}(pos, grid_mask);
-  const pl = grid_mask - nl;
-  r.xp = si(pl.x);
-  r.xn = si(nl.x);
-  r.yp = si(pl.y);
-  r.yn = si(nl.y);
-  r.zp = si(pl.z);
-  r.zn = si(nl.z);
-  return r;
 }
 

@@ -106,8 +106,6 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
     txs.vox->tpat_edit->data_size = to_uvec3(
       map{ivec3, operator::shiftl}(make_ivec3(1, 1, 1), txs.voxtpat_size_l2));
     */
-    const tilesz = 1u << ui(txs.voxtile_size_l2);
-    txs.vox->tpat_edit->grid_size = make_uvec3(tilesz, tilesz, tilesz);
     /* initialize tmap_edit */
     txs.vox->tmap_edit->data_pri.resize(tmap_miplevel_max + 1u,
       texture_reshaped());
@@ -118,7 +116,6 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
     txs.vox->tmap_edit->data_size = to_uvec3(
       map{ivec3, operator::shiftl}(make_ivec3(1, 1, 1), txs.voxtmap_size_l2));
     */
-    txs.vox->tpat_edit->grid_size = make_uvec3(1u, 1u, 1u);
     /*
     ptr{texture_data} voxtmap_pri = make_ptr{texture_data}();
     ptr{texture_data} voxtmap_sec = make_ptr{texture_data}();
