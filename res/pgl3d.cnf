@@ -17,7 +17,6 @@ raycast_layer=32
 glfinish=1
 enable_raycast_zprepass=0
 enable_dbgui=0
-vsync=1
 fullscreen=0
 width=1280
 height=720
@@ -37,7 +36,7 @@ voxel_map_d=6
 #large_shadow=1
 
 #framestat_threshold=2.0
-dummy_flip=1
+dummy_flip=0
 update_frag_depth=1
 shadow=1
 debug_zprepass=0
@@ -54,8 +53,9 @@ perspective_wh=0.1
 perspective_near=0.1
 perspective_far=10000
 
+vsync=1
 fps=60
-frame_sleep=1
+frame_sleep=0
 blur_param=0.8
 blur_filter=1
 bokeh=0
