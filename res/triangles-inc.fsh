@@ -185,9 +185,9 @@ const int tile3_size_log2 = 6;
   // タイルの最大スケール値。これ以上大きくすると影がピーターパンをおこす
 const int tile3_size = 1 << tile3_size_log2;
 const ivec3 pattex3_size_log2 = <%pattex3_size_log2/>;
-const ivec3 pattex3_size = 1 << pattex3_size_log2;
+const ivec3 pattex3_size = ivec3(1) << pattex3_size_log2;
 const ivec3 maptex3_size_log2 = <%maptex3_size_log2/>;
-const ivec3 maptex3_size = 1 << maptex3_size_log2;
+const ivec3 maptex3_size = ivec3(1) << maptex3_size_log2;
 const int virt3_size_log2 = maptex3_size_log2.x + tile3_size_log2;
 const int virt3_size = 1 << virt3_size_log2;
 
