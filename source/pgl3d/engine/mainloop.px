@@ -638,7 +638,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
           && cur_dummy_flip_gpusum > threshold * nfr) {
           cur_dummy_flip += 1;
         }
-        debug_log("ddummy_flip", cur_dummy_flip, cur_dummy_flip_gpusum);
+        // debug_log("ddummy_flip", cur_dummy_flip, cur_dummy_flip_gpusum);
         cur_dummy_flip_count = 0;
         cur_dummy_flip_gpusum = 0;
       }
