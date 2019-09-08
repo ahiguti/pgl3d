@@ -274,7 +274,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       }
     } else if (key == SDL_SCANCODE_1) {
       if (mod_shift) {
-        change_fill_type(edit_fill_type_blank, mod_ctrl, prev_key_repeat);
+        change_fill_type(edit_fill_type_blank, modmask, prev_key_repeat);
       } else {
         edit_params_mode = edit_params_mode_none;
         update_cursor_color();
@@ -282,7 +282,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       }
     } else if (key == SDL_SCANCODE_2) {
       if (mod_shift) {
-        change_fill_type(edit_fill_type_wall, mod_ctrl, prev_key_repeat);
+        change_fill_type(edit_fill_type_wall, modmask, prev_key_repeat);
       }
       reset_edit_params();
       edit_params_mode = edit_params_mode_color;
@@ -290,7 +290,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       // message = "entering edit-color mode";
     } else if (key == SDL_SCANCODE_3) {
       if (mod_shift) {
-        change_fill_type(edit_fill_type_plane, mod_ctrl, prev_key_repeat);
+        change_fill_type(edit_fill_type_plane, modmask, prev_key_repeat);
       }
       reset_edit_params();
       edit_params_mode = edit_params_mode_plane;
@@ -298,7 +298,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       // message = "entering edit-plane-params mode";
     } else if (key == SDL_SCANCODE_4) {
       if (mod_shift) {
-        change_fill_type(edit_fill_type_sphere, mod_ctrl, prev_key_repeat);
+        change_fill_type(edit_fill_type_sphere, modmask, prev_key_repeat);
       }
       reset_edit_params();
       edit_params_mode = edit_params_mode_sphere_1;
@@ -1086,8 +1086,9 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     // debug_log("reset_edit_params", copy_data);
   }
   private function void change_fill_type(edit_fill_type_t edit_fill_type,
-    bool mod_ctrl, uint repeat)
+    uint modifier, uint repeat)
   {
+    const mod_ctrl = (modifier & 4) == 4;
     if (edit_fill_type == edit_fill_type_wall) {
       fill_range_value(255u << 24u, 0x00808080u, true);
       message = "change fill type: filled";
@@ -1097,7 +1098,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       message = "change fill type: plane";
     } else if (edit_fill_type == edit_fill_type_sphere) {
       edit_sphere_param = sphere_param();
-      fill_range_sphere(edit_sphere_param, true, 0u);
+      fill_range_sphere(edit_sphere_param, true, modifier);
       message = "change fill type: sphere";
     } else {
       fill_range_value(0u, 0u, true);

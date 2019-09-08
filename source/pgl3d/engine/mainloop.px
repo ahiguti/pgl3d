@@ -23,6 +23,7 @@ private import pgl3d::sdl::sdlcontext -;
 private import pgl3d::sdl::sdlutil -;
 private import opengl::compat -;
 private import pgl3d::aux::process_priority -;
+private import pgl3d::aux::nvapi -;
 // private import pgl3d::engine::console -;
 
 public function void mainloop(ptr{pgl3d_application} const& app,
@@ -168,9 +169,12 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   public double target_interval = 1.0 / max_fps;
   public double cur_interval = target_interval;
   public float frame_speed_mul = 1.0;
+  private int retarget_count = 0;
+  private int retarget_usage_sum = 0;
   public function void start()
   {
     target_fps = max_fps;
+    retarget_count = 0;
     target_interval = 1.0 / max_fps;
     cur_interval = target_interval;
     time_prev = io::system.high_resolution_timer();
@@ -180,7 +184,7 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   {
     vsync = vsync != 0 ? 0 : 1;
     sdl_log("vsync=", vsync);
-    swap_interval = set_swap_interval(vsync);
+    // swap_interval = set_swap_interval(vsync);
   }
   public function double time_subtract_sec(ulonglong tx, ulonglong ty)
   {
@@ -189,16 +193,39 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   }
   public function void update_target_interval()
   {
-    const cur_fps = 1.0 / cur_interval;
-    double target_fps = 1.0 / target_interval;
-    if (cur_fps > target_fps) {
-      target_fps += 3.0 / target_fps;
-      // target_fps = min(cur_fps + 1.0, target_fps);
-    } else {
-      target_fps -= 3.0;
-      // target_fps = max(cur_fps - 1.0, target_fps);
+    if (vsync == 0) {
+      return;
     }
-    target_fps = max(1.0, min(target_fps, max_fps));
+    const cur_fps = 1.0 / cur_interval;
+    int usage = nvapi_gpu_usage(0);
+    if (cur_fps < target_fps - 2.0 && usage >= 0) {
+      target_fps = max(max_fps / 8.0, target_fps / 2.0);
+      debug_log("drop fps", target_fps, cur_fps);
+      retarget_count = 0;
+      retarget_usage_sum = 0;
+    } else {
+      int usage = nvapi_gpu_usage(0);
+      if (usage >= 0) {
+        retarget_usage_sum += usage;
+      } else {
+        retarget_usage_sum = -1;
+      }
+      retarget_count += 1;
+      if (target_fps < max_fps) {
+        if (retarget_count >= 10 && retarget_usage_sum >= 0 &&
+          retarget_usage_sum < 300) {
+          // 100フレーム平均30%未満
+          target_fps = min(max_fps, target_fps * 2.0);
+          debug_log("retarget fps", target_fps, retarget_usage_sum);
+          retarget_count = 0;
+          retarget_usage_sum = 0;
+        }
+      }
+      if (retarget_count >= 10) {
+        retarget_count = 0;
+        retarget_usage_sum = 0;
+      }
+    }
     target_interval = 1.0 / target_fps;
   }
   public function void rate_control()
@@ -211,7 +238,8 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
     if (sleep_sec > 0.000 && frame_sleep != 0) {
       io::system.usleep(static_cast{uint}((sleep_sec - 0.000) * 1000000.0));
       // sdl_log("sleep", sleep_sec);
-      time_prev = time_now + static_cast{ulonglong}(sleep_sec * static_cast{double}(time_den));
+      time_prev = time_now +
+        static_cast{ulonglong}(sleep_sec * static_cast{double}(time_den));
       frame_speed_mul = static_cast{float}(target_interval * 60.0);
     } else {
       time_prev = time_now;
