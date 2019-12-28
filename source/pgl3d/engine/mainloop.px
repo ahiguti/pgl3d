@@ -517,8 +517,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     {
       //debug_log(fr.fps, "fps");
       const mess = string_join{" "}(fr.fps, frctl.frame_speed_mul,
-	0.0f,
-	saved_stat_num_objects);
+	0.0f, saved_stat_num_objects, nvapi_gpu_usage(0));
       if (async_motion_thread) {
 	motion_thr.some->finish();
         const mo_time = SDL_GetTicks() - motion_thr_start_time;
