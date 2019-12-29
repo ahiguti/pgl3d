@@ -17,6 +17,7 @@ private tsvaluetype struct triangles_uniforms()
   public int sampler_voxtmax;
   public int sampler_voxtpat;
   public int sampler_voxtpax;
+  public int sampler_voxsurf;
   public int sampler_depth_rd;
   public int sampler_sm; // array
   public glm::vec3 camera_pos;
@@ -217,6 +218,7 @@ public struct drawer_triangles(shader_config const& glc0,
   ptr{gl_texture} texture_pmpat = make_ptr{gl_texture}();
   ptr{gl_texture} texture_tilemap = make_ptr{gl_texture}();
   ptr{gl_texture} texture_noise = make_ptr{gl_texture}();
+  ptr{gl_texture} texture_voxsurf = make_ptr{gl_texture}();
   ptr{gl_texture} texture_env = make_ptr{gl_texture}();
   ptr{gl_texture} texture_depth_rd = make_ptr{gl_texture}();
   option{ptr{edit_mode_i}} edit_mode_ptr;
@@ -249,6 +251,7 @@ public struct drawer_triangles(shader_config const& glc0,
     const tex_dep = *textures->equal_range("triangles.tile_depth");
     const tex_map = *textures->equal_range("triangles.tile_map");
     const tex_noise = *textures->equal_range("triangles.noise");
+    const tex_voxsurf = *textures->equal_range("triangles.voxsurf");
     texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_dpat, tex_col,
       GL_RGBA, GL_RGBA, GL_NEAREST);
     texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_pmpat, tex_dep,
@@ -257,9 +260,12 @@ public struct drawer_triangles(shader_config const& glc0,
       GL_RGBA, GL_RGBA, GL_NEAREST);
     texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_noise, tex_noise,
       GL_RED, GL_RGBA, GL_NEAREST);
+    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_voxsurf, tex_voxsurf,
+      GL_RGBA, GL_RGBA, GL_NEAREST);
     res->textures.insert("tile_color", texture_dpat);
     res->textures.insert("tile_parallax", texture_pmpat);
     res->textures.insert("tile", texture_tilemap);
+    res->textures.insert("voxsurf", texture_voxsurf);
     if (stype == 1) {
       if (emt->vox.voxtile.size() <= 1u) {
 	emt->vox = *tvt;
@@ -382,7 +388,11 @@ public struct drawer_triangles(shader_config const& glc0,
       return "ivec3(" + to_string(v.x) + ", " + to_string(v.y) + ", "
 	+ to_string(v.z) + ")";
     }
+    function {t} string ivec2_string(t v) {
+      return "ivec2(" + to_string(v.x) + ", " + to_string(v.y) + ")";
+    }
     metafunction ivec3_log2 map{ivec3, integral_log2{int}};
+    metafunction ivec2_log2 map{ivec2, integral_log2{int}};
     debug_log("triangles reload_shaders init", stype);
     option{triangles_shader_ptr} s0;
     option{zprepass_shader_ptr} s1;
@@ -394,6 +404,7 @@ public struct drawer_triangles(shader_config const& glc0,
       // bnd["ssubtype"] = to_string(ssubtype);
       ivec3 pattex3_size; // tpatテクスチャのサイズ
       ivec3 maptex3_size; // tmapテクスチャのサイズ
+      ivec2 voxsurf_size_l2;
       // int virt3_size;
       if (stype == 1 && !emt->vox.tpat_edit->data_pri.empty()) {
 	pattex3_size = make_ivec3(
@@ -406,12 +417,16 @@ public struct drawer_triangles(shader_config const& glc0,
 	  si(emt->vox.tmap_edit->data_pri[0].get_height()),
 	  si(emt->vox.tmap_edit->data_pri[0].get_depth()));
 	maptex3_size = map{ivec3, power_of_2}(maptex3_size);
+	voxsurf_size_l2 = ivec2_log2(make_ivec2(
+          si(texture_voxsurf->surface_w),
+          si(texture_voxsurf->surface_h)));
       }
       debug_log("stype: ", stype);
       debug_log("pattex3_size: ", pattex3_size);
       debug_log("maptex3_size: ", maptex3_size);
       bnd["pattex3_size_log2"] = ivec3_string(ivec3_log2(pattex3_size));
       bnd["maptex3_size_log2"] = ivec3_string(ivec3_log2(maptex3_size));
+      bnd["voxsurf_size_log2"] = ivec2_string(voxsurf_size_l2);
       bnd["smsz"] = to_string(num_shadowmaps);
       bnd["raycast_cull_front"] = to_string(raycast_cull_front ? 1 : 0);
       bnd["update_frag_depth"] = to_string(update_frag_depth ? 1 : 0);
@@ -424,6 +439,7 @@ public struct drawer_triangles(shader_config const& glc0,
       bnd["shadowmap_max_distance"] = to_string(
 	pow(glc.shadowmap_scale, static_cast{float}(num_shadowmaps - 1))
 	* glc.shadowmap_distance);
+      debug_log("triangles bnd", bnd);
       s0.some = init_triangles_shader(glc, bnd, stype);
       s1.some = init_zprepass_shader(glc, bnd, stype);
       s2.some = init_shadowmap_shader(glc, bnd, stype);
@@ -583,6 +599,9 @@ public struct drawer_triangles(shader_config const& glc0,
 	glActiveTexture(GL_TEXTURE8);
 	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmax->texture_id.get());
 	glUniform1i(sdr.u_sampler_voxtmax, 8);
+	glActiveTexture(GL_TEXTURE9);
+        glBindTexture(GL_TEXTURE_2D, texture_voxsurf->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxsurf, 9);
 	if ((enable_raycast_zprepass || raycast_sort) && update_frag_depth) {
           /*
 	  // enable_raycast_zpreassフラグは読む必要ないのでは？
@@ -594,9 +613,9 @@ public struct drawer_triangles(shader_config const& glc0,
 	  }
 	  if (texture_depth_rd->texture_id.get() != 0) {
 	    const& tex = *texture_depth_rd;
-	    glActiveTexture(GL_TEXTURE9);
+	    glActiveTexture(GL_TEXTURE10);
 	    glBindTexture(GL_TEXTURE_2D, tex.texture_id.get());
-	    glUniform1i(sdr.u_sampler_depth_rd, 9);
+	    glUniform1i(sdr.u_sampler_depth_rd, 10);
 	    // debug_log("ssubtype", ssubtype, "depth_rd", tex.texture_id.get(),
 	    //   tex.surface_w, tex.surface_h);
 	    // if (ssubtype != 0)
@@ -613,9 +632,9 @@ public struct drawer_triangles(shader_config const& glc0,
           if (const& fb: ddata.cur_target_fb.some) {
             // 描画対象のフレームバッファ
             const texid = fb->texture_depth.get();
-	    glActiveTexture(GL_TEXTURE9);
+	    glActiveTexture(GL_TEXTURE10);
 	    glBindTexture(GL_TEXTURE_2D, texid);
-	    glUniform1i(sdr.u_sampler_depth_rd, 9);
+	    glUniform1i(sdr.u_sampler_depth_rd, 10);
             //debug_log("got cur_target_fb");
           } else if (const fb: res->framebuffers["first_pp"]) {
             // 最初のpostprocessのフレームバッファ。これはmain描画の対象
@@ -623,9 +642,9 @@ public struct drawer_triangles(shader_config const& glc0,
             // sampler_depth_rdとしてセットする。
             const texid = fb->texture_depth.get();
             // debug_log("depth_rd texid", texid);
-	    glActiveTexture(GL_TEXTURE9);
+	    glActiveTexture(GL_TEXTURE10);
 	    glBindTexture(GL_TEXTURE_2D, texid);
-	    glUniform1i(sdr.u_sampler_depth_rd, 9);
+	    glUniform1i(sdr.u_sampler_depth_rd, 10);
             //debug_log("got first_pp");
           }
 	}
@@ -633,9 +652,9 @@ public struct drawer_triangles(shader_config const& glc0,
       darrayst{int} sampler_smarr = darrayst{int}(num_shadowmaps, 0);
       for (const i: 0 .. num_shadowmaps) {
 	glActiveTexture(static_cast{GLenum}(
-	  static_cast{int}(GL_TEXTURE10) + static_cast{int}(i)));
+	  static_cast{int}(GL_TEXTURE11) + static_cast{int}(i)));
 	glBindTexture(GL_TEXTURE_2D, shadowmap_fbs[i]->texture_depth.get());
-	sampler_smarr[i] = 10 + static_cast{int}(i);
+	sampler_smarr[i] = 11 + static_cast{int}(i);
       }
       glUniform1iv(sdr.u_sampler_sm, static_cast{int}(num_shadowmaps),
 	caddress(sampler_smarr[0]));
