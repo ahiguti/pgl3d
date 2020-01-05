@@ -193,14 +193,15 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   }
   public function void update_target_interval()
   {
+    return;
     if (vsync == 0) {
       return;
     }
     const cur_fps = 1.0 / cur_interval;
     int usage = nvapi_gpu_usage(0);
-    if (cur_fps < target_fps - 2.0 && usage >= 0) {
-      target_fps = max(max_fps / 8.0, target_fps / 2.0);
+    if (cur_fps + 5 < target_fps && usage >= 0 && retarget_count >= 10) {
       debug_log("drop fps", target_fps, cur_fps);
+      target_fps = cur_fps;
       retarget_count = 0;
       retarget_usage_sum = 0;
     } else {
@@ -210,21 +211,22 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
       } else {
         retarget_usage_sum = -1;
       }
-      retarget_count += 1;
       if (target_fps < max_fps) {
         if (retarget_count >= 10 && retarget_usage_sum >= 0 &&
-          retarget_usage_sum < 300) {
-          // 100フレーム平均30%未満
-          target_fps = min(max_fps, target_fps * 2.0);
+          retarget_usage_sum < 700) {
+          // 10フレーム平均70%未満
+          target_fps = min(max_fps, target_fps + 1);
           debug_log("retarget fps", target_fps, retarget_usage_sum);
           retarget_count = 0;
           retarget_usage_sum = 0;
         }
       }
-      if (retarget_count >= 10) {
-        retarget_count = 0;
-        retarget_usage_sum = 0;
-      }
+    }
+    retarget_count += 1;
+    debug_log("retarget_count", retarget_count);
+    if (retarget_count >= 11) {
+      retarget_count = 0;
+      retarget_usage_sum = 0;
     }
     target_interval = 1.0 / target_fps;
   }
@@ -233,14 +235,17 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
     const time_now = io::system.high_resolution_timer();
     cur_interval = time_subtract_sec(time_now, time_prev);
     update_target_interval();
-    const sleep_sec = target_interval - cur_interval;
-    // sdl_log("interval", time_prev, time_now, cur_interval, target_interval);
-    if (sleep_sec > 0.000 && frame_sleep != 0) {
-      io::system.usleep(static_cast{uint}((sleep_sec - 0.000) * 1000000.0));
-      // sdl_log("sleep", sleep_sec);
-      time_prev = time_now +
-        static_cast{ulonglong}(sleep_sec * static_cast{double}(time_den));
-      frame_speed_mul = static_cast{float}(target_interval * 60.0);
+    if (vsync == 0 || target_fps < max_fps) {
+      const sleep_sec = target_interval - cur_interval;
+      // sdl_log("interval", time_prev, time_now, cur_interval,
+      //   target_interval);
+      if (sleep_sec > 0.000 && frame_sleep != 0) {
+        io::system.usleep(static_cast{uint}((sleep_sec - 0.000) * 1000000.0));
+        sdl_log("sleep", sleep_sec);
+        time_prev = time_now +
+          static_cast{ulonglong}(sleep_sec * static_cast{double}(time_den));
+        frame_speed_mul = static_cast{float}(target_interval * 60.0);
+      }
     } else {
       time_prev = time_now;
       frame_speed_mul = static_cast{float}(cur_interval * 60.0);
