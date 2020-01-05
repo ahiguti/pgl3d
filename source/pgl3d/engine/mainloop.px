@@ -246,6 +246,9 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
         time_prev = time_now +
           static_cast{ulonglong}(sleep_sec * static_cast{double}(time_den));
         frame_speed_mul = static_cast{float}(target_interval * 60.0);
+      } else {
+        time_prev = time_now;
+        frame_speed_mul = static_cast{float}(cur_interval * 60.0);
       }
     } else {
       time_prev = time_now;
