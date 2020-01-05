@@ -184,7 +184,7 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   {
     vsync = vsync != 0 ? 0 : 1;
     sdl_log("vsync=", vsync);
-    // swap_interval = set_swap_interval(vsync);
+    swap_interval = set_swap_interval(vsync);
   }
   public function double time_subtract_sec(ulonglong tx, ulonglong ty)
   {
@@ -199,9 +199,9 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
     }
     const cur_fps = 1.0 / cur_interval;
     int usage = nvapi_gpu_usage(0);
-    if (cur_fps + 5 < target_fps && usage >= 0 && retarget_count >= 10) {
-      debug_log("drop fps", target_fps, cur_fps);
-      target_fps = cur_fps;
+    if (cur_fps < target_fps - 2.0 && usage >= 0) {
+      target_fps = max(max_fps / 8.0, target_fps / 2.0);
+      // debug_log("drop fps", target_fps, cur_fps);
       retarget_count = 0;
       retarget_usage_sum = 0;
     } else {
@@ -213,10 +213,11 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
       }
       if (target_fps < max_fps) {
         if (retarget_count >= 10 && retarget_usage_sum >= 0 &&
-          retarget_usage_sum < 700) {
-          // 10フレーム平均70%未満
-          target_fps = min(max_fps, target_fps + 1);
-          debug_log("retarget fps", target_fps, retarget_usage_sum);
+          retarget_usage_sum < 300) {
+          // メモ: あまり役に立ってない。dummy_flip自動のほうがよい
+          // 100フレーム平均30%未満
+          target_fps = min(max_fps, target_fps * 2.0);
+          // debug_log("retarget fps", target_fps, retarget_usage_sum);
           retarget_count = 0;
           retarget_usage_sum = 0;
         }
@@ -295,6 +296,9 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     conf.get("fps", 60.0, 1.0, 3600.0),
     conf.get("frame_sleep", 1, 0, 1));
   private int dummy_flip = conf.get("dummy_flip", 0, 0, 4);
+  private int cur_dummy_flip = 1; // dummy_flip自動のとき使う
+  private int cur_dummy_flip_count = 0;
+  private int cur_dummy_flip_gpusum = 0;
   private int fullscreen = 0;
   private int saved_w = 0;
   private int saved_h = 0;
@@ -518,8 +522,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     {
       //debug_log(fr.fps, "fps");
       const mess = string_join{" "}(fr.fps, frctl.frame_speed_mul,
-	0.0f,
-	saved_stat_num_objects);
+	0.0f, saved_stat_num_objects, nvapi_gpu_usage(0));
       if (async_motion_thread) {
 	motion_thr.some->finish();
         const mo_time = SDL_GetTicks() - motion_thr_start_time;
@@ -617,6 +620,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
 	fr.save_ticks("dr1");
       }
     }
+    const saved_prev_time = frctl.time_prev;
     frctl.rate_control();
     fr.save_ticks("ratectrl");
     app->on_draw_finished();
@@ -624,28 +628,38 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     fr.save_ticks("swapwindow");
     if (frctl.vsync != 0 && dummy_flip == 0) {
       // vsync有効でdummy_flipが0のときは自動でdummy_flipを入れる
-      int ti = static_cast{int}(SDL_GetTicks()) * 60;
-      int flip_count = 0;
-      debug_log("target_tick,ti,delay", target_tick, ti, ti - target_tick);
-      if (target_tick - ti < -20000) {
-	target_tick = ti + 1000;
-	debug_log("adjusting prev_tick = ti - 20000");
-      } else if (target_tick - ti > 20000) {
-	target_tick = ti + 1000;
-	debug_log("adjusting prev_tick = ti + 20000");
-      } else {
-	flip_count = max((ti - 5000 - target_tick) / 1000, 0);
-	target_tick += (flip_count + 1) * 1000;
+      ++cur_dummy_flip_count;
+      cur_dummy_flip_gpusum += nvapi_gpu_usage(0);
+      int const nfr = 5;
+      int const threshold = 85;
+      if (cur_dummy_flip_count > nfr) {
+        if (cur_dummy_flip > 1 && cur_dummy_flip_gpusum > 0
+          && cur_dummy_flip_gpusum * cur_dummy_flip / (cur_dummy_flip - 1)
+            < threshold * nfr) {
+          cur_dummy_flip -= 1;
+        }
+        if (cur_dummy_flip < 4 && cur_dummy_flip_gpusum > 0
+          && cur_dummy_flip_gpusum > threshold * nfr) {
+          cur_dummy_flip += 1;
+        }
+        // debug_log("ddummy_flip", cur_dummy_flip, cur_dummy_flip_gpusum);
+        cur_dummy_flip_count = 0;
+        cur_dummy_flip_gpusum = 0;
       }
-      debug_log("flip_count", flip_count);
-      if (flip_count > 2) {
-	flip_count = 2;
+      int flip_count = cur_dummy_flip;
+      // debug_log("flip_count", flip_count);
+      if (flip_count > 4) {
+	flip_count = 4;
       }
-      for (int i: 0 .. flip_count) {
+      for (int i: 1 .. flip_count) {
 	pgs.draw_frame_lastpass();
 	SDL_GL_SwapWindow(sdlc.sdl_window);
       }
-      frctl.frame_speed_mul = static_cast{float}(flip_count + 1);
+      if (cur_dummy_flip_gpusum >= 0) {
+        // nvapi有効のときのみ自動dummy_flipが可能。そうでないならdummy_flip
+        // は入らない。
+        frctl.frame_speed_mul = static_cast{float}(flip_count);
+      }
     } else {
       // dummy_flipが2以上のときはdummy_flipを入れる
       for (const i: 1 .. dummy_flip) {
@@ -653,8 +667,6 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
 	SDL_GL_SwapWindow(sdlc.sdl_window);
       }
     }
-    pgs.frame_end();
-    // debug_log("swapwindow");
     if (glfinish) {
       // debug_log("glfinish");
       // glFlush();
@@ -662,7 +674,8 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       // vsync有効のときglFinishを入れたほうが60fpsぎりぎり間に合うばあいに
       // フレームが乱れなくなる
     }
-    fr.save_ticks("glfinish");
+    pgs.frame_end();
+    fr.save_ticks("framend");
     fr.next_ent();
     // if (scene_next_flag) { frctl.start(); }
     return done;

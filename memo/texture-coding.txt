@@ -32,7 +32,6 @@ primary 32bit rgba
       sp_radius = node_type - 65 (1以上64以下)
     node_type >= 128 + 2のとき未使用
 
-  
 
 secondary 32bit rgba
   aval := tex_val.a
@@ -43,11 +42,16 @@ secondary 32bit rgba
         mate_emit = tex_val.rgb
       aval_me == 2: 金属
         mate_specular = tex_val.rgb
-      aval_me == 3: 金属、emissionあり
+      aval_me == 3: 金属、emissionあり (これをvoxsurf参照に変更予定)
       既定値
         mate_specular = vec3(0.04)
         mate_diffuse = vec3(0.0)
         mate_emit = vec3(0.0)
+
+
+(予定)voxsurf参照
+  secondaryのaval_me == 3のときにvoxsurfを引く
+  value.rgがタイル番号 256x256
 
 
 raycast_tilemap()

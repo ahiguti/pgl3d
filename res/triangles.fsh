@@ -123,7 +123,7 @@ vec3 clamp_to_border(in vec2 uv, in vec3 delta)
     vec4 ti_val = <%texture2d/>
       (sampler_tilemap, uv_tm / tilemap_size);
 	    // lookup the tilemap
-    vec2 uv_pixel = floor(ti_val.xy * 255.0 + 0.5) * tile_size + uvi;
+    vec2 uv_pixel = round2_255(ti_val.xy) * tile_size + uvi;
 	    // tile pattern coordinate
     if (uv_inside_aabb(uv0)) {
       tex_val1 = <%texture2d/>(sampler_dpat, uv_pixel / tiletex_size);
@@ -147,7 +147,7 @@ vec3 clamp_to_border(in vec2 uv, in vec3 delta)
     if (uv_inside_aabb(uv0)) {
       vec4 ti_val = <%texture2d/> // lookup the tilemap
 	(sampler_tilemap, uv_tm / tilemap_size);
-      vec2 uv_pixel = floor(ti_val.xy * 255.0 + 0.5) * tile_size + uvi;
+      vec2 uv_pixel = round2_255(ti_val.xy) * tile_size + uvi;
 	      // tile pattern coordinate
       tex_val1 = <%texture2d/> // lookup the tilepattern
 	(sampler_pmpat, uv_pixel / tiletex_size);
@@ -184,7 +184,7 @@ vec3 clamp_to_border(in vec2 uv, in vec3 delta)
     tsub.xy = clamp(tsub.xy, 0.001, 0.999);
     dir /= max(abs(dir.x), abs(dir.y)); // FIXME: compute by caller?
       // W = unused(8), Z = depth(8), Y = CNN(4) CNP(4), X = CPN(4) CPP(4)
-    float cvt = floor((dir.x > 0.0 ? tval.x : tval.y) * 255.0 + 0.5);
+    float cvt = round_255((dir.x > 0.0 ? tval.x : tval.y));
     float cval = dir.y > 0.0
       ? fract(cvt / 16.0) * 16.0
       : floor(cvt / 16.0);
@@ -205,7 +205,7 @@ vec3 clamp_to_border(in vec2 uv, in vec3 delta)
   {
     tsub.xy = clamp(tsub.xy, 0.001, 0.999);
     dir /= max(abs(dir.x), abs(dir.y)); // FIXME: compute by caller?
-    float cvt = floor((dir.x > 0.0 ? tval.x : tval.y) * 255.0 + 0.5);
+    float cvt = round_255((dir.x > 0.0 ? tval.x : tval.y));
     float cval = dir.y > 0.0
       ? fract(cvt / 16.0) * 16.0
       : floor(cvt / 16.0);
@@ -557,7 +557,7 @@ void main(void)
     <%/>
     vec2 subtex_uv;
     tilemap(uv0, tex_val1, subtex_uv);
-    float alv0 = floor(tex_val1.a * 255.0 + 0.5);
+    float alv0 = round_255(tex_val1.a);
     float avol = floor(alv0 / 16.0);
     int alv = int(alv0 - avol * 16.0 + 0.5);
     if (!vertical) {
@@ -742,7 +742,7 @@ void main(void)
       smpos = (cp_sm + 1.0) * 0.5;
       smz = get_sampler_sm
 	  (sm_to_use, smpos.xy).rgb;
-      smz = floor(smz * 255.0 + 0.5);
+      smz = round_255(smz);
       float zval = 
 	smz.r / 256. + smz.g / 65536.0 + smz.b / 16777216.;
       float sml = float(smpos.z < zval * 1.0005);
@@ -790,7 +790,7 @@ void main(void)
   }
   {
     // tex_val1.a = 0.0;
-    float aval = floor(tex_val1.a * 255.0 + 0.5);
+    float aval = round_255(tex_val1.a);
     float aval_me = floor(aval / 64.0);
     aval = aval - aval_me * 64.0;
     float aval_roughness = aval;

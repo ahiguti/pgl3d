@@ -29,6 +29,7 @@ struct demoapp_textures(bool edit_mode, int mw, int mh, int md)
   public ptr{texture_data} tex_tmap = make_ptr{texture_data}();
   // noise texture
   public ptr{texture_data} tex_noise = make_ptr{texture_data}();
+  public ptr{texture_data} tex_voxsurf = make_ptr{texture_data}();
 }
 
 public function void
@@ -47,6 +48,7 @@ prepare_triangles_texture_data(pgl3d_config const& cfg,
   textures->insert("triangles.tile_depth", txs.tex_tdep);
   textures->insert("triangles.tile_map", txs.tex_tmap);
   textures->insert("triangles.noise", txs.tex_noise);
+  textures->insert("triangles.voxsurf", txs.tex_voxsurf);
   /*
   for (const i, const& t: txs.vox.tpat_pri) {
     string k = "triangles.voxtpat_pri." + to_string(i);
@@ -386,6 +388,7 @@ prepare_parallax_mapping_texture_data(demoapp_textures mutable& txs)
   txs.tex_tcol = load_texture_data("res/default-color.png");
   txs.tex_tdep = load_texture_data("res/default-depth.png");
   txs.tex_noise = load_texture_data("res/noise.png");
+  txs.tex_voxsurf = load_texture_data("res/default-color.png");
   /*
   {
     mutable& tnoise = *txs.tex_noise;

@@ -32,6 +32,24 @@ vec3 div_rem(inout vec3 x, float y)
   return r;
 }
 
+float round_255(in float x)
+{
+  // return floor(x * 255.0 + 0.5);
+  return round(x * 255.0);
+}
+
+vec2 round2_255(in vec2 x)
+{
+  // return floor(x * 255.0 + 0.5);
+  return round(x * 255.0);
+}
+
+vec3 round3_255(in vec3 x)
+{
+  // return floor(x * 255.0 + 0.5);
+  return round(x * 255.0);
+}
+
 bool pos3_inside(in vec3 pos, in float mi, in float mx)
 {
   return pos.x >= mi && pos.y >= mi && pos.z >= mi &&
@@ -185,16 +203,21 @@ const int tile3_size_log2 = 6;
   // タイルの最大スケール値。これ以上大きくすると影がピーターパンをおこす
 const int tile3_size = 1 << tile3_size_log2;
 const ivec3 pattex3_size_log2 = <%pattex3_size_log2/>;
-const ivec3 pattex3_size = 1 << pattex3_size_log2;
+const ivec3 pattex3_size = ivec3(1) << pattex3_size_log2;
 const ivec3 maptex3_size_log2 = <%maptex3_size_log2/>;
-const ivec3 maptex3_size = 1 << maptex3_size_log2;
+const ivec3 maptex3_size = ivec3(1) << maptex3_size_log2;
 const int virt3_size_log2 = maptex3_size_log2.x + tile3_size_log2;
 const int virt3_size = 1 << virt3_size_log2;
+
+const ivec2 voxsurf_size_log2 = <%voxsurf_size_log2/>;
+const ivec2 voxsurf_size = ivec2(1) << voxsurf_size_log2;
 
 uniform <%mediump_sampler3d/> sampler_voxtpat;
 uniform <%mediump_sampler3d/> sampler_voxtpax;
 uniform <%mediump_sampler3d/> sampler_voxtmap;
 uniform <%mediump_sampler3d/> sampler_voxtmax;
+
+uniform sampler2D sampler_voxsurf;
 
 int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
 {
@@ -209,11 +232,11 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   <%else/>
   vec4 value = <%texture3d/>(sampler_voxtmap, curpos_t / map3_size);
   <%/>
-  int node_type = int(floor(value.a * 255.0 + 0.5));
+  int node_type = int(round_255(value.a));
   bool is_pat = (node_type == 1);
 /*
   if (is_pat) {
-    vec3 curpos_tp = floor(value.rgb * 255.0 + 0.5) * tile3_size;
+    vec3 curpos_tp = round_255(value.rgb) * tile3_size;
       // 16刻み4096迄
     // distance_unit = distance_unit_tpat_mip;
     <%if><%is_gl3_or_gles3/>
@@ -225,7 +248,7 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
     <%/>
     // value = vec4(1.0, 1.0, 1.0, 1.0);
     // value.xyz = vec3(0.0);
-    node_type = int(floor(value.a * 255.0 + 0.5));
+    node_type = int(round_255(value.a));
   }
 */
   return node_type;
@@ -244,11 +267,11 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
   <%else/>
   vec4 value = <%texture3d/>(sampler_voxtmap, curpos_t / map3_size);
   <%/>
-  int node_type = int(floor(value.a * 255.0 + 0.5));
+  int node_type = int(round_255(value.a));
   bool is_pat = (node_type == 1);
 /*
   if (is_pat) {
-    vec3 curpos_tp = floor(value.rgb * 255.0 + 0.5) * tile3_size;
+    vec3 curpos_tp = round_255(value.rgb) * tile3_size;
       // 16刻み4096迄
     // distance_unit = distance_unit_tpat_mip;
     <%if><%is_gl3_or_gles3/>
@@ -260,7 +283,7 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
     <%/>
     // value = vec4(1.0, 1.0, 1.0, 1.0);
     // value.xyz = vec3(0.0);
-    node_type = int(floor(value.a * 255.0 + 0.5));
+    node_type = int(round_255(value.a));
   }
 */
   return node_type;
@@ -369,13 +392,12 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
 }
 
 vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
-  in float tsize)
+  in float maxval)
 {
   // rotとsgnを適用してtpat座標を返す
-  float e = 1.0; // / 65536.0; // valueは整数なので1.0でよい
-  if (sgn.x < 0.0) { value.x = tsize - e - value.x; }
-  if (sgn.y < 0.0) { value.y = tsize - e - value.y; }
-  if (sgn.z < 0.0) { value.z = tsize - e - value.z; }
+  if (sgn.x < 0.0) { value.x = maxval - value.x; }
+  if (sgn.y < 0.0) { value.y = maxval - value.y; }
+  if (sgn.z < 0.0) { value.z = maxval - value.z; }
   if (rot.x != 0.0) { value.xy = value.yx; }
   if (rot.y != 0.0) { value.yz = value.zy; }
   if (rot.z != 0.0) { value.zx = value.xz; }
@@ -451,6 +473,8 @@ int raycast_tilemap(
   int tpat_coord_mip;
   int hit_tpat_coord_mip;
   vec3 hit_coord;
+  vec3 hit_coord_small;
+    // 衝突したときのテクスチャ座礁のボクセル内オフセット
   vec4 hit_value = vec4(0.0);
   int node_type = 0;
   int i;
@@ -481,7 +505,7 @@ int raycast_tilemap(
     <%else/>
     vec4 value = <%texture3d/>(sampler_voxtmap, tmap_coord / map3_size);
     <%/>
-    node_type = int(floor(value.a * 255.0 + 0.5));
+    node_type = int(round_255(value.a));
     // if (node_type == 255 && !mip_detail && enable_variable_miplevel) {
     if (node_type != 0 && !mip_detail && enable_variable_miplevel) {
       // 詳細モードでなくてfilledと衝突したなら詳細モードに入る
@@ -502,7 +526,7 @@ int raycast_tilemap(
     vec3 lim_dist_n = vec3(tile3_size);
     vec3 lim_dist_p = vec3(tile3_size);
     if (is_pat) {
-      vec3 vp = floor(value.rgb * 255.0 + 0.5);
+      vec3 vp = round3_255(value.rgb);
         // vpは下で変更されてタイルパターン番号を表す
       tpat_rot = div_rem(vp, 128.0);
         // value.rgbの最上位bitがtpat_rot
@@ -516,9 +540,10 @@ int raycast_tilemap(
       // の始点のテクスチャ内座標で、tilesz刻みの値をとる。
       vec3 tpat_coord_base = vp * tilesz;
       vec3 tile_coord_sc = floor(tile_coord * tilesz / tile3_size);
+      // vec3 tile_coord_sc = tile_coord * tilesz / tile3_size;
         // tile_coordはtile3_size未満の値。tile_coord_scはtilesz未満の値
       vec3 tpat_coord_offset = tpat_sgn_rotate_tile(tile_coord_sc,
-        tpat_rot, tpat_sgn, tilesz);
+        tpat_rot, tpat_sgn, tilesz - 1.0);
       tpat_coord = tpat_coord_base + tpat_coord_offset;
         // タイルパターンテクスチャの座標。
       // x tpscaleが1以上ならそのぶんmiplevelを下げる
@@ -536,14 +561,14 @@ int raycast_tilemap(
       <%else/>
       value = <%texture3d/>(sampler_voxtpat, (tpat_coord) / pattex3_size);
       <%/>
-      node_type = int(floor(value.a * 255.0 + 0.5));
+      node_type = int(round_255(value.a));
       // ここの埋め込み空白値はデフォルトスケール(tile3_size)での境界まで
       // の値をとりうる。スケールされた場合にはそのグリッドまでに抑える
       // 必要がある。
       // lim_dist_n = floor(tile_coord_sc);
       // lim_dist_p = floor(tilesz - 1.0 - tile_coord_sc);
-      lim_dist_n = vec3(ivec3(floor(tile_coord_sc)) >> tpat_coord_mip);
-      lim_dist_p = vec3(ivec3(floor(tilesz - 1.0 - tile_coord_sc))
+      lim_dist_n = vec3(ivec3(tile_coord_sc) >> tpat_coord_mip);
+      lim_dist_p = vec3(ivec3(tilesz - 1.0 - tile_coord_sc)
         >> tpat_coord_mip);
     }
     // curpos_iとcurpos_fを、今いるボクセルの大きさ(distance_unit)を単位と
@@ -565,7 +590,7 @@ int raycast_tilemap(
     vec3 spmin = vec3(0.0);
     vec3 spmax = vec3(1.0);
     // valueにtpat軸入れ替えを適用したものをvaluerotとする
-    vec3 valuerot = tpat_rotate_valuerot(floor(value.xyz * 255.0 + 0.5),
+    vec3 valuerot = tpat_rotate_valuerot(round3_255(value.xyz),
       tpat_rot);
     // valuerotを上位下位にわける
     vec3 valuerot_h = floor(valuerot / 16.0);
@@ -648,6 +673,7 @@ int raycast_tilemap(
 	hit_tpat = is_pat;
         hit_tpat_coord_mip = tpat_coord_mip;
 	hit_coord = is_pat ? tpat_coord : tmap_coord;
+        hit_coord_small = curpos_f;
         hit_value = value;
 	pos = (curpos_i + curpos_f * distance_unit) / virt3_size;
 	  // eyeが衝突した位置
@@ -726,7 +752,20 @@ int raycast_tilemap(
       value1_r = <%texture3d/>(sampler_voxtpax, (hit_coord) / pattex3_size);
       <%/>
     }
-    int hit_node_type = int(floor(hit_value.a * 255.0 + 0.5));
+    // voxsurfテスト中
+    if (true) {
+      vec3 coord = hit_coord_small;
+      coord = coord * 64.0; // voxsurfのタイルサイズ
+      ivec2 icoord = clamp(ivec2(coord), 0, 63);
+      // coord = vec3(0.0);
+      ivec2 surf_coord = icoord + ivec2(64, 0); // タイル(1, 0)
+      value1_r = texelFetch(sampler_voxsurf, surf_coord, 0);
+      // value1_r = vec4(1.0);
+      // value1_r.rgb = coord / 32.0;
+      value1_r.a = 0;
+      value0_r = value1_r;
+    }
+    int hit_node_type = int(round_255(hit_value.a));
     value0_r = hit_node_type == 255 ? hit_value : value1_r;
       // value0_rはemissionのrgb値を保持する。filledならprimaryから、それ以外
       // ならsecondaryの色をそのまま使う。
@@ -770,13 +809,13 @@ int raycast_tilemap_em(
     <%else/>
     vec4 value = <%texture3d/>(sampler_voxtmap, tmap_coord / map3_size);
     <%/>
-    int node_type = int(floor(value.a * 255.0 + 0.5));
+    int node_type = int(round_255(value.a));
     bool is_pat = (node_type == 1);
     float distance_unit = distance_unit_tmap_mip;
     vec3 tpat_coord;
     if (is_pat) {
       distance_unit = 1.0;
-      vec3 curpos_tp = floor(value.rgb * 255.0 + 0.5) * tile3_size;
+      vec3 curpos_tp = round3_255(value.rgb) * tile3_size;
 	// 16刻み4096迄
       distance_unit = distance_unit_tpat_mip;
       tpat_coord = curpos_tp + curpos_tr;
@@ -786,7 +825,7 @@ int raycast_tilemap_em(
       <%else/>
       value = <%texture3d/>(sampler_voxtpat, (tpat_coord) / pattex3_size);
       <%/>
-      node_type = int(floor(value.a * 255.0 + 0.5));
+      node_type = int(round_255(value.a));
     }
     // ボクセルの大きさを掛ける。タイルの移動なら16倍
     curpos_t = floor(curpos_i / distance_unit);
@@ -799,7 +838,7 @@ int raycast_tilemap_em(
     // 衝突判定
     vec3 spmin = vec3(0.0);
     vec3 spmax = vec3(1.0);
-    vec3 valuerot = floor(value.xyz * 255.0 + 0.5);
+    vec3 valuerot = round3_255(value.xyz);
     vec3 dist_p = floor(valuerot / 16.0);
     vec3 dist_n = valuerot - dist_p * 16.0;
     if (node_type == 0) { // 空白
