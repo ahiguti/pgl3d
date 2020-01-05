@@ -4321,3 +4321,7 @@ planeを置き換えるためのパターン
 3. pgl3d/drawer/trianglesでシェーダに渡す
 4. シェーダがそれを読み込んで描画
 
+エンコード
+secondaryのvalue.aの上位2bitが3のときvoxsurfを引く
+各タイルは64x64、タイル番号は256x256まで可能
+
