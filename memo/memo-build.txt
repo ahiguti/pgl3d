@@ -1,13 +1,39 @@
 
-(procedure::thread::rwlockを使うとboostのheader onlyではビルド不可で、
-libboost_threadとlibboost_systemに依存するようになる。)
+-------------------------
+bulletのwindowsでのビルド
+bullet/build3/vs2010/0_Bullet3Solution.slnをビルドすればよい
 
-boostのビルド
-VS2015 x86 x64 Cross Tools コマンドプロンプト 上で実行
-  (これにしないと32bitバイナリがビルドされてしまう)
-cd C:\build\boost
-bootstrap.bat
-b2.exe toolset=msvc address-model=64 --stagedir=lib64-msvc-14.0 -j 4
+// vvv これは現在rwlockを使っていないので関係ない
+// (procedure::thread::rwlockを使うとboostのheader onlyではビルド不可で、
+// libboost_threadとlibboost_systemに依存するようになる。)
+
+// boostのビルド
+// VS2015 x86 x64 Cross Tools コマンドプロンプト 上で実行
+//   (これにしないと32bitバイナリがビルドされてしまう)
+// cd C:\build\boost
+// bootstrap.bat
+// b2.exe toolset=msvc address-model=64 --stagedir=lib64-msvc-14.0 -j 4
+
+pgl3d_demoappのライブラリ検索パス
+C:\build\SDL\VisualC\SDL\x64\Release
+C:\build\SDL\VisualC\SDLmain\x64\Release
+C:\build\SDL_image\VisualC\x64\Release
+C:\build\SDL_ttf\VisualC\x64\Release
+C:\build\glew\lib\Release\x64
+C:\build\bullet\bin
+C:\build\boost\lib64-msvc-14.0
+C:\build\ftdi
+C:\build\nvapi
+pgl3d_demoappの依存ライブラリ
+SDL2.lib
+SDL2main.lib
+SDL2_image.lib
+SDL2_ttf.lib
+glew32.lib
+OpenGL32.lib
+BulletCollision_vs2010_x64_release.lib
+BulletDynamics_vs2010_x64_release.lib
+LinearMath_vs2010_x64_release.lib
 
 -------------------------
 apt install cmake 

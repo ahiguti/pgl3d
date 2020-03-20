@@ -111,6 +111,21 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
 	}
       }
     }
+    // 描画するシェーダの都合上、端のボクセルは空白にする。
+    for (const x: 0 .. si(tmap.get_width())) {
+      for (const y: 0 .. si(tmap.get_height())) {
+	for (const z: 0 .. si(tmap.get_depth())) {
+          if (x == 0 || y == 0 || z == 0) {
+            set(x, y, z, make_space_voxel());
+          }
+          if (x == si(tmap.get_width() - 1) ||
+              y == si(tmap.get_height() - 1) ||
+              z == si(tmap.get_depth() - 1)) {
+            set(x, y, z, make_space_voxel());
+          }
+        }
+      }
+    }
   }
   function int rand_gen(int v)
   {
