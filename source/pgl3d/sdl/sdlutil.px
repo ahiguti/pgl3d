@@ -68,6 +68,42 @@ private struct sdl_file()
   }
 }
 
+public function {t} bool sdl_load_file_range(string const& fname,
+  size_t offset, t mutable& obuf)
+{
+  // TODO: test
+  metafunction mapped_type m::symbol{t, "mapped_type"};
+  slice{m::symbol{t, "mapped_type"}} sli = obuf.range();
+  metafunction tsz pod_sizeof{mapped_type};
+  sdl_file fp;
+  string fn = fname;
+  fn.push_back(0); // nul-term
+  fp.reset(SDL_RWFromFile(fn.to_crawptr().to_ccharptr(), "r"));
+  if (fp.is_null()) {
+    return false;
+  }
+  const o = static_cast{longlong}(offset);
+  const s = SDL_RWseek(fp.get(), o, 0);
+  if (s != o) {
+    return false;
+  }
+  mutable rawbuf = sli.to_rawptr().to_charptr();
+  size_t rlen = sli.size() * tsz;
+  while (rlen > 0) {
+    size_t rsz = 256u * 1024u * 1024u;
+    if (rsz >= rlen) {
+      rsz = rlen;
+    }
+    const r = SDL_RWread(fp.get(), rawbuf.to_voidptr(), 1u, rsz);
+    if (r != rsz) {
+      return false;
+    }
+    rawbuf += r;
+    rlen -= r;
+  }
+  return true;
+}
+
 public function bool sdl_load_file(string const& fname,
   varray{uchar} mutable& buf_r)
 {
@@ -81,7 +117,7 @@ public function bool sdl_load_file(string const& fname,
   buf_r.clear();
   while (true) {
     const osz = buf_r.size();
-    size_t rsz = 1024u * 1024u;
+    size_t rsz = 16u * 1024u * 1024u;
     buf_r.resize(osz + rsz, 0);
     const r = SDL_RWread(fp.get(), (buf_r.to_rawptr() + osz).to_voidptr(), 1u,
       rsz);
@@ -93,7 +129,59 @@ public function bool sdl_load_file(string const& fname,
   return true;
 }
 
-public function bool sdl_save_file(string const& fname,
+private metafunction pod_sizeof{t}
+  m::cond{
+    m::eq{t, uchar}, 1,
+    m::eq{t, char}, 1,
+    m::eq{t, ushort}, 2,
+    m::eq{t, short}, 2,
+    m::eq{t, uint}, 4,
+    m::eq{t, int}, 4,
+    m::error{"sizeof"}};
+
+public function {tlist} bool
+sdl_save_file(expand(meta::vararg::arg_decls_byref{tlist}))
+{
+  sdl_file fp;
+  string fn = a0;
+  fn.push_back(0); /* nul-term */
+  fp.reset(SDL_RWFromFile(fn.to_crawptr().to_ccharptr(), "w"));
+  if (fp.is_null()) {
+    // debug_log("sdl_save_file: SDL_RWFromFile");
+    return false;
+  }
+  bool suc = true;
+  function {t} void write_slice(t sli) {
+    metafunction tsz pod_sizeof{
+      m::cond{
+        m::eq{m::family{t}, "cslice"}, m::symbol{t, "mapped_type"},
+        m::error{"pod cslice expected"}}};
+    while (suc && sli.size() != 0u) {
+      // SDL_RWwriteはwindowsでWriteFileを使ってるのでサイズの上位32bitが
+      // 無視される。そのため1Gbyteごとに分けて書き込む。
+      size_t const szmax = 1024u * 1024u * 1024u;
+      const bsz = min(sli.size() * tsz, szmax);
+      const wsz = SDL_RWwrite(fp.get(), sli.to_crawptr().to_cvoidptr(),
+        tsz, bsz);
+      if (wsz == 0u) {
+        suc = false;
+        // debug_log("sdl_save_file: SDL_RWwrite", fname, bsz, wsz);
+        break;
+      }
+      sli.increment_front(wsz);
+    }
+  }
+  expand(a: meta::slice{meta::vararg::arg_names{meta::size{tlist}}, 1}) {
+    write_slice(a.crange());
+  }
+  if (fp.close() != 0) {
+    // debug_log("sdl_save_file: close");
+    suc = false;
+  }
+  return suc;
+}
+
+public function bool sdl_save_file_old(string const& fname,
   varray{uchar} const& buf)
 {
   sdl_file fp;

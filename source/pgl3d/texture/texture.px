@@ -265,20 +265,37 @@ texture_data_fill_range(t0 mutable& dest,
 public function ptr{texture_data}
 load_texture_data_raw(string const& fn0)
 {
-  const p = make_ptr{texture_data}();
-  string buf;
-  sdl_load_file(fn0, buf);
-  *p = from_string_compact_pod{texture_data}(buf);
+  // TODO: test
+  mutable p = make_ptr{texture_data}();
+  farray{uchar, 4} whd;
+  if (!sdl_load_file_range(fn0, 0, whd)) {
+    return p;
+  }
+  uint w_l2 = whd[0];
+  uint h_l2 = whd[1];
+  uint d_l2 = whd[2];
+  p->width_l2 = w_l2;
+  p->height_l2 = h_l2;
+  p->depth_l2 = d_l2;
+  size_t sz = static_cast{size_t}(1u) << (w_l2 + h_l2 + d_l2);
+  p->data.resize(sz, m::symbol{texture_data, "mapped_type"}());
+  if (!sdl_load_file_range(fn0, 4, p->data)) {
+    p = make_ptr{texture_data}();
+  }
   return p;
 }
 
 public function bool
 save_texture_data_raw(string const& fn0, texture_data const& td)
 {
-  const buf = to_string_compact_pod(td);
-  return sdl_save_file(fn0, buf);
+  farray{uchar, 4} whd;
+  whd[0] = static_cast{uchar}(td.width_l2);
+  whd[1] = static_cast{uchar}(td.height_l2);
+  whd[2] = static_cast{uchar}(td.depth_l2);
+  return sdl_save_file(fn0, whd, td.data);
 }
 
+/*
 public function varray{ptr{texture_data}}
 load_texture_data_array_raw(string const& fn0)
 {
@@ -286,7 +303,9 @@ load_texture_data_array_raw(string const& fn0)
   sdl_load_file(fn0, buf);
   return from_string_compact_pod{varray{ptr{texture_data}}}(buf);
 }
+*/
 
+/*
 public function bool
 save_texture_data_array_raw(string const& fn0,
   varray{ptr{texture_data}} const& tds)
@@ -294,6 +313,7 @@ save_texture_data_array_raw(string const& fn0,
   const buf = to_string_compact_pod(tds);
   return sdl_save_file(fn0, buf);
 }
+*/
 
 metafunction SDL_Surface_Scoped scoped_nullable{SDL_FreeSurface};
 
