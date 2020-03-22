@@ -34,7 +34,7 @@ public struct drawer_fxaa(shader_config const& glc,
   public ptr{gl_framebuffer} ppfbo = make_ptr{gl_framebuffer}();
   public option{cptr{gl_framebuffer}} srcfbo;
   fxaa_shader_ptr sdr_re = init_fxaa_shader(glc);
-  vbid_t const vbid_fxaa = ds.vbid_pool->intern_create("vbid_generic_filter");
+  vbid_t const vbid_fxaa = ds.vbid_pool->intern("vbid_generic_filter");
   init(glc, ds);
   function void init(shader_config const& glc, drawer_shared const& ds) {
     const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
