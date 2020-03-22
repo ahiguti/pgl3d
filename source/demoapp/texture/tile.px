@@ -1,15 +1,8 @@
 private threaded namespace demoapp::texture::tile;
 public import common -;
-public import meta m;
-public import pgl3d::geometry::funcs -;
-public import pgl3d::geometry::midpoint_displacement -;
+public import pgl3d::exports_threaded *;
 public import glm -;
-private import pgl3d::texture::texture -;
-private import pgl3d::engine::util -;
-private import pgl3d::texture::voxel -;
-private import pgl3d::texture::copy_data -;
-private import pgl3d::texture::editable_voxel -;
-private import pgl3d::sdl::sdlutil -;
+public import meta m;
 
 public function void prepare_texture_data_3d_tmap(bool edit_mode,
   texture_reshaped mutable& tmap, texture_reshaped mutable& tmap_ax,

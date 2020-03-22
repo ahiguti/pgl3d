@@ -3,33 +3,14 @@ public import common -;
 public import exception -;
 public import numeric::fpmath -;
 public import pointer::raw -;
-public import meta m;
-public import glm;
 public import text::positional -;
 public import io::time -;
 public import fundamental::mainloop -;
-public import pgl3d::engine::application -;
-public import pgl3d::engine::mainloop -;
-public import pgl3d::engine::util -;
-public import pgl3d::engine::platform -;
-public import pgl3d::engine::input_control -;
-public import pgl3d::engine::pglconfig -;
-public import pgl3d::engine::nvidia_optimus_switch;
-public import pgl3d::opengl::glvertex -;
-public import pgl3d::texture::texture -;
-public import pgl3d::texture::voxel_surface -;
-public import pgl3d::geometry::funcs -;
-public import pgl3d::drawer::drawer -;
-public import pgl3d::physics::collision_shape -;
-public import pgl3d::physics::collision_voxel -;
-public import pgl3d::physics::dynamics_world -;
-public import pgl3d::sdl::sdlutil -;
-public import pgl3d::geometry::wfobj -;
 public import io::environ;
 public import debug_helper -;
-public import pgl3d::aux::d3axim -;
-public import pgl3d::aux::enumerate_device -; // FIXME
-public import pgl3d::aux::motion_controller -;
+public import pgl3d::exports -;
+public import meta m;
+public import glm;
 
 // public import pgl3d::texture::generator -;
 // public import pgl3d::numeric::interpolation -; // FIXME
