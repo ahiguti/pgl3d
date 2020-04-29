@@ -1,0 +1,201 @@
+private threaded namespace pgl3d::edit_mode::edit_mode_util "use-unsafe";
+public import common -;
+public import meta m;
+public import pgl3d::texture::texture -;
+public import pgl3d::texture::voxel -;
+public import pgl3d::texture::copy_data -;
+public import pgl3d::edit_mode::tiled_texture_edit_view -;
+private import pgl3d::edit_mode::base -;
+private import pgl3d::edit_mode::vecutil -;
+private import pgl3d::edit_mode::procedural -;
+
+private metafunction dbg_conv{f} f;
+
+public valuetype struct tpat_data {
+  public uint scale;
+  public uvec3 coord;
+  public farray{texture_data, 2} data;
+}
+
+public valuetype struct pattern_save_data {
+  public copy_data_type copy_data;
+  public varray{tpat_data} patterns;
+}
+
+public function texel_value
+find_empty_tpat(tiled_texture_edit_view mutable& ttev,
+  uvec3 mutable& find_empty_cur, uint cur_tile_scale_log2,
+  uvec3 blksz)
+{
+  const p0 = find_empty_cur;
+  mutable p = p0;
+  const tsz = 1u << cur_tile_scale_log2;
+  const tpsz = ttev.tpat_size / tsz;
+  while (true) {
+    if (++p.x >= tpsz.x) {
+      p.x = 0;
+      if (++p.y >= tpsz.y) {
+	p.y = 0;
+	if (++p.z >= tpsz.z) {
+	  p.z = 0;
+	}
+      }
+    }
+    if (p == p0) {
+      break;
+    }
+    if (!le_all_uvec3(p + blksz, tpsz)) {
+      continue;
+    }
+    function bool is_space_pat(uvec3 p) {
+      const pbase = p * tsz;
+      bool r = true;
+      for (const z: 0 .. tsz) {
+	for (const y: 0 .. tsz) {
+	  for (const x: 0 .. tsz) {
+	    const cp = make_uvec3(pbase.x + x, pbase.y + y, pbase.z + z);
+	    const cv = ttev.tpat_edit_get(cp, texture_value_index_primary,
+	      0u);
+	    r &= is_space_voxel(cv);
+	  }
+	}
+      }
+      return r;
+    }
+    bool is_space = true;
+    range_foreach(blksz) function void (uint x, uint y, uint z) {
+      is_space &= is_space_pat(p + make_uvec3(x, y, z));
+    }
+    dbg_conv() function void () {
+      debug_log("find_empty_tpat", p, is_space);
+    }
+    if (is_space) {
+      find_empty_cur = p;
+      noderef_param np;
+      np.coord = p;
+      np.scale = cur_tile_scale_log2 - 1u;
+      return encode_noderef_param(np);
+    }
+  }
+  return make_space_voxel();
+}
+
+public function bool
+convert_from_pattern_save_data(pattern_save_data const& psd,
+  copy_data_type mutable& cd, tiled_texture_edit_view mutable& ttev)
+{
+  function {t} uint pat_to_uint(t const& nd) {
+    const& c = nd.coord;
+    uint r = (nd.scale << 24u) | (c.z << 16u) | (c.y << 8u) | (c.x << 0u);
+    return r;
+  }
+  function {t} t uint_to_pat(uint v) {
+    t nd;
+    nd.scale = (v >> 24u) & 0xffu;
+    nd.coord.z = (v >> 16u) & 0xffu;
+    nd.coord.y = (v >>  8u) & 0xffu;
+    nd.coord.x = (v >>  0u) & 0xffu;
+    return nd;
+  }
+  bool err = false;
+  cd = psd.copy_data;
+  uvec3 fecur;
+  uint cur_tile_scale_log2;
+  tree_map{uint, uint} patconv;
+  for (const i, const& pat: psd.patterns) {
+    if (cur_tile_scale_log2 != pat.scale + 1u) {
+      cur_tile_scale_log2 = pat.scale + 1u;
+      fecur = uvec3();
+    }
+    const tv = find_empty_tpat(ttev, fecur, cur_tile_scale_log2,
+      make_uvec3(1u, 1u, 1u));
+    if (!is_node_reference(tv)) {
+      err = true;
+      break;
+    }
+    const nrp = decode_noderef_param(tv);
+    patconv[pat_to_uint(pat)] = pat_to_uint(nrp);
+    const pos = nrp.coord * (1u << (pat.scale + 1u));
+    const sz = make_uvec3(1u, 1u, 1u) * (1u << (pat.scale + 1u));
+    ttev.tpat_edit_paste_range(pos, sz, pat.data[0], pat.data[1], uvec3(),
+      0xffu, merge_mode_opaque());
+  }
+  if (err) {
+    cd = copy_data_type();
+    return false;
+  }
+  mutable& tex_pri = cd.tex[0];
+  range_foreach(cd.copy_size) function void (uint x, uint y, uint z) {
+    const v = tex_pri.get(x, y, z);
+    if (!is_node_reference(v)) {
+      return;
+    }
+    mutable nr = decode_noderef_param(v);
+    if (const p: patconv[pat_to_uint(nr)]) {
+      const cnr = uint_to_pat{noderef_param}(p);
+      nr.coord = cnr.coord;
+      tex_pri.set(x, y, z, encode_noderef_param(nr));
+    } else {
+      debug_log("failed to convert noderef (internal error)");
+      err = true;
+    }
+  }
+  return !err;
+}
+
+public function bool
+convert_to_pattern_save_data(pattern_save_data mutable& psd,
+  copy_data_type const& cd, tiled_texture_edit_view mutable& ttev)
+{
+  psd = pattern_save_data();
+  psd.copy_data = cd;
+  if (!get_tpat_refs(psd.patterns, cd, ttev)) {
+    return false;
+  }
+  return true;
+}
+
+private function bool
+get_tpat_refs(varray{tpat_data} mutable& tpd, copy_data_type const& cd,
+  tiled_texture_edit_view mutable& ttev)
+{
+  /* 現状16倍以外はサポートしていない。それ以外のscaleでのsave/loadは
+   * いったん16倍でおこなうこと。*/
+  const scale_val = 4u - 1u;
+  bool err = false;
+  tree_set{uvec3} refs;
+  const sz = cd.copy_size;
+  for (const z: 0 .. sz.z) {
+    for (const y: 0 .. sz.y) {
+      for (const x: 0 .. sz.x) {
+        const v = cd.tex[0].get(x, y, z);
+        if (!is_node_reference(v)) {
+          continue;
+        }
+        const nrp = decode_noderef_param(v);
+        if (nrp.scale != scale_val) {
+          err = true;
+          debug_log("not supported", nrp);
+          continue;
+        }
+        refs[nrp.coord] = unit();
+      }
+    }
+  }
+  for (const c, const u: refs) {
+    const scale_val_p1 = scale_val + 1u;
+    const scale = 1u << scale_val_p1;
+    const pos = c * scale;
+    const sz = make_uvec3(scale, scale, scale);
+    debug_log("coord", c, "scale", scale, "sz", sz);
+    tpat_data v;
+    v.scale = scale_val;
+    v.coord = c;
+    v.data[0].set_size_l2(scale_val_p1, scale_val_p1, scale_val_p1);
+    v.data[1].set_size_l2(scale_val_p1, scale_val_p1, scale_val_p1);
+    ttev.tpat_edit_copy_range(pos, sz, v.data[0], v.data[1], uvec3());
+    tpd.push_back_move(v);
+  }
+  return !err;
+}
+

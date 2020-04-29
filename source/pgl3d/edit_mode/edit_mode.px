@@ -14,6 +14,7 @@ private import pgl3d::edit_mode::tiled_voxel_texture -;
 private import pgl3d::edit_mode::tiled_texture_edit_view -;
 private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
+private import pgl3d::edit_mode::edit_mode_util -;
 
 private metafunction dbg_editmode{f} no_operation;
 private metafunction dbg_conv{f} f;
@@ -179,22 +180,45 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     const& cmd = toks[0];
     if (cmd == "save" && toks.size() == 2) {
       const fn = save_dir + toks[1];
-      sdl_save_file(fn, to_string(copy_data));
+      {
+        if (!sdl_save_file(fn + ".pat", to_string(copy_data))) {
+          debug_log("failed to save", fn + ".pat");
+          return;
+        }
+      }
+      {
+        pattern_save_data psd;
+        if (!convert_to_pattern_save_data(psd, copy_data, *ttev)) {
+          debug_log("get_pattern_save_data failed");
+          return;
+        }
+        if (!sdl_save_file(fn + ".psd", to_string(psd))) {
+          debug_log("failed to save", fn + ".psd");
+          return;
+        }
+      }
       debug_log("saved", fn);
     } else if (cmd == "load" && toks.size() == 2) {
       string buf;
       const fn = save_dir + toks[1];
-      sdl_load_file(fn, buf);
+      sdl_load_file(fn + ".psd", buf);
+      if (!buf.empty()) {
+        const psd = from_string{pattern_save_data}(buf);
+        convert_from_pattern_save_data(psd, copy_data, *ttev);
+        debug_log("loaded", fn + ".psd");
+        return;
+      }
+      sdl_load_file(fn + ".pat", buf);
       if (!buf.empty()) {
         copy_data = copy_data_type_compat_deserialize(buf);
         mark_set = true;
         copied = true;
         glm::vec3 cursor_move_r;
         move_cursor(0, 0, 0, cursor_move_r);
-        debug_log("loaded", fn);
-      } else {
-        debug_log("failed to load", fn);
+        debug_log("loaded", fn + ".pat");
+        return;
       }
+      debug_log("failed to load", fn);
     } else if (cmd == "scale" && toks.size() == 2) {
       const tsc = from_string{uint}(toks[1]);
       if (tsc < 1u || tsc > 8) {
@@ -798,7 +822,8 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     const tilesz = 1u << cur_tile_scale_log2;
     const patsz = (csz + tilesz - 1u) / tilesz;
       // タイルパターン数
-    const nv = find_empty_tpat(patsz);
+    const nv = find_empty_tpat(*ttev, find_empty_cur, cur_tile_scale_log2,
+      patsz);
     if (!is_node_reference(nv)) {
       debug_log("convert_to_tpat: fialed(nomem)");
       return;
@@ -828,6 +853,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     debug_log("convert_to_tpat: done");
   }
+  /*
   private function texel_value find_empty_tpat(uvec3 blksz)
   {
     const p0 = find_empty_cur;
@@ -882,6 +908,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     return make_space_voxel();
   }
+  */
   private function void shrink_range()
   {
     {

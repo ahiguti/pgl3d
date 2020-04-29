@@ -71,6 +71,7 @@ void main(void)
       }
     }
     oval = oval / float(num_samples);
+    oval = 1.0 - (1.0 - oval) * 0.25; // 強さ調整
     oval = mix(1.0, oval, depval * 0.5);
     vec4 v = <%texture2d/>(sampler_tex, vary_coord);
     v.rgb *= oval;

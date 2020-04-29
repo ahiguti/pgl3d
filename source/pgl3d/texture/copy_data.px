@@ -9,14 +9,14 @@ public import pgl3d::texture::voxel -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
 
-public struct copy_data_type {
+public valuetype struct copy_data_type {
   public metafunction num_tex 2;
   public farray{texture_data, num_tex} tex;
   public uvec3 copy_size; // can be smaller than tex_pri.
   public uvec3 cursor_offset;
 }
 
-public struct copy_data_type_v1 {
+public valuetype struct copy_data_type_v1 {
   public texture_data tex_pri;
   public texture_data tex_sec;
   public uvec3 copy_size; // can be smaller than tex_pri.
