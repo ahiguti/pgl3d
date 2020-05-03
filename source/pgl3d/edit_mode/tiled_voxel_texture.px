@@ -128,6 +128,8 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
   }
   vox.tpat_edit->data_pri.resize(pat_mip_num, texture_reshaped());
   vox.tpat_edit->data_sec.resize(pat_mip_num, texture_reshaped());
+  set_distance(enable_short_circuit, vox.tpat_edit->data_pri[0]);
+    // tpatのmip0の距離を計算しなおす。(最適でないかもしれないので)
   for (const i: 1 .. vox.tpat_edit->data_pri.size()) {
     mutable& tpri = vox.tpat_edit->data_pri;
     mutable& tsec = vox.tpat_edit->data_sec;

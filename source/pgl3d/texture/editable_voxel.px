@@ -199,7 +199,7 @@ texture_edit()
     if (empty_range(sz)) {
       return;
     }
-    debug_log("copy_range", spos, sz, dpos);
+    // debug_log("copy_range", spos, sz, dpos);
     texture_data_copy_range(dest, dpos, data_pri[0], spos, sz);
     texture_data_copy_range(dest_aux, dpos, data_sec[0], spos, sz);
   }
@@ -212,8 +212,8 @@ texture_edit()
     if (empty_range(sz)) {
       return;
     }
-    dbg_paste() function void () {
-      debug_log("editable_voxel paste_range", spos, sz, dpos);
+    dbg_paste() threaded function void () {
+      debug_log("editable_voxel paste_range", spos, sz, dpos, index_mask);
     }
     bool shape_modified = false;
     if ((index_mask & 1u) != 0) {
@@ -227,7 +227,7 @@ texture_edit()
 	src_aux, spos, sz);
     }
     if (shape_modified) {
-      dbg_paste() function void() {
+      dbg_paste() threaded function void() {
         debug_log("editable_voxel paste_range recalc dist", spos, sz, dpos);
       }
       recalc_distance_range(dpos, sz, false);

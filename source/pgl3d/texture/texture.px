@@ -18,6 +18,8 @@ private import sdl2::api_functions -;
 private import sdl2::api_wrappers -;
 private import sdl2::misc -;
 
+public metafunction texture_data array3_pot{varray{uint}, 0};
+
 public tsvaluetype struct {t, b} array3_pot() private
 {
   public metafunction mapped_type m::symbol{t, "mapped_type"};
@@ -230,8 +232,6 @@ array3_pot_swap(t mutable& a, t mutable& b)
   swap(a.height_l2, b.height_l2);
   swap(a.depth_l2, b.depth_l2);
 }
-
-public metafunction texture_data array3_pot{varray{uint}, 0};
 
 public threaded function {t0, t1} void
 texture_data_copy_range(t0 mutable& dest,

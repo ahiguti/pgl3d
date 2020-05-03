@@ -228,6 +228,12 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         cur_tile_scale_log2 = tsc;
         find_empty_cur = uvec3();
       }
+    } else if (cmd == "dedup" && toks.size() == 1) {
+      debug_log("dedup tpat");
+      dedup_tpat(*ttev);
+    } else if (cmd == "unused" && toks.size() == 1) {
+      debug_log("erase_unused_tpat");
+      erase_unused_tpat(*ttev);
     } else {
       debug_log("unrecognized command", toks);
     }
