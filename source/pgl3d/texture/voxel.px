@@ -524,13 +524,13 @@ noderef_param_get_imat3(noderef_param const& p)
   // TODO: 速くする
   imat3 m = make_imat3(1, 0, 0, 0, 1, 0, 0, 0, 1);
   if (p.sgn.x != 0) {
-    m = m * make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1);
+    m = make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1) * m; // -x
   }
   if (p.sgn.y != 0) {
-    m = m * make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1);
+    m = make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1) * m; // -y
   }
   if (p.sgn.z != 0) {
-    m = m * make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1);
+    m = make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1) * m; // -z
   }
   if (p.rot.x != 0) {
     m = make_imat3(0, 1, 0, 1, 0, 0, 0, 0, 1) * m; // swap xy
@@ -541,6 +541,7 @@ noderef_param_get_imat3(noderef_param const& p)
   if (p.rot.z != 0) {
     m = make_imat3(0, 0, 1, 0, 1, 0, 1, 0, 0) * m; // swap zx
   }
+  // debug_log("nrp get imate sgn=", p.sgn, "rot=", p.rot, "m=", m);
   return m;
 }
 
@@ -584,7 +585,7 @@ noderef_param_set_imat3(noderef_param mutable& p, imat3 const& ma)
       set_sgn(1, 3, 8);
     } else { /* m[5] != 0 */
       /* z -> y */
-      p.rot = make_uvec3(1, 1, 0); /* xyz -> yzx */
+      p.rot = make_uvec3(1, 0, 1); /* xyz -> yzx */
       set_sgn(1, 5, 6);
     }
   } else { /* m[2] != 0 */
@@ -595,10 +596,70 @@ noderef_param_set_imat3(noderef_param mutable& p, imat3 const& ma)
       set_sgn(2, 4, 6);
     } else { /* m[3] != 0 */
       /* x -> y */
-      p.rot = make_uvec3(1, 0, 1); /* xyz -> zxy */
+      p.rot = make_uvec3(1, 1, 0); /* xyz -> zxy */
       set_sgn(2, 3, 7);
     }
   }
+  // debug_log("nrp set imate sgn=", p.sgn, "rot=", p.rot, "m=", m);
+}
+
+public threaded function void
+test_noderef_param()
+{
+  for (const xt: 0u .. 3u) {
+    for (const yt: 0u .. 3u) {
+      if (yt == xt) {
+        continue;
+      }
+      for (const zt: 0u .. 3u) {
+        if (zt == xt || zt == yt) {
+          continue;
+        }
+        for (const s: 0u .. 8u) {
+          const xs = ((s >> 0u) & 1u) != 0 ? -1 : 1;
+          const ys = ((s >> 1u) & 1u) != 0 ? -1 : 1;
+          const zs = ((s >> 2u) & 1u) != 0 ? -1 : 1;
+          imat3 ma = make_imat3(0, 0, 0, 0, 0, 0, 0, 0, 0);
+          mutable m = ma.to_slice();
+          if (xt == 0u) { m[0] = xs; }
+          if (xt == 1u) { m[1] = xs; }
+          if (xt == 2u) { m[2] = xs; }
+          if (yt == 0u) { m[3] = ys; }
+          if (yt == 1u) { m[4] = ys; }
+          if (yt == 2u) { m[5] = ys; }
+          if (zt == 0u) { m[6] = zs; }
+          if (zt == 1u) { m[7] = zs; }
+          if (zt == 2u) { m[8] = zs; }
+          // debug_log("test_noderef_param", m);
+          noderef_param np;
+          np.set_imat3(ma);
+          const ma1 = np.get_imat3();
+          if (ma.to_cslice() != ma1.to_cslice()) {
+            debug_log("ERROR test_noderef_param", ma.to_cslice(),
+              ma1.to_cslice(), np);
+          }
+        }
+      }
+    }
+  }
+  /*
+  for (const i: 0u .. 64u) {
+    noderef_param np;
+    np.sgn.x = (i >> 0u) & 1u;
+    np.sgn.y = (i >> 1u) & 1u;
+    np.sgn.z = (i >> 2u) & 1u;
+    np.rot.x = (i >> 3u) & 1u;
+    np.rot.y = (i >> 4u) & 1u;
+    np.rot.z = (i >> 5u) & 1u;
+    const imat3 m = np.get_imat3();
+    noderef_param np1;
+    np1.set_imat3(m);
+    if (np != np1) {
+      debug_log("test_noderef_param", np, np1);
+    }
+  }
+  */
+  debug_log("test_noderef_param done");
 }
 
 public valuetype struct plane_param()

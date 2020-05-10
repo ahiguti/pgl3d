@@ -7,7 +7,7 @@ private import pgl3d::texture::editable_voxel -;
 private import pgl3d::engine::util -;
 private import pgl3d::edit_mode::vecutil -;
 
-private metafunction dbg_rotate{f} no_operation;
+private metafunction dbg_rotate{f} f; // no_operation;
 private metafunction dbg_scale{f} no_operation;
 
 public function {t} void
@@ -200,7 +200,7 @@ rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
 	const va = ssec.get(x, y, z);
 	const p = rotate_offset(m, glm::make_ivec3(si(x), si(y), si(z)), sz);
 	dbg_rotate() function void () {
-	  debug_log("rotate_range", x, y, z, p, vp, va);
+	  debug_log("rotate_texture_range", x, y, z, p, vp, va);
 	}
 	const up = to_uvec3(p);
 	if (lt_all_uvec3(up, sz)) {
@@ -241,8 +241,8 @@ rotate_voxel_value(imat3 const& m, uint v)
   } else if (is_node_reference(v)) {
     mutable rp = decode_noderef_param(v);
     dbg_rotate() function void () {
-      debug_log("old rp:", rp, "mat:", rp.get_imat3().to_cslice());
-      debug_log("rot mat:", m.to_cslice());
+      debug_log("apply mat:", m.to_cslice());
+      debug_log("oldtr mat:", rp.get_imat3().to_cslice(), "rp:", rp);
     }
     const rm = rp.get_imat3();
       // これはシェーダがtmatの座標からtpatの座標に変換する際に適用する変換
@@ -255,7 +255,7 @@ rotate_voxel_value(imat3 const& m, uint v)
       s[2], s[5], s[8]);
     rp.set_imat3(rm * m_trans);
     dbg_rotate() function void () {
-      debug_log("mod rp:", rp, "mat:", rp.get_imat3().to_cslice());
+      debug_log("modtr mat:", rp.get_imat3().to_cslice(), "rp:", rp);
     }
     v = encode_noderef_param(rp);
   } else if (is_space_voxel(v)) {

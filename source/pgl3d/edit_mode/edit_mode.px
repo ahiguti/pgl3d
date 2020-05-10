@@ -234,6 +234,9 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "unused" && toks.size() == 1) {
       debug_log("erase_unused_tpat");
       erase_unused_tpat(*ttev);
+    } else if (cmd == "test_noderef" && toks.size() == 1) {
+      debug_log("test_noderef");
+      test_noderef_param();
     } else {
       debug_log("unrecognized command", toks);
     }
@@ -387,6 +390,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
             dbg_editmode() function void () { debug_log("ssz.y != ssz.z"); }
           }
         } else if (mod_ctrl) {
+          // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
         } else {
           move_cursor(-cdir.x * cursor_spd, 0, 0, cursor_move_r);
@@ -402,6 +406,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
             dbg_editmode() function void () { debug_log("ssz.y != ssz.z"); }
           }
         } else if (mod_ctrl) {
+          // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
         } else {
           move_cursor(cdir.x * cursor_spd, 0, 0, cursor_move_r);
@@ -571,19 +576,17 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   }
   private function void set_mark()
   {
-    mark_set = !mark_set;
-    if (!mark_set) {
-      copied = false;
-    }
     const cur = ttev->get_cursor_pos();
-    ttev->set_cursor_pos(cur.first, cur.first);
-    /*
-    if (mark_set) {
-      message = "edit_mode: set mark";
+    if (copied && cur.first == cur.second) {
+      copied = false;
+      mark_set = true;
     } else {
-      message = "edit_mode: reset mark";
+      mark_set = !mark_set;
+      if (!mark_set) {
+        copied = false;
+      }
+      ttev->set_cursor_pos(cur.first, cur.first);
     }
-    */
   }
   private function void swap_cursor()
   {
@@ -645,13 +648,6 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       ttev->set_tpat_cursor_pos(tppos_sc.first, tppos_sc.first);
     }
     ttev->set_cursor_tpat(tpat);
-    /*
-    if (tpat) {
-      message = "edit_mode: pattern edit mode";
-    } else {
-      message = "edit_mode: map edit mode";
-    }
-    */
   }
   private function void set_param(int v, uint modmask)
   {

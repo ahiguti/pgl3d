@@ -4385,3 +4385,23 @@ tpat込みのセーブとロード
 2. 空きパターンを探して、パターン参照の番号とcopy_dataを置換。
 3. 空きパターンにパターン参照mapからコピー。
 
+---------------------------------------------------------------------------
+tpat 回転と反転
+
+シェーダでは参照すべきテクスチャ座標をsgn,rotの値に応じて変換している。
+適用順序は以下の通り。
+  vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
+    in float maxval)
+  {
+    // rotとsgnを適用してtpat座標を返す
+    if (sgn.x < 0.0) { value.x = maxval - value.x; }
+    if (sgn.y < 0.0) { value.y = maxval - value.y; }
+    if (sgn.z < 0.0) { value.z = maxval - value.z; }
+    if (rot.x != 0.0) { value.xy = value.yx; }
+    if (rot.y != 0.0) { value.yz = value.zy; }
+    if (rot.z != 0.0) { value.zx = value.xz; }
+    return value;
+  }
+pgl3d::texture::voxel::noderef_param_get_imat3()では同じ順序で適用する行列
+をかえさないといけないはずでは？
+
