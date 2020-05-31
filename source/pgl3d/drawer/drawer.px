@@ -14,6 +14,7 @@ private import pgl3d::drawer::font2 -;
 private import pgl3d::drawer::skybox -;
 private import pgl3d::drawer::fxaa -;
 private import pgl3d::drawer::blur -;
+private import pgl3d::drawer::blur_h -;
 private import pgl3d::drawer::ssao -;
 private import pgl3d::drawer::motion_blur -;
 private import pgl3d::drawer::passthrough -;
@@ -35,6 +36,9 @@ public metafunction prepinstf_table
 public metafunction drawer_shared
   pgl3d::drawer::base::drawer_shared;
 
+public metafunction drawer_cond
+  pgl3d::drawer::base::drawer_cond;
+
 public metafunction textures_ptr
   pgl3d::drawer::base::textures_ptr;
 
@@ -54,124 +58,159 @@ public metafunction tiled_voxel_texture_update_mipmap
   pgl3d::edit_mode::tiled_voxel_texture::tiled_voxel_texture_update_mipmap;
 
 public function void
-make_drawstep_triangles_surface(shader_config const& glc,
-  drawer_shared const& ds, ptr{projection_info} const& pj,
+make_drawstep_triangles_surface(ptr{bool} const& cond,
+  shader_config const& glc, drawer_shared const& ds,
+  ptr{projection_info} const& pj,
   string const& smname, int num_shadowmaps,
-  varray{drawer_ptr} mutable& solid_r, 
-  varray{varray{drawer_ptr}} mutable& shadow_r, 
-  varray{drawer_ptr} mutable& zpre_r)
+  varray{drawer_cond} mutable& solid_r, 
+  varray{varray{drawer_cond}} mutable& shadow_r, 
+  varray{drawer_cond} mutable& zpre_r)
 {
-  make_drawer_triangles_stype(glc, ds, pj, 0, 1, smname, num_shadowmaps,
+  make_drawer_triangles_stype(cond, glc, ds, pj, 0, 1, smname, num_shadowmaps,
     solid_r, shadow_r, zpre_r);
 }
 
 public function void
-make_drawstep_raycast(shader_config const& glc,
+make_drawstep_raycast(ptr{bool} const& cond, shader_config const& glc,
   drawer_shared const& ds, ptr{projection_info} const& pj,
   string const& smname, int num_shadowmaps,
-  int num_ssubtypes, varray{drawer_ptr} mutable& solid_r, 
-  varray{varray{drawer_ptr}} mutable& shadow_r, 
-  varray{drawer_ptr} mutable& zpre_r)
+  int num_ssubtypes, varray{drawer_cond} mutable& solid_r, 
+  varray{varray{drawer_cond}} mutable& shadow_r, 
+  varray{drawer_cond} mutable& zpre_r)
 {
-  make_drawer_triangles_stype(glc, ds, pj, 1, num_ssubtypes, smname,
+  make_drawer_triangles_stype(cond, glc, ds, pj, 1, num_ssubtypes, smname,
     num_shadowmaps, solid_r, shadow_r, zpre_r);
 }
 
-public function drawer_ptr
-make_drawstep_setfb(shader_config const& glc, drawer_shared const& ds,
-  ptr{glm::uvec2} const& src_size, ptr{glm::uvec2} const& dst_size,
-  string const& fbname, bool owner_flag, cslice{string} const& col,
-  string const& dep, bool bilinear)
+public function drawer_cond
+make_drawstep_setfb(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{glm::uvec2} const& src_size,
+  ptr{glm::uvec2} const& dst_size, string const& fbname, bool owner_flag,
+  cslice{string} const& col, string const& dep, bool bilinear)
 {
-  return make_ptr{drawer_setfb}(glc, ds, src_size, dst_size, fbname,
-    owner_flag, col, dep, bilinear);
+  return drawer_cond(cond,
+    make_ptr{drawer_setfb}(glc, ds, src_size, dst_size, fbname,
+      owner_flag, col, dep, bilinear));
 }
 
-public function drawer_ptr
-make_drawstep_chgmode(shader_config const& glc, drawer_shared const& ds,
-  string const& mode)
+public function drawer_cond
+make_drawstep_chgmode(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, string const& mode)
 {
-  return make_ptr{drawer_chgmode}(glc, ds, mode);
+  return drawer_cond(cond, make_ptr{drawer_chgmode}(glc, ds, mode));
 }
 
-public function drawer_ptr
-make_drawstep_lineparticle(shader_config const& glc, drawer_shared const& ds,
-  ptr{projection_info} const& proj)
-{ return make_ptr{drawer_lineparticle}(glc, ds, proj); }
+public function drawer_cond
+make_drawstep_lineparticle(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{projection_info} const& proj)
+{ return drawer_cond(cond, make_ptr{drawer_lineparticle}(glc, ds, proj)); }
 
-public function drawer_ptr
-make_drawstep_particle(shader_config const& glc, drawer_shared const& ds,
-  ptr{glm::uvec2} const& psize)
-{ return make_ptr{drawer_particle}(glc, ds, psize); }
+public function drawer_cond
+make_drawstep_particle(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{glm::uvec2} const& psize)
+{ return drawer_cond(cond, make_ptr{drawer_particle}(glc, ds, psize)); }
 
-public function drawer_ptr
-make_drawstep_particle_bb(shader_config const& glc, drawer_shared const& ds,
-  ptr{projection_info} const& proj)
-{ return make_ptr{drawer_particle_bb}(glc, ds, proj); }
+public function drawer_cond
+make_drawstep_particle_bb(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{projection_info} const& proj)
+{ return drawer_cond(cond, make_ptr{drawer_particle_bb}(glc, ds, proj)); }
 
-public function drawer_ptr
-make_drawstep_rect2d(shader_config const& glc, drawer_shared const& ds)
-{ return make_ptr{drawer_rect2d}(glc, ds); }
+public function drawer_cond
+make_drawstep_rect2d(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds)
+{ return drawer_cond(cond, make_ptr{drawer_rect2d}(glc, ds)); }
 
-public function drawer_ptr
-make_drawstep_dbgui(shader_config const& glc, drawer_shared const& ds,
-  string const& sm_name)
-{ return make_ptr{drawer_dbgui}(glc, ds, sm_name); }
+public function drawer_cond
+make_drawstep_dbgui(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, string const& sm_name)
+{ return drawer_cond(cond, make_ptr{drawer_dbgui}(glc, ds, sm_name)); }
 
-public function drawer_ptr
-make_drawstep_dbgui2(shader_config const& glc, drawer_shared const& ds,
-  string const& sm_name)
-{ return make_ptr{drawer_dbgui2}(glc, ds, sm_name); }
+public function drawer_cond
+make_drawstep_dbgui2(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, string const& sm_name)
+{ return drawer_cond(cond, make_ptr{drawer_dbgui2}(glc, ds, sm_name)); }
 
-public function drawer_ptr
-make_drawstep_font2(shader_config const& glc, drawer_shared const& ds,
-  ptr{glm::uvec2} const& psize)
-{ return make_ptr{drawer_font2}(glc, ds, psize); }
+public function drawer_cond
+make_drawstep_font2(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{glm::uvec2} const& psize)
+{ return drawer_cond(cond, make_ptr{drawer_font2}(glc, ds, psize)); }
 
-public function drawer_ptr
-make_drawstep_skybox(shader_config const& glc, drawer_shared const& ds,
-  ptr{projection_info} const& pj)
-{ return make_ptr{drawer_skybox}(glc, ds, pj); }
+public function drawer_cond
+make_drawstep_skybox(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{projection_info} const& pj)
+{ return drawer_cond(cond, make_ptr{drawer_skybox}(glc, ds, pj)); }
 
 public metafunction drawer_fxaa_params pgl3d::drawer::fxaa::drawer_fxaa_params;
 
-public function drawer_ptr
-make_drawstep_fxaa(shader_config const& glc, drawer_shared const& ds,
-  ptr{drawer_fxaa_params} const& params, string const& src_fbname)
-{ return make_ptr{drawer_fxaa}(glc, ds, params, src_fbname); }
+public function drawer_cond
+make_drawstep_fxaa(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{drawer_fxaa_params} const& params,
+  string const& src_fbname)
+{
+  return drawer_cond(cond, make_ptr{drawer_fxaa}(glc, ds, params, src_fbname));
+}
 
 public metafunction drawer_blur_params pgl3d::drawer::blur::drawer_blur_params;
 
-public function drawer_ptr
-make_drawstep_blur(shader_config const& glc, drawer_shared const& ds,
-  ptr{drawer_blur_params} const& params, string const& src_fbname)
-{ return make_ptr{drawer_blur}(glc, ds, params, src_fbname); }
+public function drawer_cond
+make_drawstep_blur(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{drawer_blur_params} const& params,
+  string const& src_fbname)
+{
+  return drawer_cond(cond,
+    make_ptr{drawer_blur}(glc, ds, params, src_fbname));
+}
+
+public metafunction drawer_blur_h_params
+  pgl3d::drawer::blur_h::drawer_blur_h_params;
+
+public function drawer_cond
+make_drawstep_blur_h(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{drawer_blur_h_params} const& params,
+  bool direction_v, string const& src_fbname)
+{
+  return drawer_cond(cond,
+    make_ptr{drawer_blur_h}(glc, ds, params, direction_v, src_fbname));
+}
 
 public metafunction drawer_ssao_params pgl3d::drawer::ssao::drawer_ssao_params;
 
-public function drawer_ptr
-make_drawstep_ssao(shader_config const& glc, drawer_shared const& ds,
-  ptr{drawer_ssao_params} const& params, string const& src_fbname)
-{ return make_ptr{drawer_ssao}(glc, ds, params, src_fbname); }
-
-public function drawer_ptr
-make_drawstep_motion_blur(shader_config const& glc, drawer_shared const& ds,
+public function drawer_cond
+make_drawstep_ssao(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{drawer_ssao_params} const& params,
   string const& src_fbname)
-{ return make_ptr{drawer_motion_blur}(glc, ds, src_fbname); }
+{
+  return drawer_cond(cond,
+    make_ptr{drawer_ssao}(glc, ds, params, src_fbname));
+}
 
-public function drawer_ptr
-make_drawstep_passthrough(shader_config const& glc, drawer_shared const& ds,
-  string const& src_fbname)
-{ return make_ptr{drawer_passthrough}(glc, ds, src_fbname); }
+public function drawer_cond
+make_drawstep_motion_blur(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, string const& src_fbname)
+{
+  return drawer_cond(cond, make_ptr{drawer_motion_blur}(glc, ds, src_fbname));
+}
 
-public function drawer_ptr
-make_drawstep_aberration(shader_config const& glc, drawer_shared const& ds,
-  string const& src_fbname)
-{ return make_ptr{drawer_aberration}(glc, ds, src_fbname); }
+public function drawer_cond
+make_drawstep_passthrough(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, string const& src_fbname)
+{
+  return drawer_cond(cond, make_ptr{drawer_passthrough}(glc, ds, src_fbname));
+}
 
-public function drawer_ptr
-make_drawstep_capture(shader_config const& glc, drawer_shared const& ds,
-  ptr{glm::uvec2} const& psize, ptr{varray{uchar}} const& capt_data0,
-  string const& src_fbname)
-{ return make_ptr{drawer_capture}(glc, ds, psize, capt_data0, src_fbname); }
+public function drawer_cond
+make_drawstep_aberration(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, string const& src_fbname)
+{
+  return drawer_cond(cond, make_ptr{drawer_aberration}(glc, ds, src_fbname));
+}
+
+public function drawer_cond
+make_drawstep_capture(ptr{bool} const& cond, shader_config const& glc,
+  drawer_shared const& ds, ptr{glm::uvec2} const& psize,
+  ptr{varray{uchar}} const& capt_data0, string const& src_fbname)
+{
+  return drawer_cond(cond,
+    make_ptr{drawer_capture}(glc, ds, psize, capt_data0, src_fbname));
+}
 

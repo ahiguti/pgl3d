@@ -25,7 +25,7 @@ public import pgl3d::engine::intern_pool -;
 
 public struct
 pglshader(shader_config const& sconf0, drawer_shared const& ds0,
-  varray{ptr{pgldrawer_export_i}} const& drawsteps0, int width0,
+  varray{drawer_cond} const& drawsteps0, int width0,
   int height0)
 <make_vertices_i>
 {
@@ -35,8 +35,8 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
   public draw_data ddata = draw_data(glc);
     // 頂点データのコピー、インスタンスデータを保持
-  public varray{ptr{drawstep_i}} drawsteps = downcast_drawsteps(drawsteps0);
-  public tree_map{vbid_t, ptr{drawstep_i}} drawsteps_by_vbid =
+  public varray{drawstep_cond} drawsteps = downcast_drawsteps(drawsteps0);
+  public tree_map{vbid_t, drawstep_cond} drawsteps_by_vbid =
     get_drawsteps_by_vbid(ds, drawsteps0);
     // vbidからdrawstepを返す。vbidにinvalidを返すdrawstepは含まない。
     // 同じvbidを返すdrawstepが複数あるときは最初のものだけが入る。
@@ -110,11 +110,11 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
       if (pidftv.size() <= j) {
         pidftv.resize(j + 1, make_tfuncptr{prepare_instance_data_noop}());
       }
-      pidftv[j] = p->get_prepare_instance_data_funcptr();
-      set_vertex_buffer(vbid, p->make_vertex_buffer());
+      pidftv[j] = p.step->get_prepare_instance_data_funcptr();
+      set_vertex_buffer(vbid, p.step->make_vertex_buffer());
     }
     for (const i, const& p: drawsteps) {
-      if (instanceof{drawer_setfb, drawstep_i}(*p)) {
+      if (instanceof{drawer_setfb, drawstep_i}(*p.step)) {
         debug_log("is setfb", i);
         lastpass_index = i;
       }
@@ -131,12 +131,12 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   private function void prepare_builtin_vertex_sets()
   {
     for (const vbid, const& p: drawsteps_by_vbid) {
-      const name = p->builtin_vertex_set_name();
+      const name = p.step->builtin_vertex_set_name();
       if (name.empty()) {
 	continue;
       }
       const vtx = make_vertices(vbid, name);
-      p->make_builtin_vertex_sets(vtx);
+      p.step->make_builtin_vertex_sets(vtx);
       debug_log("make builtin vertex set", name);
     }
   }
@@ -259,7 +259,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
       debug_log("make_vertex_set", dr_name);
       const dp = *drawsteps_by_vbid.equal_range(vbid);
       ptr{vertices} vptr = make_vertices(vbid, shape_name);
-      dgf_filler filler = dp->make_filler(vptr);
+      dgf_filler filler = dp.step->make_filler(vptr);
       vptrs.push_back(vptr);
       fillers.push_back(filler);
     }
@@ -279,7 +279,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   {
     texture_info r;
     for (const vbid, const& p: drawsteps_by_vbid) {
-      r = p->get_texture_info(name);
+      r = p.step->get_texture_info(name);
       if (r.surface_w != 0) {
 	break;
       }
@@ -316,7 +316,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     cam.shadowmap_size = sm_size;
     */
     for (const i, const& pd: drawsteps) {
-      pd->resize_screen(glc);
+      pd.step->resize_screen(glc);
     }
     /*
     update_mvp(glc, cam);
@@ -326,7 +326,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   {
     bool r = true;
     for (const i, const& pd: drawsteps) {
-      bool x = pd->reload_shaders(glc);
+      bool x = pd.step->reload_shaders(glc);
       r = r && x;
     }
     return r;
@@ -369,7 +369,9 @@ pglshader_draw_frame_internal(bool lastpass, pglshader mutable& pgs)
   size_t i = lastpass ? pgs.lastpass_index : 0;
   for (; i < pgs.drawsteps.size(); ++i) {
     const& ds = pgs.drawsteps[i];
-    ds->draw_drawstep(pgs.ddata);
+    if (*ds.cond) {
+      ds.step->draw_drawstep(pgs.ddata);
+    }
   }
   const tick2 = SDL_GetTicks();
   return make_varray{uint}(tick1, tick2);
@@ -377,27 +379,29 @@ pglshader_draw_frame_internal(bool lastpass, pglshader mutable& pgs)
 
 /* private */
 
-private function tree_map{vbid_t, ptr{drawstep_i}}
+private function tree_map{vbid_t, drawstep_cond}
 get_drawsteps_by_vbid(drawer_shared const& ds,
-  varray{ptr{pgldrawer_export_i}} const& drawsteps)
+  varray{drawer_cond} const& drawsteps)
 {
-  tree_map{vbid_t, ptr{drawstep_i}} r;
+  tree_map{vbid_t, drawstep_cond} r;
   for (const i: 0 .. drawsteps.size()) {
-    const p = pointer_downcast{ptr{drawstep_i}}(drawsteps[i]);
-    const vbid = p->get_vbid();
+    const e = drawstep_cond(drawsteps[i].cond, 
+      pointer_downcast{ptr{drawstep_i}}(drawsteps[i].step));
+    const vbid = e.step->get_vbid();
     if (vbid != vbid_invalid()) {
-      r.insert(vbid, p); // 同じvbidがすでにあった場合はinsertされない
+      r.insert(vbid, e); // 同じvbidがすでにあった場合はinsertされない
     }
   }
   return r;
 }
 
-private function varray{ptr{drawstep_i}}
-downcast_drawsteps(varray{ptr{pgldrawer_export_i}} const& drawsteps)
+private function varray{drawstep_cond}
+downcast_drawsteps(varray{drawer_cond} const& drawsteps)
 {
-  varray{ptr{drawstep_i}} r;
+  varray{drawstep_cond} r;
   for (const i, const& e: drawsteps) {
-    r.push_back(pointer_downcast{ptr{drawstep_i}}(e));
+    r.push_back(drawstep_cond(e.cond,
+      pointer_downcast{ptr{drawstep_i}}(e.step)));
   }
   return r;
 }

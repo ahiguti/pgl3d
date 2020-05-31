@@ -12,7 +12,7 @@ public import sdl2::api_types *;
 public interface pgl3d_application {
   public function tptr{pgl3d_scene_shared} get_scene_shared();
     // motion threadとの共有データを作る。一回だけ呼ばれる。
-  public function varray{ptr{pgldrawer_export_i}} on_init_drawstep(
+  public function varray{drawer_cond} on_init_drawstep(
     shader_config const& sconf, drawer_shared const& ds);
   public function void on_build_vertices(make_vertices_i mutable& mvx);
   public function void on_joystick_changed(cslice{joystick_info} const& jinfo);

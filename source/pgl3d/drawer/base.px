@@ -126,6 +126,20 @@ public interface drawstep_i <pgldrawer_export_i>
   public function void draw_drawstep(draw_data mutable& data);
 }
 
+public struct drawstep_cond(
+  ptr{bool} const& cond0, ptr{drawstep_i} const& step0)
+{
+  public ptr{bool} const cond = cond0;
+  public ptr{drawstep_i} const step = step0;
+}
+
+public struct drawer_cond(
+  ptr{bool} const& cond0, ptr{pgldrawer_export_i} const& step0)
+{
+  public ptr{bool} const cond = cond0;
+  public ptr{pgldrawer_export_i} const step = step0;
+}
+
 public metafunction prepare_instance_data_funcptr
   pointer::tfuncptr::tfuncptr_matching_function{prepare_instance_data_noop};
 

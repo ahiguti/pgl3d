@@ -1,0 +1,24 @@
+#!/usr/bin/env pxc
+
+public namespace gaussian;
+import common -;
+import numeric::fpmath -;
+
+const s = 6.0;
+const k = 15;
+const pi = 3.1415926535897932384626;
+varray{double} vs;
+for (int z: -k .. k + 1) {
+  const zd = static_cast{double}(z);
+  const v = exp(-zd * zd / (2.0 * s * s)) / sqrt(2.0 * pi * s * s);
+  vs.push_back(v);
+  println(to_string(v) + ",");
+}
+/*
+for (const x: 0 .. vs.size()) {
+  for (const y: 0 .. vs.size()) {
+    const v = vs[x] * vs[y];
+    println(v);
+  }
+}
+*/

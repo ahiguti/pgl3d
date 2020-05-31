@@ -286,8 +286,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   private shader_config sconf = shader_config(sdlc.gles_flag, sdlc.glmajor,
     sdlc.glminor, sdlc.enable_msaa, conf);
   private drawer_shared ds;
-  private varray{ptr{pgldrawer_export_i}} drawsteps
-    = app->on_init_drawstep(sconf, ds);
+  private varray{drawer_cond} drawsteps = app->on_init_drawstep(sconf, ds);
   private pglshader pgs = pglshader(sconf, ds, drawsteps,
     sdlc.init_w, sdlc.init_h);
   private node_factory nfac;
