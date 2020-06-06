@@ -16,8 +16,6 @@ else
 fi
 
 while true; do
-	# ビルド失敗するとソースが更新されるまで待ち、
-	# 更新されるとリビルドする
 	newer_files=`find ./source -name "*.px" -and -newercc \
 		"$build_target" 2> /dev/null`
 	files_0=`find ./source -name "*.px"`;
@@ -30,6 +28,9 @@ while true; do
 			break
 		fi
 	fi
+        exit 1
+	# ビルド失敗するとソースが更新されるまで待ち、
+	# 更新されるとリビルドする <- やめ
 	while true; do
 		sleep 1
 		files_1=`find ./source -name "*.px"`;

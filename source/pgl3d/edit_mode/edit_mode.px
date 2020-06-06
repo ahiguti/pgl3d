@@ -145,7 +145,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   {
     string r = console_text;
     if (console_text_cursor >= console_text.size()) {
-      r.push_back(0x20 | 0x80);
+      r.push_back(static_cast{uchar}(0x20 | 0x80));
     } else {
       r[console_text_cursor] |= 0x80;
     }

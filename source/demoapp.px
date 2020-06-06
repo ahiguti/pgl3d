@@ -217,7 +217,7 @@ public struct demoapp_application()
     app.dp_blur->option_value = 0.0;
       // static_cast{float}( static_cast{int}(pj.option_value) & 1);
     app.dp_blur_h->option_value = 0.0;
-    app.dp_ssao->option_value = pj.option_value;
+    app.dp_ssao->option_value = 1.0; // pj.option_value;
     *app.cond_blur = (static_cast{int}(pj.option_value) & 1) == 1;
     *app.cond_noblur = !*app.cond_blur;
     // debug_log("blur", *app.cond_blur);

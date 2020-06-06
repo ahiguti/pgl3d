@@ -323,7 +323,7 @@ load_texture_data(string const& fn0)
   debug_log("load_texture_data", fn0);
   const p = make_ptr{texture_data}();
   string fn = fn0;
-  fn.push_back(0);
+  fn.push_back(static_cast{uchar}(0));
   SDL_Surface_Scoped sur0;
   sur0.reset(IMG_Load(fn.to_crawptr().to_ccharptr()));
   if (sur0.get() == rawptr{SDL_Surface}()) {

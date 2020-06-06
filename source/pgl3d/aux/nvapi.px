@@ -4,8 +4,10 @@ public import meta m;
 
 nvapi_init();
 
-private function extern "pgl3d::nvapi_init" void
+private function extern "pgl3d::nvapi_init" int
 nvapi_init();
+public function extern "pgl3d::nvapi_get_init_error" int
+nvapi_get_init_error();
 public function extern "pgl3d::nvapi_physical_gpus" uint
 nvapi_physical_gpus();
 public function extern "pgl3d::nvapi_mem_usage" size_t
@@ -26,25 +28,46 @@ extern "implementation" inline
 
 namespace pgl3d {
 
+int nvapi_init_error = -1;
 bool nvapi_initialized = false;
 unsigned num_physical_gpus = 0;
 NvPhysicalGpuHandle physical_gpu_handle[NVAPI_MAX_LOGICAL_GPUS];
 
-void
+pxcrt::bt_int
+nvapi_get_init_error()
+{
+  return nvapi_init_error;
+}
+
+pxcrt::bt_int
 nvapi_init()
 {
   if (nvapi_initialized) {
-    return;
+    return -1;
   }
   auto r = NvAPI_Initialize();
   nvapi_initialized = (r == NVAPI_OK);
   if (!nvapi_initialized) {
-    return;
+    nvapi_init_error = 1;
+    return 1;
   }
   NvU32 num = 0;
   if (NvAPI_EnumPhysicalGPUs(physical_gpu_handle, &num) == NVAPI_OK) {
     num_physical_gpus = num;
   }
+  /*
+  do {
+    NV_VIO_TOPOLOGY vio_topology{};
+    vio_topology.version = NVVIOTOPOLOGY_VER;
+    auto e = NvAPI_VIO_QueryTopology(&vio_topology);
+    if (e != NVAPI_OK) {
+      nvapi_init_error = e;
+      return 2;
+    }
+  } while (false);
+  */
+  nvapi_init_error = 0;
+  return 0;
 }
 
 pxcrt::bt_uint
@@ -90,9 +113,10 @@ nvapi_gpu_usage(pxcrt::bt_uint idx)
 
 namespace pgl3d {
 
-void
+pxcrt::bt_int
 nvapi_init()
 {
+  return -1;
 }
 
 pxcrt::bt_uint

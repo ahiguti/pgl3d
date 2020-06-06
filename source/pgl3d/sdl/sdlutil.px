@@ -77,7 +77,7 @@ public function {t} bool sdl_load_file_range(string const& fname,
   metafunction tsz pod_sizeof{mapped_type};
   sdl_file fp;
   string fn = fname;
-  fn.push_back(0); // nul-term
+  fn.push_back(static_cast{uchar}(0)); // nul-term
   fp.reset(SDL_RWFromFile(fn.to_crawptr().to_ccharptr(), "r"));
   if (fp.is_null()) {
     return false;
@@ -109,7 +109,7 @@ public function bool sdl_load_file(string const& fname,
 {
   sdl_file fp;
   string fn = fname;
-  fn.push_back(0); // nul-term
+  fn.push_back(static_cast{uchar}(0)); // nul-term
   fp.reset(SDL_RWFromFile(fn.to_crawptr().to_ccharptr(), "r"));
   if (fp.is_null()) {
     return false;
@@ -144,7 +144,7 @@ sdl_save_file(expand(meta::vararg::arg_decls_byref{tlist}))
 {
   sdl_file fp;
   string fn = a0;
-  fn.push_back(0); /* nul-term */
+  fn.push_back(static_cast{uchar}(0)); // nul-term
   fp.reset(SDL_RWFromFile(fn.to_crawptr().to_ccharptr(), "w"));
   if (fp.is_null()) {
     // debug_log("sdl_save_file: SDL_RWFromFile");
@@ -186,7 +186,7 @@ public function bool sdl_save_file_old(string const& fname,
 {
   sdl_file fp;
   string fn = fname;
-  fn.push_back(0); /* nul-term */
+  fn.push_back(static_cast{uchar}(0)); // nul-term
   fp.reset(SDL_RWFromFile(fn.to_crawptr().to_ccharptr(), "w"));
   if (fp.is_null()) {
     // debug_log("sdl_save_file: SDL_RWFromFile");

@@ -261,9 +261,15 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app,
   pgl3d_config const& conf)
 <mainloop_i>
 {
+  int cnt = 0;
   main_ctrl ctrl = main_ctrl(app, conf);
   public function bool step()
   {
+    if (cnt == 0) {
+      debug_log("mainloop step");
+      debug_log("mainloop nvapi:", nvapi_get_init_error());
+    }
+    ++cnt;
     bool r = ctrl.step_internal(ctrl);
     if (r) {
       debug_log("mainloop finished");
