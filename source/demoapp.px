@@ -677,9 +677,11 @@ public threaded struct demoapp_scene(node_factory const& nodefac0,
 	swarm_total, status_message, "T:", timings);
       if (!dss.engine_status) {
 	msg[0] = "RELOADING SHADER FAILED";
-      }
+        msg[1] = "";
+      } else {
       // debug_log("app_status_message", dss.app_status_message); // FIXME
-      msg[1] = dss.app_status_message;
+        msg[1] = dss.app_status_message;
+      }
       scene_control_set_message(sctl, sctl.node_status_message, msg,
 	0, 0,
 	dss.default_font_texture_info.char_w,
@@ -861,6 +863,11 @@ function void handle_event(app_demoapp mutable& app, app_ctrl_i mutable& actrl,
         debug_log("WINDOWEVENT");
       }
     //}
+    if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+      app.scene_shared->engine_status = ev.window.data1 != 0;
+      debug_log("app scene_shared engine status",
+        app.scene_shared->engine_status);
+    }
   } else if (etype == SDL_MOUSEBUTTONDOWN) {
     const& pj = *app.proj_pm;
     const bx = cast_float(ev.button.x) / cast_float(pj.window_width);
@@ -1015,19 +1022,16 @@ function void handle_event(app_demoapp mutable& app, app_ctrl_i mutable& actrl,
     }
     // debug_log("key", static_cast{int}(ev.key.keysym.scancode));
   } else if (etype == SDL_TEXTINPUT) {
-/*
+    /*
     const sli = ev.text.text.to_cslice().to_crawptr().to_cslice(32);
     const len = find_mapped(sli, 0, 0);
     const s = string(sli[0 .. len]);
-*/
+    */
     if (const edit_mode: app.edit_mode.some) {
       edit_mode->on_textinput(sdl_textevent_text(ev.text),
         app.app_status_message);
       // debug_log("ti stmsg", app.app_status_message);
     }
-  } else if (etype == SDL_WINDOWEVENT &&
-    ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-    app.scene_shared->engine_status = ev.window.data1 != 0;
   }
   const& proj = *app.proj_pm;
   const virt_sz = glm::make_uvec2(static_cast{uint}(proj.virt_width),

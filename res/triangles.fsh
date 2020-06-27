@@ -401,7 +401,8 @@ void main(void)
     vec3 texpos = - vary_aabb_or_tconv.xyz * texscale;
       // texpos,texscaleは接線空間からテクスチャ座標への変換のパラメータ
     vec3 fragpos = texpos + vary_position_local * texscale;
-      // テクスチャ座標でのフラグメント位置
+      // テクスチャ座標でのフラグメント位置。カメラからみて直方体に接する
+      // 位置。
     vec3 campos = texpos + vary_camerapos_local * texscale;
       // テクスチャ座標でのカメラ位置
     vec3 aabb_min = vary_aabb_min;
@@ -515,9 +516,9 @@ void main(void)
       // vary_model_matrixは接線空間からワールドへの変換
     frag_distance = length(frag_gpos.xyz - camera_pos);
       // frag_distanceを更新。合っているか？
-    if (frag_distance < epsilon) {
+    if (frag_distance < epsilon * 2) {
       /* カメラが物体にめりこんでいる。0除算がおきないようここでreturnする。
-       * さもないとめりこんだときの描画が乱れる。
+       * さもないとめりこんだときの描画が乱れる。閾値はepsilon * 2くらいか？
        */
       <%fragcolor/> = vec4(0.0);
       <%if><%eq><%update_frag_depth/>1<%/>
@@ -672,8 +673,6 @@ void main(void)
 	    /* abs(i)+abs(j)/4096.0 を加えるとmacosxでおかしい？ */
 	  }
 	}
-// FIXME
-//if (sml < 0.8) { <%fragcolor/> = vec4(0.0, 1.0, 1.0, 1.0); return; }
       <%else/>
 	// no multisample
 	vec3 smpos;
@@ -880,8 +879,8 @@ void main(void)
       // float v1 = clamp(fnoise3(pos / 1024.0) * 4.0, 0.0, 1.0);
       // v1 = pow(v1, 16.0);
       // v = pow(min(v, v1), 16.0);
-      // mate_emit = vec3(v * 0.9, v * 2.0, v * 2.0) * clamp(16.0 - frag_distance * 0.9, 0.0, 0.5);
-
+      // mate_emit = vec3(v * 0.9, v * 2.0, v * 2.0)
+      // * clamp(16.0 - frag_distance * 0.9, 0.0, 0.5);
 
       // nor.x += 0.01 * clamp(pnoise3(pos * 8122.0) * 1.01, 0.01, 1.0);
       // mate_alpha = clamp(pnoise3(pos * 8122.0) * 1.01, 0.01, 1.0);
@@ -910,9 +909,8 @@ void main(void)
     }
     /*
     */
-    if (frag_distance < 0.0001) {
-      // <%fragcolor/> = vec4(1.0); return;
-    }
+    // if (frag_distance < 0.001) { <%fragcolor/> = vec4(1.0); return; }
+    // if (frag_distance > 0.9) { <%fragcolor/> = vec4(0.5); return; }
     // ambient = clamp(float(10 - hit) / 1024.0, 0.0, 0.0125);
     // ambient = clamp(1.0 / (frag_distance * 1024.0), 0.0, 0.0125);
     ambient = clamp(1.0 / (frag_distance * 128.0), 0.0, 0.025);

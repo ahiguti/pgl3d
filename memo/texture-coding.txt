@@ -1,5 +1,11 @@
 
-primary 32bit rgba
+voxelデータはtmapとtpatの二種の3d textureからなる。
+それぞれのtextureはprimaryとsecondaryの二枚からなる。
+primaryとsecondaryはそれぞれ8枚?のmipmapからなる。
+textureの各要素は32bitの値を保持する。
+
+
+primaryの値の意味(32bit rgba)
   value = texelFetch(sampler_voxtmap)
   node_type = int(value.a)
   node_type == 1 (タイル参照)ならtpatを引く
@@ -33,7 +39,7 @@ primary 32bit rgba
     node_type >= 128 + 2のとき未使用
 
 
-secondary 32bit rgba
+secondaryの値の意味(32bit rgba)
   aval := tex_val.a
     aval_me := avalの上位2bit
       aval_me == 0: 非金属

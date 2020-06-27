@@ -664,7 +664,8 @@ int raycast_tilemap(
       // is_tpatのときはその処理はしない(slit1のmiplevel2でテスト)
       // -> FIXME: (11,11,7)でmiplevel autoのときそのようにすると平面切断
       // tpatの影が欠けるので元に戻す。条件詳細に調べる必要あり。
-      // if (hit_flag && (!is_pat || i != hit + 1 || hit < 0 || miplevel == 0)) {
+      // if (hit_flag &&
+      //   (!is_pat || i != hit + 1 || hit < 0 || miplevel == 0)) {
       if (hit_flag) {
         // 接触した
         if (hit >= 0) {

@@ -2,6 +2,10 @@
 ---------------------------------------------------------------------------
 TODO
 
+- tpatへpasteしたときにgridからはみださないように(done)
+- tpatの範囲に対する操作をgridからはみださないように
+- カーソルがグリッド境界をまたいで移動しないように
+
 - https://developer.nvidia.com/opengl-vulkan
 
 - pxc: static link libraryのビルド、リンク

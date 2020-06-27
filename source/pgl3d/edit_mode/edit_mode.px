@@ -30,217 +30,6 @@ private metafunction save_dir "/build/saved/";
 public struct edit_mode(ptr{edit_mode_texture} const& emt0)
 <edit_mode_i>
 {
-  private struct edit_state {
-    public ttev_state ttev;
-    public glm::ivec3 cdir;
-  }
-  private ptr{edit_mode_texture} emt = emt0;
-  private ptr{tiled_texture_edit_view} const ttev =
-    make_ptr{tiled_texture_edit_view}(emt0);
-  private texture_data const tile = emt->vox.voxtile;
-  private projection_info prj;
-  private copy_data_type copy_data;
-  private ptr{rand_generator} rndp = make_rand_generator(123u);
-  private ptr{rand_generator} rndp_saved = rndp;
-  private int gen_test_param = 0;
-  private glm::ivec3 cdir = glm::make_ivec3(1, 1, 1);
-  private edit_params_mode_t edit_params_mode;
-  private color_param edit_color_param;
-  private plane_param edit_plane_param;
-  private sphere_param edit_sphere_param;
-  private bool mark_set;
-  private bool copied;
-  private glm::uvec3 find_empty_cur; // 空のタイルを探すのに使う
-  private string message;
-  private SDL_Scancode prev_key; // 同じキーを繰り返したかどうか判定するのに使う
-  private uint prev_modmask;
-  private uint prev_key_repeat;
-  private bool console_mode;
-  private string console_text;
-  private size_t console_text_cursor;
-  private uint cur_tile_scale_log2 = 4;
-  init();
-  private function void init()
-  {
-    dbg_editmode() function void () {
-      debug_log("edit_mode", "voxtmap",
-        emt->vox.tmap_edit->data_pri[0].get_size_uvec3());
-    }
-    string buf;
-    {
-      sdl_load_file("/build/edit_selection.ser", buf);
-      if (!buf.empty()) {
-        copy_data = copy_data_type_compat_deserialize(buf);
-      }
-    }
-    {
-      edit_state est;
-      sdl_load_file("/build/edit_state.raw", buf);
-      if (!buf.empty()) {
-        est = from_string_compact_pod{edit_state}(buf);
-        ttev->set_state(est.ttev);
-        cdir = est.cdir;
-      }
-    }
-    update_cursor_color();
-  }
-  private function void save_state()
-  {
-    dbg_save() function void () { debug_log("edit_mode: save"); }
-    edit_state est;
-    est.ttev = ttev->get_state();
-    est.cdir = cdir;
-    sdl_save_file("/build/edit_state.raw", to_string_compact_pod(est));
-    const tsz = emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
-    const sz = map{uvec3, integral_log2{uint}}(tsz);
-    {
-      string fn = "/build/edit_2_" + to_string(sz.x) + "_"
-        + to_string(sz.y) + "_" + to_string(sz.z) + ".raw";
-      sdl_save_file(fn, to_string_compact_pod(emt->vox));
-    }
-    {
-      string fn = "/build/edit_selection.ser";
-      sdl_save_file(fn, to_string(copy_data));
-    }
-    {
-      texture_edit const& tpat = *emt->vox.tpat_edit;
-      string fn = "/build/edit_common_tpat.raw";
-      sdl_save_file(fn, to_string_compact_pod(tpat));
-    }
-    {
-      texture_reshaped const& tmpri = emt->vox.tmap_edit->data_pri[0];
-      texture_reshaped tmpri_cpy;
-      tmpri_cpy.set_size_l2(6u, 6u, 6u);
-      texture_data_copy_range(tmpri_cpy, uvec3(), tmpri, uvec3(),
-        make_uvec3(64u, 64u, 64u));
-      sdl_save_file("/build/edit_common_tmpri.raw",
-        to_string_compact_pod(tmpri_cpy));
-      texture_reshaped const& tmsec = emt->vox.tmap_edit->data_sec[0];
-      texture_reshaped tmsec_cpy;
-      tmsec_cpy.set_size_l2(6u, 6u, 6u);
-      texture_data_copy_range(tmsec_cpy, uvec3(), tmsec, uvec3(),
-        make_uvec3(64u, 64u, 64u));
-      sdl_save_file("/build/edit_common_tmsec.raw",
-        to_string_compact_pod(tmsec_cpy));
-    }
-    message = "edit_mode: saved";
-  }
-  public function void set_camera_angle(glm::quat const& angle)
-  {
-  }
-  private function void update_cursor_color()
-  {
-    uint c =
-      edit_params_mode == edit_params_mode_none ? 0xffffffffu :
-      edit_params_mode == edit_params_mode_color ? 0xffff0000u :
-      edit_params_mode == edit_params_mode_plane ? 0xffffff00u :
-      edit_params_mode == edit_params_mode_sphere_1 ? 0xffff00ffu :
-      0xff0000ffu;
-    ttev->set_cursor_color(c, 0xffc08040);
-    dbg_editmode() function void () {
-      debug_log("update_cursor_color", c);
-    }
-  }
-  public function string get_console_text() const
-  {
-    string r = console_text;
-    if (console_text_cursor >= console_text.size()) {
-      r.push_back(static_cast{uchar}(0x20 | 0x80));
-    } else {
-      r[console_text_cursor] |= 0x80;
-    }
-    return "> " + r;
-  }
-  public function void on_textinput(string const& s, string mutable& msg_r)
-  {
-    if (console_text_cursor >= console_text.size()) {
-      console_text += s;
-    } else {
-      const r = console_text[0 .. console_text_cursor] + s
-        + console_text[console_text_cursor .. console_text.size()];
-      console_text = r;
-    }
-    console_text_cursor += s.size();
-    dbg_editmode() function void () {
-      debug_log("on_textinput: ", s, console_text);
-    }
-    msg_r = get_console_text();
-  }
-  public function bool is_textinput_mode() const
-  {
-    return console_mode;
-  }
-  private function void execute_console_command()
-  {
-    varray{string} toks;
-    string_split{' '}(console_text, toks);
-    if (toks.empty()) {
-      return;
-    }
-    const& cmd = toks[0];
-    if (cmd == "save" && toks.size() == 2) {
-      const fn = save_dir + toks[1];
-      {
-        if (!sdl_save_file(fn + ".pat", to_string(copy_data))) {
-          debug_log("failed to save", fn + ".pat");
-          return;
-        }
-      }
-      {
-        pattern_save_data psd;
-        if (!convert_to_pattern_save_data(psd, copy_data, *ttev)) {
-          debug_log("get_pattern_save_data failed");
-          return;
-        }
-        if (!sdl_save_file(fn + ".psd", to_string(psd))) {
-          debug_log("failed to save", fn + ".psd");
-          return;
-        }
-      }
-      debug_log("saved", fn);
-    } else if (cmd == "load" && toks.size() == 2) {
-      string buf;
-      const fn = save_dir + toks[1];
-      sdl_load_file(fn + ".psd", buf);
-      if (!buf.empty()) {
-        const psd = from_string{pattern_save_data}(buf);
-        convert_from_pattern_save_data(psd, copy_data, *ttev);
-        debug_log("loaded", fn + ".psd");
-        return;
-      }
-      sdl_load_file(fn + ".pat", buf);
-      if (!buf.empty()) {
-        copy_data = copy_data_type_compat_deserialize(buf);
-        mark_set = true;
-        copied = true;
-        glm::vec3 cursor_move_r;
-        move_cursor(0, 0, 0, cursor_move_r);
-        debug_log("loaded", fn + ".pat");
-        return;
-      }
-      debug_log("failed to load", fn);
-    } else if (cmd == "scale" && toks.size() == 2) {
-      const tsc = from_string{uint}(toks[1]);
-      if (tsc < 1u || tsc > 8) {
-        debug_log("invalid param:", toks[1]);
-      } else {
-        debug_log("tile scale:", tsc);
-        cur_tile_scale_log2 = tsc;
-        find_empty_cur = uvec3();
-      }
-    } else if (cmd == "dedup" && toks.size() == 1) {
-      debug_log("dedup tpat");
-      dedup_tpat(*ttev);
-    } else if (cmd == "unused" && toks.size() == 1) {
-      debug_log("erase_unused_tpat");
-      erase_unused_tpat(*ttev);
-    } else if (cmd == "test_noderef" && toks.size() == 1) {
-      debug_log("test_noderef");
-      test_noderef_param();
-    } else {
-      debug_log("unrecognized command", toks);
-    }
-  }
   public function void on_key_pressed(int scancode, uint modmask,
     glm::vec3 mutable& cursor_move_r, string mutable& msg_r)
   {
@@ -571,6 +360,228 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     msg_r = message;
   }
+  public function void on_textinput(string const& s, string mutable& msg_r)
+  {
+    if (console_text_cursor >= console_text.size()) {
+      console_text += s;
+    } else {
+      const r = console_text[0 .. console_text_cursor] + s
+        + console_text[console_text_cursor .. console_text.size()];
+      console_text = r;
+    }
+    console_text_cursor += s.size();
+    dbg_editmode() function void () {
+      debug_log("on_textinput: ", s, console_text);
+    }
+    msg_r = get_console_text();
+  }
+  public function void set_camera_angle(glm::quat const& angle)
+  {
+  }
+  public function void on_frame(projection_info const& prj0)
+  {
+    prj = prj0;
+    ttev->cursor_flick();
+  }
+  public function void modify_tmap(uvec3 const& pos, uint value)
+  {
+    ttev->tmap_edit_set(pos, texture_value_index_primary, value);
+  }
+  public function bool is_textinput_mode() const
+  {
+    return console_mode;
+  }
+  /////////////////////////////////////////////////////////////////////
+  private struct edit_state {
+    public ttev_state ttev;
+    public glm::ivec3 cdir; // 各軸のカーソル移動を変換する
+  }
+  private ptr{edit_mode_texture} emt = emt0;
+  private ptr{tiled_texture_edit_view} const ttev =
+    make_ptr{tiled_texture_edit_view}(emt0);
+  private texture_data const tile = emt->vox.voxtile;
+  private projection_info prj;
+  private copy_data_type copy_data;
+  private ptr{rand_generator} rndp = make_rand_generator(123u);
+  private ptr{rand_generator} rndp_saved = rndp;
+  private int gen_test_param = 0;
+  private glm::ivec3 cdir = glm::make_ivec3(1, 1, 1);
+  private edit_params_mode_t edit_params_mode;
+  private color_param edit_color_param;
+  private plane_param edit_plane_param;
+  private sphere_param edit_sphere_param;
+  private bool mark_set;
+  private bool copied;
+  private glm::uvec3 find_empty_cur; // 空のタイルを探すのに使う
+  private string message;
+  private SDL_Scancode prev_key; // 同じキーを繰り返したかどうか判定するのに使う
+  private uint prev_modmask;
+  private uint prev_key_repeat;
+  private bool console_mode;
+  private string console_text;
+  private size_t console_text_cursor;
+  private uint cur_tile_scale_log2 = 4;
+  init();
+  /////////////////////////////////////////////////////////////////////
+  private function void init()
+  {
+    dbg_editmode() function void () {
+      debug_log("edit_mode", "voxtmap",
+        emt->vox.tmap_edit->data_pri[0].get_size_uvec3());
+    }
+    string buf;
+    {
+      sdl_load_file("/build/edit_selection.ser", buf);
+      if (!buf.empty()) {
+        copy_data = copy_data_type_compat_deserialize(buf);
+      }
+    }
+    {
+      edit_state est;
+      sdl_load_file("/build/edit_state.raw", buf);
+      if (!buf.empty()) {
+        est = from_string_compact_pod{edit_state}(buf);
+        ttev->set_state(est.ttev);
+        cdir = est.cdir;
+      }
+    }
+    update_cursor_color();
+  }
+  private function void save_state()
+  {
+    dbg_save() function void () { debug_log("edit_mode: save"); }
+    edit_state est;
+    est.ttev = ttev->get_state();
+    est.cdir = cdir;
+    sdl_save_file("/build/edit_state.raw", to_string_compact_pod(est));
+    const tsz = emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
+    const sz = map{uvec3, integral_log2{uint}}(tsz);
+    {
+      string fn = "/build/edit_2_" + to_string(sz.x) + "_"
+        + to_string(sz.y) + "_" + to_string(sz.z) + ".raw";
+      sdl_save_file(fn, to_string_compact_pod(emt->vox));
+    }
+    {
+      string fn = "/build/edit_selection.ser";
+      sdl_save_file(fn, to_string(copy_data));
+    }
+    {
+      texture_edit const& tpat = *emt->vox.tpat_edit;
+      string fn = "/build/edit_common_tpat.raw";
+      sdl_save_file(fn, to_string_compact_pod(tpat));
+    }
+    {
+      texture_reshaped const& tmpri = emt->vox.tmap_edit->data_pri[0];
+      texture_reshaped tmpri_cpy;
+      tmpri_cpy.set_size_l2(6u, 6u, 6u);
+      texture_data_copy_range(tmpri_cpy, uvec3(), tmpri, uvec3(),
+        make_uvec3(64u, 64u, 64u));
+      sdl_save_file("/build/edit_common_tmpri.raw",
+        to_string_compact_pod(tmpri_cpy));
+      texture_reshaped const& tmsec = emt->vox.tmap_edit->data_sec[0];
+      texture_reshaped tmsec_cpy;
+      tmsec_cpy.set_size_l2(6u, 6u, 6u);
+      texture_data_copy_range(tmsec_cpy, uvec3(), tmsec, uvec3(),
+        make_uvec3(64u, 64u, 64u));
+      sdl_save_file("/build/edit_common_tmsec.raw",
+        to_string_compact_pod(tmsec_cpy));
+    }
+    message = "edit_mode: saved";
+  }
+  private function string get_console_text() const
+  {
+    string r = console_text;
+    if (console_text_cursor >= console_text.size()) {
+      r.push_back(static_cast{uchar}(0x20 | 0x80));
+    } else {
+      r[console_text_cursor] |= 0x80;
+    }
+    return "> " + r;
+  }
+  private function void update_cursor_color()
+  {
+    uint c =
+      edit_params_mode == edit_params_mode_none ? 0xffffffffu :
+      edit_params_mode == edit_params_mode_color ? 0xffff0000u :
+      edit_params_mode == edit_params_mode_plane ? 0xffffff00u :
+      edit_params_mode == edit_params_mode_sphere_1 ? 0xffff00ffu :
+      0xff0000ffu;
+    ttev->set_cursor_color(c, 0xffc08040);
+    dbg_editmode() function void () {
+      debug_log("update_cursor_color", c);
+    }
+  }
+  private function void execute_console_command()
+  {
+    varray{string} toks;
+    string_split{' '}(console_text, toks);
+    if (toks.empty()) {
+      return;
+    }
+    const& cmd = toks[0];
+    if (cmd == "save" && toks.size() == 2) {
+      const fn = save_dir + toks[1];
+      {
+        if (!sdl_save_file(fn + ".pat", to_string(copy_data))) {
+          debug_log("failed to save", fn + ".pat");
+          return;
+        }
+      }
+      {
+        pattern_save_data psd;
+        if (!convert_to_pattern_save_data(psd, copy_data, *ttev)) {
+          debug_log("get_pattern_save_data failed");
+          return;
+        }
+        if (!sdl_save_file(fn + ".psd", to_string(psd))) {
+          debug_log("failed to save", fn + ".psd");
+          return;
+        }
+      }
+      debug_log("saved", fn);
+    } else if (cmd == "load" && toks.size() == 2) {
+      string buf;
+      const fn = save_dir + toks[1];
+      sdl_load_file(fn + ".psd", buf);
+      if (!buf.empty()) {
+        const psd = from_string{pattern_save_data}(buf);
+        convert_from_pattern_save_data(psd, copy_data, *ttev);
+        debug_log("loaded", fn + ".psd");
+        return;
+      }
+      sdl_load_file(fn + ".pat", buf);
+      if (!buf.empty()) {
+        copy_data = copy_data_type_compat_deserialize(buf);
+        mark_set = true;
+        copied = true;
+        glm::vec3 cursor_move_r;
+        move_cursor(0, 0, 0, cursor_move_r);
+        debug_log("loaded", fn + ".pat");
+        return;
+      }
+      debug_log("failed to load", fn);
+    } else if (cmd == "scale" && toks.size() == 2) {
+      const tsc = from_string{uint}(toks[1]);
+      if (tsc < 1u || tsc > 8) {
+        debug_log("invalid param:", toks[1]);
+      } else {
+        debug_log("tile scale:", tsc);
+        cur_tile_scale_log2 = tsc;
+        find_empty_cur = uvec3();
+      }
+    } else if (cmd == "dedup" && toks.size() == 1) {
+      debug_log("dedup tpat");
+      dedup_tpat(*ttev);
+    } else if (cmd == "unused" && toks.size() == 1) {
+      debug_log("erase_unused_tpat");
+      erase_unused_tpat(*ttev);
+    } else if (cmd == "test_noderef" && toks.size() == 1) {
+      debug_log("test_noderef");
+      test_noderef_param();
+    } else {
+      debug_log("unrecognized command", toks);
+    }
+  }
   private function void select_contiguous()
   {
   }
@@ -642,9 +653,9 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     if (tpat && !get_cursor_tpat()) {
       const tppos_sc = cur_tpat_base();
       if (tppos_sc.second == 0u) {
-        return; // 何もしない
+        return; // カーソル位置がnoderefでないので何もしない
       }
-      cur_tile_scale_log2 = tppos_sc.second;
+      cur_tile_scale_log2 = tppos_sc.second; // 1以上の値。4のとき16倍.
       ttev->set_tpat_cursor_pos(tppos_sc.first, tppos_sc.first);
     }
     ttev->set_cursor_tpat(tpat);
@@ -781,19 +792,55 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       copy_data.tex[1], uvec3());
     mark_set = true;
     copied = true;
-    // message = "edit_mode: copy value " + to_string(copy_data.copy_size);
+    message = "edit_mode: copy value " + to_string(copy_data.copy_size);
+  }
+  private function ivec3 clamp_grid(ivec3 cpos, ivec3 pos)
+  {
+    function void clamp_one(int a, int mutable& b)
+    {
+      const sc = cur_tile_scale_log2;
+      const am = a >> sc;
+      const bm = b >> sc;
+      if (bm < am) {
+        b = am << sc;
+      } else if (bm > am) {
+        b = ((am + 1u) << sc) - 1u;
+      }
+    }
+    clamp_one(cpos.x, pos.x);
+    clamp_one(cpos.y, pos.y);
+    clamp_one(cpos.z, pos.z);
+    return pos;
   }
   private function void paste_value(uint index_mask, merge_mode const& mmod)
   {
+    // 現在の選択領域の内容をカーソル位置にpasteする。カーソルがtpatにいる
+    // ときは、カーソルと同一のgridの範囲にのみ書き込まれる。
     const cpos = ttev->get_cursor_pos().first;
     // ペースト先の領域を計算
     const mi_0 = to_ivec3(cpos) - to_ivec3(copy_data.cursor_offset);
     const mx_0 = mi_0 + to_ivec3(copy_data.copy_size) - make_ivec3(1, 1, 1);
-    // ペースト先の領域をclamp
-    const mi = ttev->clamp_cursor_pos(mi_0);
-    const mx = ttev->clamp_cursor_pos(mx_0);
+    mutable mi = mi_0;
+    mutable mx = mx_0;
+    if (get_cursor_tpat()) {
+      if (cur_tile_scale_log2 == 0) {
+        debug_log("paste_value: no scale set");
+        return;
+      }
+      // ペースト先の領域をグリッド境界を超えないようにclamp
+      mi = clamp_grid(to_ivec3(cpos), mi_0);
+      mx = clamp_grid(to_ivec3(cpos), mx_0);
+      if (mi != mi_0 || mx != mx_0) {
+        debug_log("paste_value: clamp_grid mi", mi_0, mi);
+        debug_log("paste_value: clamp_grid mx", mx_0, mx);
+      }
+    }
+    // ペースト先の領域をテクスチャ境界でclamp
+    mi = ttev->clamp_cursor_pos(mi);
+    mx = ttev->clamp_cursor_pos(mx);
     const sz = mx - mi + make_ivec3(1, 1, 1);
-    // ペースト元の領域を計算
+    // ペースト元の領域を計算。ペースト先領域をclampしたのに合わせてオフセット
+    // を付ける。
     const cd_mi = mi - mi_0;
     /*
     debug_log("paste_value: cpos,mi_0,mx_0,mi,mx,sz,cd_mi", cpos,
@@ -809,6 +856,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   }
   private function void convert_to_tpat()
   {
+    // 現在の選択領域を内容を持つようなタイルを新しく作る。
     dbg_conv() function void () { debug_log("convert_to_tpat"); }
     if (get_cursor_tpat()) {
       debug_log("convert_to_tpat: failed(cursor tpat)");
@@ -855,64 +903,9 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     debug_log("convert_to_tpat: done");
   }
-  /*
-  private function texel_value find_empty_tpat(uvec3 blksz)
-  {
-    const p0 = find_empty_cur;
-    mutable p = p0;
-    const tsz = 1u << cur_tile_scale_log2;
-    const tpsz = ttev->tpat_size / tsz;
-    while (true) {
-      if (++p.x >= tpsz.x) {
-        p.x = 0;
-        if (++p.y >= tpsz.y) {
-          p.y = 0;
-          if (++p.z >= tpsz.z) {
-            p.z = 0;
-          }
-        }
-      }
-      if (p == p0) {
-        break;
-      }
-      if (!le_all_uvec3(p + blksz, tpsz)) {
-        continue;
-      }
-      function bool is_space_pat(uvec3 p) {
-        const pbase = p * tsz;
-        bool r = true;
-        for (const z: 0 .. tsz) {
-          for (const y: 0 .. tsz) {
-            for (const x: 0 .. tsz) {
-              const cp = make_uvec3(pbase.x + x, pbase.y + y, pbase.z + z);
-              const cv = ttev->tpat_edit_get(cp, texture_value_index_primary,
-                0u);
-              r &= is_space_voxel(cv);
-            }
-          }
-        }
-        return r;
-      }
-      bool is_space = true;
-      range_foreach(blksz) function void (uint x, uint y, uint z) {
-        is_space &= is_space_pat(p + make_uvec3(x, y, z));
-      }
-      dbg_conv() function void () {
-        debug_log("find_empty_tpat", p, is_space);
-      }
-      if (is_space) {
-        find_empty_cur = p;
-        noderef_param np;
-        np.coord = p;
-        np.scale = cur_tile_scale_log2 - 1u;
-        return encode_noderef_param(np);
-      }
-    }
-    return make_space_voxel();
-  }
-  */
   private function void shrink_range()
   {
+    // 選択領域を各辺半分に縮小する
     {
       // 選択領域のサイズが2の倍数でなかったときの処理
       const cp = ttev->get_cursor_pos();
@@ -1248,7 +1241,8 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   }
   private function pair{uvec3, uint} cur_tpat_base() const
   {
-    // tpmapカーソルにあるnoderefのパターン座標を返す
+    // firstとしてtpmapカーソルにあるnoderefのパターン座標を返す
+    // secondとしてnoderefのscale値(1基準)
     const v = get_cur_tmap(texture_value_index_primary, 0u);
     debug_log("cur_tpat_base:", to_hexstring(v));
     if (!is_node_reference(v)) {
@@ -1256,7 +1250,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     const param = decode_noderef_param(v);
     const p = param.coord;
-    debug_log("cur_tpat_base:", p);
+    debug_log("cur_tpat_base:", p, param.scale);
     const scale = 2u << param.scale;
     const psc = p * scale;
     return pair(psc, param.scale + 1u);
@@ -1331,15 +1325,6 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   private function uvec3 cur_tpat_index() const
   {
     return ttev->get_tpat_cursor_pos().first;
-  }
-  public function void on_frame(projection_info const& prj0)
-  {
-    prj = prj0;
-    ttev->cursor_flick();
-  }
-  public function void modify_tmap(uvec3 const& pos, uint value)
-  {
-    ttev->tmap_edit_set(pos, texture_value_index_primary, value);
   }
   private function void gen_test()
   {
