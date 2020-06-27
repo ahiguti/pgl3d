@@ -6,11 +6,13 @@
 
 cd `dirname $0`
 
-if [ "`uname | cut -d '_' -f 1`" == "CYGWIN" ]; then
+is_cygwin=`uname | cut -d '_' -f 1`
+is_wsl=`uname -r | grep microsoft`
+
+if [ "$is_cygwin" == "CYGWIN" -o "$is_wsl" != "" ]; then
 	build_script=./windows/release_build.sh
 	build_target=./windows/x64/Release/pgl3d_demoapp.exe
 else
-	#build_script=./unix/debug_build.sh
 	build_script=./unix/release_build.sh
 	build_target=./source/demoapp.px.exe
 fi
