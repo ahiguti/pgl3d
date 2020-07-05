@@ -478,9 +478,10 @@ int raycast_tilemap(
   vec4 hit_value = vec4(0.0);
   int node_type = 0;
   int i;
-  int imax = 64;
+  int imax = 64; // 128;
     // raycastループ回数の上限。長い影が差すなどの場合、大きくしないと
     // 上限に到達してしまうことがあるが、見た目上大差ないかぎり問題にしない。
+    // テクスチャが大きいと128くらいにする必要があるか。
   if (debug_scale) {
     imax = 512;
   }

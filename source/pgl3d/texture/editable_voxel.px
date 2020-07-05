@@ -95,8 +95,7 @@ texture_edit()
    * raycast用の「埋め込み距離」を再計算する。*/
   public texture_data_mip data_pri;
   public texture_data_mip data_sec;
-  public texture_data grid;
-  // public uvec3 data_size;
+  public texture_data grid_dummy; // もう使っていないはず
   private modified_range modified;
   public function pair{uvec3, uvec3} get_modified_merged(bool reset_flag)
   {
@@ -106,6 +105,43 @@ texture_edit()
   get_modified_array(bool reset_flag)
   {
     return modified.get_modified_array(reset_flag);
+  }
+  public function void resize(uvec3 szl2, bool enable_short_circuit)
+  {
+    debug_log("texture_edit resize: ", szl2, data_pri[0].get_size_l2_uvec3());
+    texture_data_mip pri;
+    texture_data_mip sec;
+    const nmip = data_pri.size();
+    pri.resize(nmip, texture_reshaped());
+    sec.resize(nmip, texture_reshaped());
+    mutable s = szl2;
+    for (const i: 0 .. nmip) {
+      pri[i].set_size_l2(s.x, s.y, s.z);
+      sec[i].set_size_l2(s.x, s.y, s.z);
+      if (s.x > 0u) { s.x -= 1u; }
+      if (s.y > 0u) { s.y -= 1u; }
+      if (s.z > 0u) { s.z -= 1u; }
+    }
+    debug_log("texture_edit resize: copy");
+    mutable& src_0 = data_pri[0];
+    mutable& tgt_0 = pri[0];
+    mutable& src_1 = data_sec[0];
+    mutable& tgt_1 = sec[0];
+    const msz = map{uvec3, min}(src_0.get_size_uvec3(),
+      tgt_0.get_size_uvec3());
+    range_foreach(msz) threaded function void (uint x, uint y, uint z) {
+      tgt_0.set(x, y, z, src_0.get(x, y, z));
+      tgt_1.set(x, y, z, src_1.get(x, y, z));
+    }
+    data_pri.swap(pri);
+    data_sec.swap(sec);
+    /*
+    src_0.swap(tgt_0);
+    src_1.swap(tgt_1);
+    */
+    debug_log("texture_edit resize: recalc distance");
+    recalc_distance_range(enable_short_circuit, uvec3(),
+      data_pri[0].get_size_uvec3(), false);
   }
   public function uint get_mip(uvec3 pos, texture_value_index_e idx,
     size_t miplevel)
@@ -172,7 +208,7 @@ texture_edit()
       data_sec[0].set(pos.x, pos.y, pos.z, v);
     }
     if (idx == texture_value_index_primary) {
-      recalc_distance_range(pos, make_uvec3(1, 1, 1), v == 0);
+      recalc_distance_range(true, pos, make_uvec3(1, 1, 1), v == 0);
     }
   }
   public function void fill_range(uvec3 const& dpos, uvec3 const& sz,
@@ -189,7 +225,7 @@ texture_edit()
     dbg_dist() function void () {
       debug_log("fill_range", dpos, sz);
     }
-    recalc_distance_range(dpos, sz, v_pri == 0u);
+    recalc_distance_range(true, dpos, sz, v_pri == 0u);
   }
   public function {t} void copy_range(uvec3 const& spos, uvec3 sz,
     t mutable& dest, t mutable& dest_aux, uvec3 const& dpos) const
@@ -230,14 +266,14 @@ texture_edit()
       dbg_paste() threaded function void() {
         debug_log("editable_voxel paste_range recalc dist", spos, sz, dpos);
       }
-      recalc_distance_range(dpos, sz, false);
+      recalc_distance_range(true, dpos, sz, false);
     } else {
       modified.set_modified(to_ivec3(dpos),
 	to_ivec3(dpos + sz - make_uvec3(1, 1, 1)));
     }
   }
-  private function void recalc_distance_range(uvec3 const& pos,
-    uvec3 const& sz, bool clear_flag)
+  private function void recalc_distance_range(bool enable_short_circuit,
+    uvec3 const& pos, uvec3 const& sz, bool clear_flag)
   {
     /* 領域の更新に伴う距離の更新をおこなう。領域が全て空白になったと
      * わかっている場合はclear_flagを真にしてよい。*/
@@ -251,10 +287,12 @@ texture_edit()
     }
     if (clear_flag) {
       /* 遅すぎるので更新しない。うまい実装があるか? */
-      /* update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag); */
+      /* update_distance(enable_short_circuit, data_pri[0], mod_mi, mod_mx,
+       *   clear_flag); */
       modified.set_modified(mod_mi, mod_mx);
     } else {
-      update_distance(true, data_pri[0], mod_mi, mod_mx, clear_flag);
+      update_distance(enable_short_circuit, data_pri[0], mod_mi, mod_mx,
+        clear_flag);
       modified.set_modified(mod_mi, mod_mx);
     }
   }

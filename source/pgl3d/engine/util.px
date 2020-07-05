@@ -180,3 +180,15 @@ generate_rand_quat(rand_generator_ptr const& rnd)
     xq1 * cos(z * pi2));
 }
 
+public threaded function {f} void
+range_foreach(uvec3 const& sz)
+{
+  for (const z: 0 .. sz.z) {
+    for (const y: 0 .. sz.y) {
+      for (const x: 0 .. sz.x) {
+        f(x, y, z);
+      }
+    }
+  }
+}
+

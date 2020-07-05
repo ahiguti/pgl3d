@@ -15,8 +15,12 @@ public struct
 tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
 {
   private ptr{edit_mode_texture} const emt = emt0;
+  public uvec3 const tmap_size_l2 =
+    emt->vox.tmap_edit->data_pri[0].get_size_l2_uvec3();
   public uvec3 const tmap_size =
     emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
+  public uvec3 const tpat_size_l2 =
+    emt->vox.tpat_edit->data_pri[0].get_size_l2_uvec3();
   public uvec3 const tpat_size =
     emt->vox.tpat_edit->data_pri[0].get_size_uvec3();
   private texture_edit_view tev_tmap = texture_edit_view(
@@ -271,6 +275,14 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     tev_tpat.edit_paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
     cursor_flick();
   }
+  public function uint get_max_tile_scale_log2() const
+  {
+    return state.max_tile_scale_log2;
+  }
+  public function void set_max_tile_scale_log2(uint v)
+  {
+    state.max_tile_scale_log2 = v;
+  }
   private function bool cursor_shown() const
   {
     return state.cursor_flick > 0 && state.cursor_flick < 30;
@@ -325,7 +337,7 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   }
 }
 
-public struct ttev_state {
+public struct ttev_state() {
   public int cursor_flick;
   public uint cursor_color_0;
   public uint cursor_color_1;
@@ -334,5 +346,6 @@ public struct ttev_state {
   public uvec3 cursor_tpat_1;
   public uvec3 cursor_tmap_0;
   public uvec3 cursor_tmap_1;
+  public uint max_tile_scale_log2 = 4;
 }
 

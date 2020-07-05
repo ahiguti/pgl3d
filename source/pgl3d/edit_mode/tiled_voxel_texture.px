@@ -28,8 +28,10 @@ private struct tiled_voxel_texture_v0()
 
 public function void
 tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
-  cstrref const& fname, cstrref const& fname_v0)
+  cstrref const& fname, cstrref const& fname_v0, uvec3 tmszl2, uvec3 tpszl2,
+  bool enable_short_circuit)
 {
+  // ファイルからデシリアライズし、テクスチャをtpszl2, tmszl2にリサイズする。
   string buf;
   bool load_v0 = false;
     // trueなら古いバージョンのバイナリデータをデシリアライズする
@@ -63,6 +65,14 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
       conv_one(v0.tpat_sec, vox.tpat_edit->data_sec);
     } else {
       vox = from_string_compact_pod{tiled_voxel_texture}(buf);
+    }
+    if (vox.tmap_edit->data_pri[0].get_size_l2_uvec3() != tmszl2) {
+      debug_log("resize tmap", tmszl2);
+      vox.tmap_edit->resize(tmszl2, enable_short_circuit);
+    }
+    if (vox.tpat_edit->data_pri[0].get_size_l2_uvec3() != tpszl2) {
+      debug_log("resize tpat", tpszl2);
+      vox.tpat_edit->resize(tpszl2, enable_short_circuit);
     }
   }
 }

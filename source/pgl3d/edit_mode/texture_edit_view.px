@@ -13,21 +13,12 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
   public tptr{texture_edit} current_edit = edit;
   public texture_reshaped tview_pri = current_edit->data_pri[0]; // copy
   public texture_reshaped tview_sec = current_edit->data_sec[0]; // copy
-  /*
-  public texture_data_mip current_view = current_edit->data_pri; // copy
-  public texture_data_mip current_view_sec = current_edit->data_sec; // copy
-  */
-  private texture_data grid = current_edit->grid; // copy
   private uint cursor_color_0 = 0xffffffff;
   private uint cursor_color_1 = 0xff00ffff;
   private uvec3 cursor_0 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
   private uvec3 cursor_1 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
   private modified_range modified;
   private uvec3 const tex_sz = tview_pri.get_size_uvec3();
-  private function bool has_grid() const
-  {
-    return grid.get_width() > 1;
-  }
   private function uvec3 get_cursor() const
   {
     return cursor_0;
@@ -130,7 +121,6 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       make_uvec3(blk_size, blk_size, blk_size));
     const next_blk_base = map{uvec3, operator::mul}(next_blk,
       make_uvec3(blk_size, blk_size, blk_size));
-    // debug_log("view set_cursor_pos", has_grid(), saved_cursor_color, c0);
     if (prev_blk != next_blk) {
       /* まず古いブロックの穴を埋め戻す */
       {

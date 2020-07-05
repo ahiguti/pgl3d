@@ -592,6 +592,7 @@ private threaded function void pgen_set_plane_dir(uvec3 const& pos,
   }
 }
 
+/*
 // procedural.px
 public threaded function {f} void range_foreach(uvec3 const& sz)
 {
@@ -603,6 +604,7 @@ public threaded function {f} void range_foreach(uvec3 const& sz)
     }
   }
 }
+*/
 
 // procedural.px
 private threaded function void pgen_fill_filled(uvec3 const& pos,

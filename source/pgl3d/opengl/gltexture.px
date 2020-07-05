@@ -23,6 +23,8 @@ public import pgl3d::engine::pglbase -;
 public import pgl3d::engine::intern_pool -;
 public import pgl3d::engine::util -;
 
+private metafunction dbg_3dtex{f} f;
+
 public threaded struct gl_texture()
 {
   public uint surface_w;
@@ -243,11 +245,17 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
       throw runtime_error_template{"set_gl_texture"}("");
     }
     if (dim == 3) {
-      debug_log("3dtex pre", tex_w, tex_h, tex_d);
+      dbg_3dtex() function void () {
+        debug_log("3dtex pre", tex_w, tex_h, tex_d);
+      }
+      const e0 = static_cast{int}(glGetError());
       glTexImage3D(target, mipmap_level, cast_int(iformat),
 	cast_int(tex_w), cast_int(tex_h), cast_int(tex_d),
 	0, format, GL_UNSIGNED_BYTE, crawp.to_cvoidptr());
-      debug_log("3dtex post", tex_w, tex_h, tex_d);
+      const e1 = static_cast{int}(glGetError());
+      dbg_3dtex() function void () {
+        debug_log("3dtex post", tex_w, tex_h, tex_d, e0, e1);
+      }
     } else {
       glTexImage2D(target, mipmap_level, cast_int(iformat),
 	cast_int(tex_w), cast_int(tex_h),

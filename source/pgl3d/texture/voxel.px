@@ -489,6 +489,19 @@ public valuetype struct noderef_param()
   public uvec3 coord;
 }
 
+public threaded function texel_value mask_noderef_coord(uint v)
+{
+  return v & 0x1f1f1fu;
+}
+
+public threaded function uint get_noderef_scale(uint v)
+{
+  uint x = v & 0xffu;
+  uint y = (v >> 8u) & 0xffu;
+  uint z = (v >> 16u) & 0xffu;
+  return ((x >> 5u) & 1u) | (y >> 4u) & 2u | (z >> 3u) & 4u;
+}
+
 public threaded function noderef_param decode_noderef_param(uint v)
 {
   uint x = v & 0xffu;
@@ -502,7 +515,7 @@ public threaded function noderef_param decode_noderef_param(uint v)
   return p;
 }
 
-public threaded function uint
+public threaded function texel_value
 encode_noderef_param(noderef_param const& p)
 {
   uvec3 v;

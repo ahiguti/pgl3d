@@ -14,6 +14,13 @@ texture_data_sync_gl(t const& tex, int level, uvec3 const& spos,
   for (const z: 0 .. sz.z) {
     for (const y: 0 .. sz.y) {
       for (const x: 0 .. sz.x) {
+/*
+if (spos.x + x >= tex.get_size_uvec3().x ||
+    spos.y + y >= tex.get_size_uvec3().y ||
+    spos.z + z >= tex.get_size_uvec3().z) {
+  debug_log("texture_data_sync_gl invalid index", tex.get_size_uvec3(), spos, x, y, z);
+}
+*/
         buf[i] = tex.get(spos.x + x, spos.y + y, spos.z + z);
         ++i;
       }

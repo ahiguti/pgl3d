@@ -56,7 +56,7 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         SDL_StopTextInput();
         console_text = string();
         console_text_cursor = 0;
-        msg_r = string();
+        msg_r = message;
         return;
       }
       if (key == SDL_SCANCODE_BACKSPACE) {
@@ -392,14 +392,13 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     return console_mode;
   }
   /////////////////////////////////////////////////////////////////////
-  private struct edit_state {
+  private struct edit_state() {
     public ttev_state ttev;
     public glm::ivec3 cdir; // 各軸のカーソル移動を変換する
   }
   private ptr{edit_mode_texture} emt = emt0;
   private ptr{tiled_texture_edit_view} const ttev =
     make_ptr{tiled_texture_edit_view}(emt0);
-  private texture_data const tile = emt->vox.voxtile;
   private projection_info prj;
   private copy_data_type copy_data;
   private ptr{rand_generator} rndp = make_rand_generator(123u);
@@ -446,31 +445,46 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       }
     }
     update_cursor_color();
+    debug_log("edit_mode: tpat_texture:", ttev->tpat_size);
+    debug_log("edit_mode: tmap_texture:", ttev->tmap_size);
   }
   private function void save_state()
   {
+    // 編集中のテクスチャなどを保存する。保存されたデータのロードは
+    // アプリ側で行う必要がある。
     dbg_save() function void () { debug_log("edit_mode: save"); }
     edit_state est;
     est.ttev = ttev->get_state();
     est.cdir = cdir;
     sdl_save_file("/build/edit_state.raw", to_string_compact_pod(est));
-    const tsz = emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
-    const sz = map{uvec3, integral_log2{uint}}(tsz);
+    const msz = emt->vox.tmap_edit->data_pri[0].get_size_l2_uvec3();
+    const psz = emt->vox.tpat_edit->data_pri[0].get_size_l2_uvec3();
     {
-      string fn = "/build/edit_2_" + to_string(sz.x) + "_"
-        + to_string(sz.y) + "_" + to_string(sz.z) + ".raw";
+      // "edit_2_9_9_6_10_9_9.raw"のようなファイル名。voxelデータをそのまま
+      // 保存する。
+      string fn = "/build/edit_2_"
+        + to_string(msz.x) + "_"
+        + to_string(msz.y) + "_"
+        + to_string(msz.z) + "_"
+        + to_string(psz.x) + "_"
+        + to_string(psz.y) + "_"
+        + to_string(psz.z) + ".raw";
+      debug_log("edit_mode: save " + fn);
       sdl_save_file(fn, to_string_compact_pod(emt->vox));
     }
     {
+      // 現在の選択データを保存。
       string fn = "/build/edit_selection.ser";
       sdl_save_file(fn, to_string(copy_data));
     }
     {
+      // tpatテクスチャを保存。
       texture_edit const& tpat = *emt->vox.tpat_edit;
       string fn = "/build/edit_common_tpat.raw";
       sdl_save_file(fn, to_string_compact_pod(tpat));
     }
     {
+      // tmapテクスチャのprimaryとsecondaryを保存。
       texture_reshaped const& tmpri = emt->vox.tmap_edit->data_pri[0];
       texture_reshaped tmpri_cpy;
       tmpri_cpy.set_size_l2(6u, 6u, 6u);
@@ -520,14 +534,17 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     const& cmd = toks[0];
     if (cmd == "save" && toks.size() == 2) {
+      // コピーバッファをファイルに保存する。
       const fn = save_dir + toks[1];
       {
+        // コピーバッファを保存する。noderefの参照先は保存されない。
         if (!sdl_save_file(fn + ".pat", to_string(copy_data))) {
           debug_log("failed to save", fn + ".pat");
           return;
         }
       }
       {
+        // コピーバッファとnoderef参照先を保存する。
         pattern_save_data psd;
         if (!convert_to_pattern_save_data(psd, copy_data, *ttev)) {
           debug_log("get_pattern_save_data failed");
@@ -540,17 +557,21 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       }
       debug_log("saved", fn);
     } else if (cmd == "load" && toks.size() == 2) {
+      // パターンデータを読み込んでコピーバッファに入れる
       string buf;
       const fn = save_dir + toks[1];
       sdl_load_file(fn + ".psd", buf);
       if (!buf.empty()) {
+        // noderef参照先を含めたパターンデータを読み込む。
         const psd = from_string{pattern_save_data}(buf);
-        convert_from_pattern_save_data(psd, copy_data, *ttev);
+        convert_from_pattern_save_data(psd, copy_data,
+          ttev->get_max_tile_scale_log2(), *ttev);
         debug_log("loaded", fn + ".psd");
         return;
       }
       sdl_load_file(fn + ".pat", buf);
       if (!buf.empty()) {
+        // パターンデータを読み込む。noderef参照先は含まれない。
         copy_data = copy_data_type_compat_deserialize(buf);
         mark_set = true;
         copied = true;
@@ -561,6 +582,8 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       }
       debug_log("failed to load", fn);
     } else if (cmd == "scale" && toks.size() == 2) {
+      // 現在のタイルサイズを変更する。新規タイル割り当ての際にこの
+      // 値が影響する。
       const tsc = from_string{uint}(toks[1]);
       if (tsc < 1u || tsc > 8) {
         debug_log("invalid param:", toks[1]);
@@ -569,13 +592,39 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
         cur_tile_scale_log2 = tsc;
         find_empty_cur = uvec3();
       }
+    } else if (cmd == "maxscale" && toks.size() == 1) {
+      // 最大タイルサイズを取得する。
+      debug_log("maxscale", ttev->get_max_tile_scale_log2());
+      const s = ttev->get_max_tile_scale_log2();
+      const n = get_num_assignable_tile(*ttev, s);
+      message = "maxscale " + to_string(s) + " assignable " + to_string(n);
+    } else if (cmd == "maxscale" && toks.size() == 2) {
+      // 最大タイルサイズを変更する。これを変更後dedupすると再配置される。
+      uint const absmax_v = absmax_tile_scale_log2;
+      const v = from_string{uint}(toks[1]);
+      if (v <= absmax_v) {
+        debug_log("setting maxscale", v);
+        ttev->set_max_tile_scale_log2(v);
+      }
+      const s = ttev->get_max_tile_scale_log2();
+      const n = get_num_assignable_tile(*ttev, s);
+      message = "maxscale " + to_string(s) + " assignable " + to_string(n);
     } else if (cmd == "dedup" && toks.size() == 1) {
+      // タイルパターンの重複排除と再配置をおこなう。現在のmaxscale値に
+      // 応じた配置になる。参照されていないパターンは削除される。
       debug_log("dedup tpat");
-      dedup_tpat(*ttev);
+      message = dedup_tpat(*ttev, ttev->get_max_tile_scale_log2(), false);
+    } else if (cmd == "dedup" && toks.size() == 2 && toks[1] == "force") {
+      // dedupを強制的におこなう。配置可能タイル数が不足していたときは
+      // タイルパターンが失われる。
+      debug_log("dedup tpat force");
+      message = dedup_tpat(*ttev, ttev->get_max_tile_scale_log2(), true);
     } else if (cmd == "unused" && toks.size() == 1) {
+      // 参照されていないタイルパターンを削除する。
       debug_log("erase_unused_tpat");
       erase_unused_tpat(*ttev);
     } else if (cmd == "test_noderef" && toks.size() == 1) {
+      // 内部テスト。noderef_paramのimat3変換をテストする。
       debug_log("test_noderef");
       test_noderef_param();
     } else {
@@ -611,6 +660,9 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     const old_pos = to_ivec3(cur.first);
     mutable pos = old_pos;
     pos += make_ivec3(x, y, z);
+    if (get_cursor_tpat()) {
+      pos = clamp_grid(old_pos, pos);
+    }
     pos = ttev->clamp_cursor_pos(pos);
     cur.first = to_uvec3(pos);
     if (copied) {
@@ -870,10 +922,11 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     }
     const csz = copy_data.copy_size;
     const tilesz = 1u << cur_tile_scale_log2;
-    const patsz = (csz + tilesz - 1u) / tilesz;
-      // タイルパターン数
+    const patsz = (csz + tilesz - 1u) / tilesz; // タイルパターン数
+    // 空きタイルパターンを探す。現在の実装では1タイルを超えるサイズのときは
+    // 連続領域で空いているものを探すが、連続でなくてもよいかもしれない。
     const nv = find_empty_tpat(*ttev, find_empty_cur, cur_tile_scale_log2,
-      patsz);
+      ttev->get_max_tile_scale_log2(), patsz);
     if (!is_node_reference(nv)) {
       debug_log("convert_to_tpat: fialed(nomem)");
       return;

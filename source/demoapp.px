@@ -775,9 +775,9 @@ function bool update_window_geometry(app_demoapp mutable& app,
     cam.window_width == static_cast{int}(wsz.x) &&
     cam.window_height == static_cast{int}(wsz.y))
   {
-    sdl_log("display geometry not changed");
     return false;
   }
+  sdl_log("display geometry changed");
   const virt_width = static_cast{int}(static_cast{float}(drsz.x)
     / app.virt_scale);
   const virt_height = static_cast{int}(static_cast{float}(drsz.y)
@@ -916,10 +916,10 @@ function void handle_event(app_demoapp mutable& app, app_ctrl_i mutable& actrl,
 	static_cast{int}(ev.key.keysym.scancode), app.modmask, cursor_move,
 	app.app_status_message);
       // debug_log("keydown stmsg", app.app_status_message);
-      // debug_log("cursor_move", cursor_move);
       const glm::vec3 m =
 	cursor_move * app.edit_mode_vattr.aabb_or_tconv.w;
 	// 接線空間座標に変換
+      debug_log("cursor_move", cursor_move, "m", m);
       mutable mo0 = app.edit_mode_trans * glm::make_vec4(
 	0.0f, 0.0f, 0.0f, 1.0f);
       mutable mo1 = app.edit_mode_trans * glm::make_vec4(
@@ -1330,6 +1330,7 @@ private function void build_vertices(app_demoapp mutable& app,
     voxtmap.get_size_uvec3());
   const voxtmap_size_max = fold_list{max}(0.0f, voxtmap_size);
   const voxtmap_whd = voxtmap_size / voxtmap_size_max;
+  debug_log("voxtmap_whd", voxtmap_whd);
   /*
   const voxtmap_whd_max = static_cast{float}(
     max(max(voxtmap.get_width(), voxtmap.get_height()),

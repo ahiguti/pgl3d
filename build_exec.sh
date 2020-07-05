@@ -9,11 +9,18 @@ cd `dirname $0`
 is_cygwin=`uname | cut -d '_' -f 1`
 is_wsl=`uname -r | grep microsoft`
 
+# pxcのdebug/releaseコンパイルの区別。pxcがdebugビルドでもc++
+# はreleaseでコンパイルする。
+pxc_build_config=$PXC_BUILD_CONFIG
+if [ "$pxc_build_config" == "" ]; then
+        pxc_build_config=release_build
+fi
+
 if [ "$is_cygwin" == "CYGWIN" -o "$is_wsl" != "" ]; then
-	build_script=./windows/release_build.sh
+	build_script=./windows/$pxc_build_config.sh
 	build_target=./windows/x64/Release/pgl3d_demoapp.exe
 else
-	build_script=./unix/release_build.sh
+	build_script=./unix/$pxc_build_config.sh
 	build_target=./source/demoapp.px.exe
 fi
 

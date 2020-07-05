@@ -9,7 +9,7 @@ midpoint_displacement(texture_data mutable& td, rand_generator mutable& rnd)
   uint const w_l2 = td.get_width_l2();
   uint const h_l2 = td.get_height_l2();
   uint const xmax = (1u << w_l2);
-  uint const ymax = (1u << w_l2);
+  uint const ymax = (1u << h_l2);
   uint const xmask = xmax - 1u;
   uint const ymask = ymax - 1u;
   uint wh = min(xmax, ymax);
