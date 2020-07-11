@@ -1,70 +1,121 @@
 private threaded namespace pgl3d::edit_mode::procedural "use-unsafe";
-public import common -;
-public import meta m;
-private import pgl3d::edit_mode::base -;
+private import common -;
+private import meta m;
+private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::texture::generator -;
 
-private valuetype struct dir2_mask
+private metafunction dbg_pgen{f} no_operation;
+
+// procedural.px
+public threaded function plane_param make_plane_param_dir(ivec3 cdir,
+  bool ax3, uint repeat)
 {
-  public bool xn; // x-1が壁
-  public bool xp; // x+1が壁
-  public bool yn; // y-1が壁
-  public bool yp; // y+1が壁
-  public int count;
+  plane_param p;
+  if (ax3) {
+    // どの軸とも平行でない平面で切断
+    // キーリピートされた場合は向きを反転
+    if ((repeat & 1u) != 0u) {
+      cdir.x = -cdir.x;
+    }
+    if ((repeat & 2u) != 0u) {
+      cdir.y = -cdir.y;
+    }
+    if ((repeat & 4u) != 0u) {
+      cdir.z = -cdir.z;
+    }
+    const sgn = (cdir.x > 0) ^ (cdir.y > 0) ^ (cdir.z > 0) ? -1 : 1;
+    p.nor = make_ivec3(cdir.y * cdir.z, cdir.z * cdir.x, cdir.x * cdir.y);
+    const di = gcd(gcd(abs(p.nor.x), abs(p.nor.y)), abs(p.nor.z));
+    p.nor /= di;
+    p.dist = abs(cdir.x) * abs(cdir.y) * abs(cdir.z) / di;
+    p.nor *= sgn;
+    /*
+    p.nor *= sgn;
+    const di = gcd(gcd(abs(p.nor.x), abs(p.nor.y)), abs(p.nor.z));
+    p.nor /= di;
+    p.dist = abs(cdir.x) * abs(cdir.y) * abs(cdir.z) / di;
+    */
+    dbg_pgen() function void () { debug_log("pp cdir=", cdir, " p=", p); }
+  } else {
+    // 軸に平行な平面で切断, キーリピート
+    // repeatが0,4,8のときそれぞれx,y,z方向が0になる
+    const rep = repeat % 12;
+    const rep1 = (rep & 1u) == 1u;
+    const rep2 = (rep & 2u) == 2u;
+    if (rep < 4) {
+      cdir.x = 0;
+      cdir.y = rep1 ? cdir.y : -cdir.y;
+      cdir.z = rep2 ? cdir.z : -cdir.z;
+      p.nor = make_ivec3(
+        0,
+        abs(cdir.z) * sgn(cdir.y),
+        abs(cdir.y) * sgn(cdir.z));
+      p.nor /= gcd(abs(p.nor.y), abs(p.nor.z));
+    } else if (rep < 8) {
+      cdir.y = 0;
+      cdir.z = rep1 ? cdir.z : -cdir.z;
+      cdir.x = rep2 ? cdir.x : -cdir.x;
+      p.nor = make_ivec3(
+        abs(cdir.z) * sgn(cdir.x),
+        0,
+        abs(cdir.x) * sgn(cdir.z));
+      p.nor /= gcd(abs(p.nor.z), abs(p.nor.x));
+    } else {
+      cdir.z = 0;
+      cdir.x = rep1 ? cdir.x : -cdir.x;
+      cdir.y = rep2 ? cdir.y : -cdir.y;
+      p.nor = make_ivec3(
+        abs(cdir.y) * sgn(cdir.x),
+        abs(cdir.x) * sgn(cdir.y),
+        0);
+      p.nor /= gcd(abs(p.nor.x), abs(p.nor.y));
+    }
+    p.dist = 0;
+    dbg_pgen() function void () { debug_log("pp cdir=", cdir, " p=", p); }
+  }
+  // 領域をちょうど切断するようなパラメータを返す。テクスチャエントリ
+  // に収まる範囲とはかぎらない。
+  return p;
 }
 
-private threaded function {t} dir2_mask
-get_space_dir(t const& tex, uvec3 const& p)
+public threaded function ptr{farray{texture_data, 2}}
+procedural_gen_spline(ptr{rand_generator} rndp, uvec3 sz, int gen_param)
 {
-  const sz = tex.get_size_uvec3();
-  threaded function texel_value get(uint x, uint y, uint z)
-  {
-    if (x >= sz.x || y >= sz.y || z >= sz.z) {
-      return make_space_voxel();
+  const szl2 = map{uvec3, integral_log2{uint}}(sz);
+  mutable c = pgen_context(rndp);
+  c.tex[0].set_size_l2(szl2.x, szl2.y, szl2.z);
+  c.tex[1].set_size_l2(szl2.x, szl2.y, szl2.z);
+  texture_reshaped tex;
+  tex.set_size_l2(szl2.x, szl2.y, szl2.z);
+  generate_rand_spline(rndp, tex, sz, 20,
+    static_cast{float}(gen_param) / 15.0f);
+  range_foreach(sz) threaded function void (uint x, uint y, uint z) {
+    if (tex.get(x, y, z) != 0u) {
+      c.tex[0].set(x, y, z, make_filled_voxel());
+      c.tex[1].set(x, y, z, 0x00808080u);
+    } else {
+      c.tex[0].set(x, y, z, make_space_voxel());
+      c.tex[1].set(x, y, z, 0x0u);
     }
-    return tex.get(x, y, z);
   }
-  dir2_mask r;
-  const vxn = is_space_voxel(get(p.x - 1u, p.y, p.z));
-  const vxp = is_space_voxel(get(p.x + 1u, p.y, p.z));
-  const vyn = is_space_voxel(get(p.x, p.y - 1u, p.z));
-  const vyp = is_space_voxel(get(p.x, p.y + 1u, p.z));
-  r.xn = vxn & (!vxp); // x-1
-  r.xp = (!vxn) & vxp; // x+1
-  r.yn = vyn & (!vyp); // y-1
-  r.yp = (!vyn) & vyp; // y+1
-  r.count = (vxn ? 1 : 0) + (vxp ? 1 : 0) + (vyn ? 1 : 0) + (vyp ? 1 : 0);
-  return r;
+  spline_postprocess(c);
+  const p = make_ptr{farray{texture_data, 2}}();
+  (*p)[0].swap(c.tex[0]);
+  (*p)[1].swap(c.tex[1]);
+  return p;
 }
 
 // procedural.px
-private threaded function {t} dir2_mask
-get_wall_dir(t const& tex, uvec3 const& p)
+private threaded struct pgen_context(ptr{rand_generator} rndp0)
 {
-  const sz = tex.get_size_uvec3();
-  threaded function texel_value get(uint x, uint y, uint z)
-  {
-    if (x >= sz.x || y >= sz.y || z >= sz.z) {
-      return make_space_voxel();
-    }
-    return tex.get(x, y, z);
-  }
-  dir2_mask r;
-  const vxn = is_filled(get(p.x - 1u, p.y, p.z));
-  const vxp = is_filled(get(p.x + 1u, p.y, p.z));
-  const vyn = is_filled(get(p.x, p.y - 1u, p.z));
-  const vyp = is_filled(get(p.x, p.y + 1u, p.z));
-  r.xn = vxn & (!vxp); // x-1が壁
-  r.xp = (!vxn) & vxp; // x+1が壁
-  r.yn = vyn & (!vyp); // y-1が壁
-  r.yp = (!vyn) & vyp; // y+1が壁
-  r.count = (vxn ? 1 : 0) + (vxp ? 1 : 0) + (vyn ? 1 : 0) + (vyp ? 1 : 0);
-  return r;
+  public ptr{rand_generator} rndp = rndp0;
+  public farray{texture_data, 2} tex;
+  public uint rec_count;
 }
 
 // procedural.px
-public threaded function void
+private threaded function void
 spline_postprocess(pgen_context mutable& ctx)
 {
   mutable tex = ctx.tex[0]; // copy
@@ -209,6 +260,64 @@ spline_postprocess(pgen_context mutable& ctx)
         ctx);
     }
   }
+}
+
+private valuetype struct dir2_mask
+{
+  public bool xn; // x-1が壁
+  public bool xp; // x+1が壁
+  public bool yn; // y-1が壁
+  public bool yp; // y+1が壁
+  public int count;
+}
+
+private threaded function {t} dir2_mask
+get_space_dir(t const& tex, uvec3 const& p)
+{
+  const sz = tex.get_size_uvec3();
+  threaded function texel_value get(uint x, uint y, uint z)
+  {
+    if (x >= sz.x || y >= sz.y || z >= sz.z) {
+      return make_space_voxel();
+    }
+    return tex.get(x, y, z);
+  }
+  dir2_mask r;
+  const vxn = is_space_voxel(get(p.x - 1u, p.y, p.z));
+  const vxp = is_space_voxel(get(p.x + 1u, p.y, p.z));
+  const vyn = is_space_voxel(get(p.x, p.y - 1u, p.z));
+  const vyp = is_space_voxel(get(p.x, p.y + 1u, p.z));
+  r.xn = vxn & (!vxp); // x-1
+  r.xp = (!vxn) & vxp; // x+1
+  r.yn = vyn & (!vyp); // y-1
+  r.yp = (!vyn) & vyp; // y+1
+  r.count = (vxn ? 1 : 0) + (vxp ? 1 : 0) + (vyn ? 1 : 0) + (vyp ? 1 : 0);
+  return r;
+}
+
+// procedural.px
+private threaded function {t} dir2_mask
+get_wall_dir(t const& tex, uvec3 const& p)
+{
+  const sz = tex.get_size_uvec3();
+  threaded function texel_value get(uint x, uint y, uint z)
+  {
+    if (x >= sz.x || y >= sz.y || z >= sz.z) {
+      return make_space_voxel();
+    }
+    return tex.get(x, y, z);
+  }
+  dir2_mask r;
+  const vxn = is_filled(get(p.x - 1u, p.y, p.z));
+  const vxp = is_filled(get(p.x + 1u, p.y, p.z));
+  const vyn = is_filled(get(p.x, p.y - 1u, p.z));
+  const vyp = is_filled(get(p.x, p.y + 1u, p.z));
+  r.xn = vxn & (!vxp); // x-1が壁
+  r.xp = (!vxn) & vxp; // x+1が壁
+  r.yn = vyn & (!vyp); // y-1が壁
+  r.yp = (!vyn) & vyp; // y+1が壁
+  r.count = (vxn ? 1 : 0) + (vxp ? 1 : 0) + (vyn ? 1 : 0) + (vyp ? 1 : 0);
+  return r;
 }
 
 // procedural.px
@@ -417,14 +526,6 @@ private threaded function void pgen_millefeuille(uvec3 const& p,
 }
 
 // procedural.px
-public threaded struct pgen_context(ptr{rand_generator} rndp0)
-{
-  public ptr{rand_generator} rndp = rndp0;
-  public farray{texture_data, 2} tex;
-  public uint rec_count;
-}
-
-// procedural.px
 private threaded function void pgen_split_range(uvec3 const& pos,
   slice{uint} const& xsz, slice{uint} const& ysz, slice{uint} const& zsz,
   pgen_context mutable& ctx)
@@ -488,78 +589,6 @@ private threaded function int sgn(int x)
 }
 
 // procedural.px
-public threaded function plane_param make_plane_param_dir(ivec3 cdir,
-  bool ax3, uint repeat)
-{
-  plane_param p;
-  if (ax3) {
-    // どの軸とも平行でない平面で切断
-    // キーリピートされた場合は向きを反転
-    if ((repeat & 1u) != 0u) {
-      cdir.x = -cdir.x;
-    }
-    if ((repeat & 2u) != 0u) {
-      cdir.y = -cdir.y;
-    }
-    if ((repeat & 4u) != 0u) {
-      cdir.z = -cdir.z;
-    }
-    const sgn = (cdir.x > 0) ^ (cdir.y > 0) ^ (cdir.z > 0) ? -1 : 1;
-    p.nor = make_ivec3(cdir.y * cdir.z, cdir.z * cdir.x, cdir.x * cdir.y);
-    const di = gcd(gcd(abs(p.nor.x), abs(p.nor.y)), abs(p.nor.z));
-    p.nor /= di;
-    p.dist = abs(cdir.x) * abs(cdir.y) * abs(cdir.z) / di;
-    p.nor *= sgn;
-    /*
-    p.nor *= sgn;
-    const di = gcd(gcd(abs(p.nor.x), abs(p.nor.y)), abs(p.nor.z));
-    p.nor /= di;
-    p.dist = abs(cdir.x) * abs(cdir.y) * abs(cdir.z) / di;
-    */
-    debug_log("pp cdir=", cdir, " p=", p);
-  } else {
-    // 軸に平行な平面で切断, キーリピート
-    // repeatが0,4,8のときそれぞれx,y,z方向が0になる
-    const rep = repeat % 12;
-    const rep1 = (rep & 1u) == 1u;
-    const rep2 = (rep & 2u) == 2u;
-    if (rep < 4) {
-      cdir.x = 0;
-      cdir.y = rep1 ? cdir.y : -cdir.y;
-      cdir.z = rep2 ? cdir.z : -cdir.z;
-      p.nor = make_ivec3(
-        0,
-        abs(cdir.z) * sgn(cdir.y),
-        abs(cdir.y) * sgn(cdir.z));
-      p.nor /= gcd(abs(p.nor.y), abs(p.nor.z));
-    } else if (rep < 8) {
-      cdir.y = 0;
-      cdir.z = rep1 ? cdir.z : -cdir.z;
-      cdir.x = rep2 ? cdir.x : -cdir.x;
-      p.nor = make_ivec3(
-        abs(cdir.z) * sgn(cdir.x),
-        0,
-        abs(cdir.x) * sgn(cdir.z));
-      p.nor /= gcd(abs(p.nor.z), abs(p.nor.x));
-    } else {
-      cdir.z = 0;
-      cdir.x = rep1 ? cdir.x : -cdir.x;
-      cdir.y = rep2 ? cdir.y : -cdir.y;
-      p.nor = make_ivec3(
-        abs(cdir.y) * sgn(cdir.x),
-        abs(cdir.x) * sgn(cdir.y),
-        0);
-      p.nor /= gcd(abs(p.nor.x), abs(p.nor.y));
-    }
-    p.dist = 0;
-    debug_log("pp cdir=", cdir, " p=", p);
-  }
-  // 領域をちょうど切断するようなパラメータを返す。テクスチャエントリ
-  // に収まる範囲とはかぎらない。
-  return p;
-}
-
-// procedural.px
 private threaded function void pgen_set_plane_dir(uvec3 const& pos,
   uvec3 const& sz, ivec3 const& iresgn, pgen_context mutable& ctx)
 {
@@ -591,20 +620,6 @@ private threaded function void pgen_set_plane_dir(uvec3 const& pos,
     pgen_fill_plane(pos, sz, pp, ctx);
   }
 }
-
-/*
-// procedural.px
-public threaded function {f} void range_foreach(uvec3 const& sz)
-{
-  for (const z: 0 .. sz.z) {
-    for (const y: 0 .. sz.y) {
-      for (const x: 0 .. sz.x) {
-        f(x, y, z);
-      }
-    }
-  }
-}
-*/
 
 // procedural.px
 private threaded function void pgen_fill_filled(uvec3 const& pos,
@@ -640,7 +655,9 @@ private threaded function void pgen_fill_value(uvec3 const& pos,
 private threaded function void pgen_fill_plane(uvec3 const& pos,
   uvec3 const& sz, plane_param const& pp, pgen_context mutable& ctx)
 {
-  debug_log("pgen_fill_plane", sz);
+  dbg_pgen() function void () {
+    debug_log("pgen_fill_plane", sz);
+  }
   threaded function void ffunc(uint x, uint y, uint z)
   {
     const x1 = pos.x + x;

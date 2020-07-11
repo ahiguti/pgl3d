@@ -1,7 +1,7 @@
-private threaded namespace pgl3d::edit_mode::edit_mode "use-unsafe";
-public import common -;
-public import meta m;
-private import pgl3d::edit_mode::base -;
+private threaded namespace pgl3d::edit_mode::edit_mode_edit "use-unsafe";
+private import common -;
+private import meta m;
+private import pgl3d::edit_mode::common -;
 private import sdl2::api_types -;
 private import sdl2::api_functions -;
 private import text::serialize::compact_pod -;
@@ -27,7 +27,7 @@ private metafunction dbg_noderef{f} no_operation;
 
 private metafunction save_dir "/build/saved/";
 
-public struct edit_mode(ptr{edit_mode_texture} const& emt0)
+public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
 <edit_mode_i>
 {
   public function void on_key_pressed(int scancode, uint modmask,
@@ -623,12 +623,24 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
       // 参照されていないタイルパターンを削除する。
       debug_log("erase_unused_tpat");
       erase_unused_tpat(*ttev);
+    } else if (cmd == "gen" && toks.size() >= 5) {
+      int proc = from_string{int}(toks[1]);
+      uvec3 sz;
+      sz.x = from_string{uint}(toks[2]);
+      sz.y = from_string{uint}(toks[3]);
+      sz.z = from_string{uint}(toks[4]);
+      varray{int} params;
+      for (const i, const p: toks[5 .. toks.size()]) {
+        params.push_back(from_string{int}(p));
+      }
+      procedural_gen(proc, sz, params);
     } else if (cmd == "test_noderef" && toks.size() == 1) {
       // 内部テスト。noderef_paramのimat3変換をテストする。
       debug_log("test_noderef");
       test_noderef_param();
     } else {
       debug_log("unrecognized command", toks);
+      message = "unrecognized command";
     }
   }
   private function void select_contiguous()
@@ -1379,6 +1391,20 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
   {
     return ttev->get_tpat_cursor_pos().first;
   }
+  private function void procedural_gen(int proc, uvec3 sz, cslice{int} params)
+  {
+    sz = map{uvec3, max}(sz, make_uvec3(1u, 1u, 1u));
+    debug_log("procedural_gen", proc, sz, params);
+    const cpy_saved = copy_data;
+    copy_data.copy_size = sz;
+    copy_data.cursor_offset = sz - make_uvec3(1u, 1u, 1u);
+    const p0 = params.size() > 0 ? params[0] : 0;
+    const p = procedural_gen_spline(rndp, sz, p0);
+    (*p)[0].swap(copy_data.tex[0]);
+    (*p)[1].swap(copy_data.tex[1]);
+    paste_value(0xff, merge_mode_opaque());
+    copy_data = cpy_saved;
+  }
   private function void gen_test()
   {
     // テスト中
@@ -1388,61 +1414,9 @@ public struct edit_mode(ptr{edit_mode_texture} const& emt0)
     const cur = ttev->get_cursor_range();
     const copy_size = cur.second;
     copy_value();
-    {
-      pgen_context ctx = pgen_context(rndp);
-      swap(ctx.tex[0], copy_data.tex[0]);
-      swap(ctx.tex[1], copy_data.tex[1]);
-      texture_reshaped tex;
-      mutable& c = ctx;
-      tex.set_size_l2(
-        c.tex[0].get_width_l2(),
-        c.tex[0].get_height_l2(),
-        c.tex[0].get_depth_l2());
-      generate_rand_spline(rndp, tex, copy_size, 20,
-        static_cast{float}(gen_test_param) / 15.0f);
-      for (uint z: 0 .. copy_size.z) {
-        for (uint y: 0 .. copy_size.y) {
-          for (uint x: 0 .. copy_size.x) {
-            if (tex.get(x, y, z) != 0u) {
-              c.tex[0].set(x, y, z, make_filled_voxel());
-              c.tex[1].set(x, y, z, 0x00808080u);
-            } else {
-              c.tex[0].set(x, y, z, make_space_voxel());
-              c.tex[1].set(x, y, z, 0x0u);
-            }
-          }
-        }
-      }
-      spline_postprocess(ctx);
-      swap(ctx.tex[0], copy_data.tex[0]);
-      swap(ctx.tex[1], copy_data.tex[1]);
-    }
-    /*
-    {
-      pgen_context ctx = pgen_context(rndp);
-      swap(ctx.tex[0], copy_data.tex[0]);
-      swap(ctx.tex[1], copy_data.tex[1]);
-      pgen_range(uvec3(), copy_size, ctx);
-      swap(ctx.tex[0], copy_data.tex[0]);
-      swap(ctx.tex[1], copy_data.tex[1]);
-    }
-    */
-    /*
-    gen_split_range_div(copy_data.tex[0], copy_data.tex[1], uvec3(),
-      copy_size, make_uvec3(5u, 3u, 3u));
-    */
-    //debug_log("dbg cursor", ttev->get_cursor_range());
-    /*
-    gen_millefeuille(copy_data.tex[0], copy_data.tex[1], uvec3(),
-      copy_size);
-    */
-    /*
-    {
-      const sz = copy_size;
-      gen_frag1(copy_data.tex[0], copy_data.tex[1], uvec3(), sz,
-        to_ivec3(sz), make_ivec3(2, 0, 2), min(sz.x, sz.z));
-    }
-    */
+    const p = procedural_gen_spline(rndp, cur.second, gen_test_param);
+    (*p)[0].swap(copy_data.tex[0]);
+    (*p)[1].swap(copy_data.tex[1]);
     paste_value(0xff, merge_mode_opaque());
     copied = false;
   }

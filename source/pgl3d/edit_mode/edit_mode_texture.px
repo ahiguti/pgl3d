@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::edit_mode::edit_mode_texture "use-unsafe";
-public import common -;
-public import meta m;
-private import pgl3d::edit_mode::base -;
+private import common -;
+private import meta m;
+private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::tiled_voxel_texture -;
 
 public struct edit_mode_texture()

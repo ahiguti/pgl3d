@@ -1,4 +1,4 @@
-private threaded namespace demoapp::texture::tile;
+private threaded namespace app::texture::tile;
 public import common -;
 public import pgl3d::exports_threaded *;
 public import glm -;

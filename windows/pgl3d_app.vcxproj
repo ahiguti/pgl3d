@@ -19,14 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="gen\demoapp.px.cc" />
+    <ClCompile Include="gen\appmain.px.cc" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{3D50EEF4-4EE1-46F1-A644-D88CACDCEE89}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>pgl3d_demoapp</RootNamespace>
+    <RootNamespace>pgl3d_app</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>pgl3d_demoapp</ProjectName>
+    <ProjectName>pgl3d_app</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

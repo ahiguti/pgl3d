@@ -1,12 +1,12 @@
-private threaded namespace demoapp::texture::triangles_texture;
+public threaded namespace app::texture::triangles_texture;
 public import common -;
 public import pgl3d::exports_threaded -;
-public import demoapp::texture::tile -;
+public import app::texture::tile -;
 public import text::serialize::compact_pod -;
 public import glm -;
 public import meta m;
 
-struct demoapp_textures(bool edit_mode, int mw, int mh, int md, int pw,
+struct app_textures(bool edit_mode, int mw, int mh, int md, int pw,
   int ph, int pd)
 {
   public int const voxtile_size_l2 = 4; // 標準タイルサイズ
@@ -27,7 +27,7 @@ public function void
 prepare_triangles_texture_data(pgl3d_config const& cfg,
   textures_ptr const& textures, tptr{tiled_voxel_texture} const& tvt)
 {
-  demoapp_textures txs = demoapp_textures(
+  app_textures txs = app_textures(
     cfg.get("edit_mode", 0, 0, 1) != 0,
     cfg.get("voxel_map_w", 8, 4, 12),
     cfg.get("voxel_map_h", 8, 4, 12),
@@ -47,7 +47,7 @@ prepare_triangles_texture_data(pgl3d_config const& cfg,
 
 function void
 prepare_raycasting_texture_data(pgl3d_config const& cfg,
-  demoapp_textures mutable& txs)
+  app_textures mutable& txs)
 {
   metafunction ui static_cast{uint};
   mutable& voxtile = txs.vox->voxtile;
@@ -243,9 +243,15 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
 	static_cast{uint}(i), enable_calc_distance, enable_short_circuit);
     }
     {
-      const& sz = txs.voxtmap_size_l2;
-      string fn = "/build/edit_2_" + to_string(sz.x) + "_"
-	+ to_string(sz.y) + "_" + to_string(sz.z) + ".raw";
+      const& msz = txs.voxtmap_size_l2;
+      const& psz = txs.voxtpat_size_l2;
+      string fn = "/build/edit_2_"
+        + to_string(msz.x) + "_"
+        + to_string(msz.y) + "_"
+        + to_string(msz.z) + "_"
+        + to_string(psz.x) + "_"
+        + to_string(psz.y) + "_"
+        + to_string(psz.z) + ".raw";
       tiled_voxel_texture_save_file(*txs.vox, fn);
     }
   } else {
@@ -354,7 +360,7 @@ function void prepare_voxel_tpat(texture_reshaped mutable& tpat,
 }
 
 function void
-prepare_parallax_mapping_texture_data(demoapp_textures mutable& txs)
+prepare_parallax_mapping_texture_data(app_textures mutable& txs)
 {
   // generate tilemap
   txs.tex_tcol = load_texture_data("res/default-color.png");

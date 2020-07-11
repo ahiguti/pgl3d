@@ -1,12 +1,12 @@
 private threaded namespace pgl3d::edit_mode::tiled_texture_edit_view
   "use-unsafe";
-public import common -;
-public import meta m;
-private import pgl3d::edit_mode::base -;
-public import pgl3d::edit_mode::texture_edit_view -;
-public import pgl3d::edit_mode::vecutil -;
-public import pgl3d::edit_mode::sync_gl -;
-public import pgl3d::edit_mode::edit_mode_texture -;
+private import common -;
+private import meta m;
+private import pgl3d::edit_mode::common -;
+private import pgl3d::edit_mode::texture_edit_view -;
+private import pgl3d::edit_mode::vecutil -;
+private import pgl3d::edit_mode::sync_gl -;
+private import pgl3d::edit_mode::edit_mode_texture -;
 
 private metafunction dbg_cursor{f} no_operation;
 private metafunction dbg_paste{f} no_operation;

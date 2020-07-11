@@ -1,4 +1,4 @@
-public namespace pgl3d::aux::serial_port "use-unsafe";
+public namespace pgl3d::ext::serial_port "use-unsafe";
 public import common -;
 public import meta m;
 

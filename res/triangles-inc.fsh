@@ -206,7 +206,9 @@ const ivec3 pattex3_size_log2 = <%pattex3_size_log2/>;
 const ivec3 pattex3_size = ivec3(1) << pattex3_size_log2;
 const ivec3 maptex3_size_log2 = <%maptex3_size_log2/>;
 const ivec3 maptex3_size = ivec3(1) << maptex3_size_log2;
-const int virt3_size_log2 = maptex3_size_log2.x + tile3_size_log2;
+const int virt3_size_log2 =
+  max(max(maptex3_size_log2.x, maptex3_size_log2.y), maptex3_size_log2.z)
+  + tile3_size_log2;
 const int virt3_size = 1 << virt3_size_log2;
 
 const ivec2 voxsurf_size_log2 = <%voxsurf_size_log2/>;
@@ -234,7 +236,7 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   <%/>
   int node_type = int(round_255(value.a));
   bool is_pat = (node_type == 1);
-/*
+  /*
   if (is_pat) {
     vec3 curpos_tp = round_255(value.rgb) * tile3_size;
       // 16刻み4096迄
@@ -250,7 +252,7 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
     // value.xyz = vec3(0.0);
     node_type = int(round_255(value.a));
   }
-*/
+  */
   return node_type;
 }
 
@@ -314,7 +316,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     vec3 a = (f - pos) / ray;
     for (float i = 0.0; i < di; i = i + 1.0, a.x = a.x + ad.x) {
       if (a.x > 0.0 && a.x < dist_max) {
-//vec3 p = pos + ray * a.x; if (!pos3_inside_3(p, mi, mx)) { break; }
+        //vec3 p = pos + ray * a.x; if (!pos3_inside_3(p, mi, mx)) { break; }
         if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) != 0) {
           near = min(a.x, near);
           break;
@@ -323,7 +325,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     }
     for (float i = 0.0; i < di; i = i + 1.0, a.y = a.y + ad.y) {
       if (a.y > 0.0 && a.y < dist_max) {
-//vec3 p = pos + ray * a.y; if (!pos3_inside_3(p, mi, mx)) { break; }
+        //vec3 p = pos + ray * a.y; if (!pos3_inside_3(p, mi, mx)) { break; }
         if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) != 0) {
           near = min(a.y, near);
           break;
@@ -332,7 +334,7 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     }
     for (float i = 0.0; i < di; i = i + 1.0, a.z = a.z + ad.z) {
       if (a.z > 0.0 && a.z < dist_max) {
-//vec3 p = pos + ray * a.z; if (!pos3_inside_3(p, mi, mx)) { break; }
+        //vec3 p = pos + ray * a.z; if (!pos3_inside_3(p, mi, mx)) { break; }
         if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) != 0) {
           near = min(a.z, near);
           break;
@@ -346,28 +348,28 @@ int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
     vec3 a = (f - pos) / ray;
     for (float i = 0.0; i < di; i = i + 1.0, a = a + ad) {
       if (a.x > 0.0 && a.x < dist_max) {
-//vec3 p = pos + ray * a.x; if (!pos3_inside_3(p, mi, mx)) { break; }
+        //vec3 p = pos + ray * a.x; if (!pos3_inside_3(p, mi, mx)) { break; }
         // if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) == 255) {
         if (tilemap_fetch(pos + ray * a.x, tmap_mip, tpat_mip) != 0) {
           near = min(a.x, near);
         }
       }
       if (a.y > 0.0 && a.y < dist_max) {
-//vec3 p = pos + ray * a.y; if (!pos3_inside_3(p, mi, mx)) { break; }
+        //vec3 p = pos + ray * a.y; if (!pos3_inside_3(p, mi, mx)) { break; }
         // if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) == 255) {
         if (tilemap_fetch(pos + ray * a.y, tmap_mip, tpat_mip) != 0) {
-//if (p.z < 0.0001) break;
+          //if (p.z < 0.0001) break;
           near = min(a.y, near);
         }
       }
       if (a.z > 0.0 && a.z < dist_max) {
-//tmap_mip = 0;
-//tpat_mip = 0;
-//vec3 p = pos + ray * a.z; if (!pos3_inside_3(p, mi, mx)) { break; }
+        //tmap_mip = 0;
+        //tpat_mip = 0;
+        //vec3 p = pos + ray * a.z; if (!pos3_inside_3(p, mi, mx)) { break; }
         // if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) == 255) {
         if (tilemap_fetch(pos + ray * a.z, tmap_mip, tpat_mip) != 0) {
-//if (p.y >= 0.9) break;
-//break;
+          //if (p.y >= 0.9) break;
+          //break;
           near = min(a.z, near);
         }
       }
@@ -387,7 +389,7 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
   // テクスチャ座標でのposとcamposからmiplevelを決める
   float dist_pos_campos_2 = dot(pos - campos, pos - campos) + 0.0001;
   float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
-  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 9.0);
+  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 11.0);
     // TODO: LODバイアス調整できるようにする
 }
 
@@ -441,16 +443,25 @@ int raycast_tilemap(
   // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
   // 重くなるのでメリット薄い。
 {
+  /*
+  { // FIXME
+    float vx = maptex3_size_log2.x == 10 ? 1.0 : 0.0;
+    float vy = maptex3_size_log2.y == 12 ? 1.0 : 0.0;
+    float vz = maptex3_size_log2.z == 7 ? 1.0 : 0.0;
+    dbgval = vec4(vx, vy, vz, 1.0);
+    return 3;
+  }
+  */
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
     // 0を超えるとtpatをmip、tile3_size_log2を超えるとtmapもmip
   bool mip_detail = false; // 詳細モードかどうか
   if (enable_variable_miplevel && max_vec3(aabb_max - aabb_min) > 0.125f) {
-    // 長距離のイテレートを速くするために大きいmiplevelから開始する。
+    // 長距離空白のイテレートを速くするために大きいmiplevelから開始する。
     // テクスチャに余白が無いと短冊状に影ができてしまう問題があるので
     // 大きいオブジェクトに限って適用する。
-    miplevel = max(miplevel0, 6);
+    miplevel = max(miplevel0, 8);
     mip_detail = miplevel0 == miplevel;
   }
   int tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
@@ -478,7 +489,7 @@ int raycast_tilemap(
   vec4 hit_value = vec4(0.0);
   int node_type = 0;
   int i;
-  int imax = 64; // 128;
+  int imax = <%raycast_iter/>;
     // raycastループ回数の上限。長い影が差すなどの場合、大きくしないと
     // 上限に到達してしまうことがあるが、見た目上大差ないかぎり問題にしない。
     // テクスチャが大きいと128くらいにする必要があるか。

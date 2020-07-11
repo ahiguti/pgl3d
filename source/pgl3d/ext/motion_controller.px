@@ -1,8 +1,8 @@
-public namespace pgl3d::aux::motion_controller;
+public namespace pgl3d::ext::motion_controller;
 public import common -;
 public import meta m;
 public import glm;
-public import pgl3d::aux::serial_port -;
+public import pgl3d::ext::serial_port -;
 
 public struct motion_controller_serial(uint index)
 {

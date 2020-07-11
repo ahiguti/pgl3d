@@ -1,4 +1,4 @@
-public namespace pgl3d::aux::process_priority "use-unsafe";
+public namespace pgl3d::ext::process_priority "use-unsafe";
 public import common -;
 public import meta m;
 

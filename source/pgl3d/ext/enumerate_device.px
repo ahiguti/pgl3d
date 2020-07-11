@@ -1,4 +1,4 @@
-public namespace pgl3d::aux::enumerate_device "use-unsafe";
+public namespace pgl3d::ext::enumerate_device "use-unsafe";
 public import common -;
 public import meta m;
 
@@ -21,7 +21,7 @@ extern "implementation" inline
 
 namespace pgl3d {
 
-typedef pgl3d$n::aux$n::enumerate_device$n::device_info$s device_info;
+typedef pgl3d$n::ext$n::enumerate_device$n::device_info$s device_info;
 
 #ifdef _MSC_VER
 

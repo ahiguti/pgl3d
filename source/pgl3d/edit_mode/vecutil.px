@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::edit_mode::vecutil "use-unsafe";
-public import common -;
-public import meta m;
-public import glm -;
+private import common -;
+private import meta m;
+private import glm -;
 
 public metafunction ui static_cast{uint};
 public metafunction si static_cast{int};

@@ -1,4 +1,4 @@
-public namespace pgl3d::aux::nvapi "use-unsafe";
+public namespace pgl3d::ext::nvapi "use-unsafe";
 public import common -;
 public import meta m;
 

@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::edit_mode::texutil "use-unsafe";
-public import common -;
-public import meta m;
-public import glm -;
+private import common -;
+private import meta m;
+private import glm -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::editable_voxel -;
 private import pgl3d::engine::util -;

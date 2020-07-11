@@ -27,8 +27,8 @@ highdpi=1
 
 # large
 voxel_map_w=10
-voxel_map_h=11
-voxel_map_d=8
+voxel_map_h=12
+voxel_map_d=7
 # 9,9,6
 #voxel_map_w=9
 #voxel_map_h=9

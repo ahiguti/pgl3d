@@ -9,20 +9,26 @@ cd `dirname $0`
 is_cygwin=`uname | cut -d '_' -f 1`
 is_wsl=`uname -r | grep microsoft`
 
-# pxcのdebug/releaseコンパイルの区別。pxcがdebugビルドでもc++
-# はreleaseでコンパイルする。
 pxc_build_config=$PXC_BUILD_CONFIG
 if [ "$pxc_build_config" == "" ]; then
-        pxc_build_config=release_build
+        pxc_build_config=Release
 fi
 
 if [ "$is_cygwin" == "CYGWIN" -o "$is_wsl" != "" ]; then
-	build_script=./windows/$pxc_build_config.sh
-	build_target=./windows/x64/Release/pgl3d_demoapp.exe
+        platform=windows
+	build_target=./windows/x64/$pxc_build_config/pgl3d_app.exe
 else
+        platform=unix
 	build_script=./unix/$pxc_build_config.sh
-	build_target=./source/demoapp.px.exe
+	build_target=./source/app.px.exe
 fi
+
+build_script=./$platform/$pxc_build_config.sh
+
+echo "PXC_BUILD_CONFIG=$pxc_build_config"
+echo "platform=$platform"
+echo "build_target=$build_target"
+echo "args=$*"
 
 while true; do
 	newer_files=`find ./source -name "*.px" -and -newercc \
@@ -50,15 +56,30 @@ while true; do
 	done
 done
 
+if [ "$PXC_BUILD_NOEXEC" != "" ]; then
+        # PXC_BUILD_NOEXECが指定されていれば実行せずに終了する
+        exit 0
+fi
+
 bgpid=""
 
-trap "echo got SIGINT && kill -9 $bdpid > /dev/null 2>&1" 2
-trap "echo got SIGTERM && kill -9 $bdpid > /dev/null 2>&1" 15
+wait_bgpid() {
+        p="$bgpid"
+        bgpid=""
+        if [ "$p" != "" ]; then
+                kill -9 "$p" > /dev/null 2>&1
+                echo waiting $p ...
+                wait "$p" > /dev/null 2>&1
+                echo done
+        fi
+}
 
-echo > var/demoapp.log
-tail -f var/demoapp.log &
+trap "echo got SIGINT" 2
+trap "echo got SIGTERM" 15
+trap wait_bgpid EXIT
+
+echo > var/app.log
+tail -f var/app.log &
 bgpid=$!
 "$build_target" $* > /dev/null 2>&1
-kill -9 "$bgpid" > /dev/null 2>&1
-wait "$bgpid" > /dev/null 2>&1
 

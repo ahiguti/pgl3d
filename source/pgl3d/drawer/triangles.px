@@ -2,8 +2,8 @@ private threaded namespace pgl3d::drawer::triangles "export-unsafe";
 public import common -;
 public import meta m;
 public import pgl3d::drawer::base -;
-public import pgl3d::edit_mode::edit_mode -;
-public import pgl3d::edit_mode::noedit_mode -;
+public import pgl3d::edit_mode::edit_mode_edit -;
+public import pgl3d::edit_mode::edit_mode_noedit -;
 
 private tsvaluetype struct triangles_uniforms()
 {
@@ -293,11 +293,11 @@ public struct drawer_triangles(shader_config const& glc0,
 	}
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
-        edit_mode_ptr.some = make_ptr{edit_mode}(emt);
-        debug_log("create edit_mode instance");
+        edit_mode_ptr.some = make_ptr{edit_mode_edit}(emt);
+        debug_log("create edit_mode_edit instance");
       } else {
-        edit_mode_ptr.some = make_ptr{noedit_mode}(emt);
-        debug_log("create noedit_mode instance");
+        edit_mode_ptr.some = make_ptr{edit_mode_noedit}(emt);
+        debug_log("create edit_mode_noedit instance");
       }
     }
     debug_log("drawer_triangles init ", stype, "done", vbid_triangles,
@@ -440,6 +440,8 @@ public struct drawer_triangles(shader_config const& glc0,
       bnd["shadowmap_max_distance"] = to_string(
 	pow(glc.shadowmap_scale, static_cast{float}(num_shadowmaps - 1))
 	* glc.shadowmap_distance);
+      bnd["raycast_iter"] = to_string(
++       glc.conf.get("raycast_iter", 128, 32, 1024));
       debug_log("triangles bnd", bnd);
       s0.some = init_triangles_shader(glc, bnd, stype);
       s1.some = init_zprepass_shader(glc, bnd, stype);

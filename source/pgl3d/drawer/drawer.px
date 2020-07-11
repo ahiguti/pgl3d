@@ -22,7 +22,7 @@ private import pgl3d::drawer::aberration -;
 private import pgl3d::drawer::capture -;
 private import pgl3d::drawer::setfb -;
 private import pgl3d::drawer::chgmode -;
-private import pgl3d::edit_mode::edit_mode -;
+private import pgl3d::edit_mode::common -;
 
 public metafunction prepare_instance_data_funcptr
   pgl3d::drawer::base::prepare_instance_data_funcptr;

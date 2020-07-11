@@ -1,4 +1,4 @@
-public namespace demoapp;
+public namespace appmain;
 public import common -;
 public import exception -;
 public import numeric::fpmath -;
@@ -7,14 +7,14 @@ public import text::positional -;
 public import io::time -;
 public import fundamental::mainloop -;
 public import io::environ;
-public import debug_helper -;
+public import pgl3d::ext::debug_helper -;
 public import pgl3d::exports -;
 public import meta m;
 public import glm;
 
 // public import pgl3d::texture::generator -;
 // public import pgl3d::numeric::interpolation -; // FIXME
-public import demoapp::texture::triangles_texture -; // FIXME
+public import app::texture::triangles_texture -; // FIXME
 
 // public import pgl3d::bullet_test -;
 // public import KnightModel -; // FIXME
@@ -44,7 +44,7 @@ load_filesystem_async{app_main}("/persist"); // emscripten
 
 public function void app_main()
 {
-  set_debug_log_file("var/demoapp.log");
+  set_debug_log_file("var/app.log");
   set_debug_timestamp(true);
 
   // debug_helper::dump_modules();
@@ -92,14 +92,14 @@ public function void app_main()
     }
     debug_log("s=", s);
   }
-  pgl3d::engine::mainloop::mainloop(make_ptr{demoapp_application}(),
+  pgl3d::engine::mainloop::mainloop(make_ptr{app_application}(),
     config_fn);
 }
 
-public struct demoapp_application()
+public struct app_application()
   <pgl3d_application>
 {	
-  public app_demoapp app;
+  public app_app app;
   public function varray{drawer_cond} on_init_drawstep(
     shader_config const& conf, drawer_shared const& ds)
   {
@@ -485,10 +485,10 @@ private struct camera_state {
   public glm::vec2 light;
 }
 
-private struct app_demoapp()
+private struct app_app()
 {
-  public tptr{demoapp_scene_shared} const scene_shared
-    = make_tptr{demoapp_scene_shared}(io::system);
+  public tptr{app_scene_shared} const scene_shared
+    = make_tptr{app_scene_shared}(io::system);
   public option{ptr{shader_config}} sconf;
   public ptr{projection_info} proj_df = make_ptr{projection_info}();
     // drawing frame
@@ -583,7 +583,7 @@ collision_shape_data(string const& name0, joint_id_type joint_id0,
 public metafunction collision_shape_data_array
   varray{tcptr{collision_shape_data}};
 
-public multithreaded struct demoapp_scene_shared(io const& sys0)
+public multithreaded struct app_scene_shared(io const& sys0)
   <pgl3d_scene_shared>
 {
   public position_angle posang;
@@ -607,7 +607,7 @@ public multithreaded struct demoapp_scene_shared(io const& sys0)
   public projection_info pj_drawing_frame;
     // motion stepで書き込み、motion swapでこれをdrawerに渡す
   function ptr{pgl3d_scene} make_scene(node_factory const& nodefac) {
-    return make_ptr{demoapp_scene}(nodefac, shapes, tvt.some, tup.some, sys);
+    return make_ptr{app_scene}(nodefac, shapes, tvt.some, tup.some, sys);
   }
 }
 
@@ -623,7 +623,7 @@ private threaded function float time_diff(double t0, double t1)
   return static_cast{float}(t1 - t0);
 }
 
-public threaded struct demoapp_scene(node_factory const& nodefac0,
+public threaded struct app_scene(node_factory const& nodefac0,
   collision_shape_data_array const& shapes0,
   tptr{tiled_voxel_texture} const& tvt0, tptr{texture_updates} const& tup0,
   io::io const& sys0)
@@ -649,7 +649,7 @@ public threaded struct demoapp_scene(node_factory const& nodefac0,
     pgl3d_scene_shared mutable& ss)
   {
     const t0 = get_time(sys);
-    mutable& dss = downcast_mutable{demoapp_scene_shared}(ss);
+    mutable& dss = downcast_mutable{app_scene_shared}(ss);
     // const t0 = io::debug_system().gettimeofday_double();
     projection_info mutable& pj = dss.pj_drawing_frame;
     pj.camera = dss.posang;
@@ -754,7 +754,7 @@ public threaded struct demoapp_scene(node_factory const& nodefac0,
   }
 }
 
-function void save_state(app_demoapp const& app)
+function void save_state(app_app const& app)
 {
   camera_state st;
   st.player = app.player;
@@ -764,7 +764,7 @@ function void save_state(app_demoapp const& app)
   sdl_save_file("/build/camera_state.raw", s);
 }
 
-function bool update_window_geometry(app_demoapp mutable& app,
+function bool update_window_geometry(app_app mutable& app,
   glm::uvec2 const& drsz, glm::uvec2 const& wsz)
 {
   const& glc = *app.sconf.some;
@@ -851,7 +851,7 @@ function bool update_window_geometry(app_demoapp mutable& app,
   return true;
 }
 
-function void handle_event(app_demoapp mutable& app, app_ctrl_i mutable& actrl,
+function void handle_event(app_app mutable& app, app_ctrl_i mutable& actrl,
   SDL_Event const& ev, float frame_speed)
 {
   const etype = ev.type;
@@ -919,7 +919,7 @@ function void handle_event(app_demoapp mutable& app, app_ctrl_i mutable& actrl,
       const glm::vec3 m =
 	cursor_move * app.edit_mode_vattr.aabb_or_tconv.w;
 	// 接線空間座標に変換
-      debug_log("cursor_move", cursor_move, "m", m);
+      // debug_log("cursor_move", cursor_move, "m", m);
       mutable mo0 = app.edit_mode_trans * glm::make_vec4(
 	0.0f, 0.0f, 0.0f, 1.0f);
       mutable mo1 = app.edit_mode_trans * glm::make_vec4(
@@ -1039,7 +1039,7 @@ function void handle_event(app_demoapp mutable& app, app_ctrl_i mutable& actrl,
   app.ictl.handle_event(ev, frame_speed, virt_sz, app.app_commands);
 }
 
-function void update_joystick(app_demoapp mutable& app,
+function void update_joystick(app_app mutable& app,
   cslice{joystick_state} const& joysticks)
 {
   // TODO: マップできるようにする
@@ -1079,7 +1079,7 @@ function void update_joystick(app_demoapp mutable& app,
   // debug_log(joysticks);
 }
 
-function void handle_keys(app_demoapp mutable& app, cslice{uchar} const& keys,
+function void handle_keys(app_app mutable& app, cslice{uchar} const& keys,
   cslice{joystick_state} const& joysticks, float frame_speed)
 {
   bool no_move = false;
@@ -1163,7 +1163,7 @@ function void handle_keys(app_demoapp mutable& app, cslice{uchar} const& keys,
 }
 
 private function varray{drawer_cond} init_drawsteps(
-  app_demoapp mutable& app, shader_config const& sconf,
+  app_app mutable& app, shader_config const& sconf,
   drawer_shared const& ds)
 {
   debug_log("init_drawsteps", *app.pviewport_disp, *app.pviewport_main);
@@ -1322,7 +1322,7 @@ private function varray{drawer_cond} init_drawsteps(
   return r;
 }
 
-private function void build_vertices(app_demoapp mutable& app,
+private function void build_vertices(app_app mutable& app,
   make_vertices_i mutable& pgs)
 {
   const& voxtmap = app.tvt->tmap_edit->data_pri[0];
@@ -2262,7 +2262,7 @@ scene_control_update_buttons(scene_control mutable& sctl,
 
 threaded function void
 scene_control_step(scene_control mutable& sctl,
-  demoapp_scene_shared const& ss, raycast_objects mutable& robjs,
+  app_scene_shared const& ss, raycast_objects mutable& robjs,
   projection_info const& pjinfo,
   float frame_speed, node_common_data mutable& ncd,
   cslice{prepare_instance_data_funcptr} const& ftable,

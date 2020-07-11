@@ -1,4 +1,4 @@
-private threaded namespace pgl3d::edit_mode::base "export-unsafe";
+private threaded namespace pgl3d::edit_mode::common "export-unsafe";
 public import common *;
 public import glm *;
 public import opengl::base *;

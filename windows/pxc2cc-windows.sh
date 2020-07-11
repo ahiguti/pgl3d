@@ -1,9 +1,9 @@
 #!/bin/bash
 
 cd `dirname $0` &&
-  pushd ../source && \
+  pushd ../source > /dev/null && \
   pxc -p=../windows/pxc_windows.profile --generate-single-cc -nb \
 	--generate-cc=../windows/gen/ \
-	demoapp.px && \
-  popd
+	appmain.px && \
+  popd > /dev/null
 

@@ -1,4 +1,4 @@
-public namespace pgl3d::aux::d3axim "use-unsafe";
+public namespace pgl3d::ext::d3axim "use-unsafe";
 public import common -;
 public import pgl3d::engine::platform -;
 public import meta m;

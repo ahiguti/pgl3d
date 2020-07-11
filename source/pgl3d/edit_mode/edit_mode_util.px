@@ -1,11 +1,11 @@
 private threaded namespace pgl3d::edit_mode::edit_mode_util "use-unsafe";
-public import common -;
-public import meta m;
-public import pgl3d::texture::texture -;
-public import pgl3d::texture::voxel -;
-public import pgl3d::texture::copy_data -;
-public import pgl3d::edit_mode::tiled_texture_edit_view -;
-private import pgl3d::edit_mode::base -;
+private import common -;
+private import meta m;
+private import pgl3d::texture::texture -;
+private import pgl3d::texture::voxel -;
+private import pgl3d::texture::copy_data -;
+private import pgl3d::edit_mode::tiled_texture_edit_view -;
+private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::procedural -;
 

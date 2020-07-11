@@ -22,8 +22,8 @@ private import pgl3d::engine::pglshader -;
 private import pgl3d::sdl::sdlcontext -;
 private import pgl3d::sdl::sdlutil -;
 private import opengl::compat -;
-private import pgl3d::aux::process_priority -;
-private import pgl3d::aux::nvapi -;
+private import pgl3d::ext::process_priority -;
+private import pgl3d::ext::nvapi -;
 // private import pgl3d::engine::console -;
 
 public function void mainloop(ptr{pgl3d_application} const& app,

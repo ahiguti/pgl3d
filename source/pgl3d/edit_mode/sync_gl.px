@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::edit_mode::sync_gl "use-unsafe";
 public import common -;
 public import meta m;
-private import pgl3d::edit_mode::base -;
+private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
 
 public function {t} void
