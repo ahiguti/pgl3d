@@ -15,6 +15,7 @@ private import pgl3d::edit_mode::tiled_texture_edit_view -;
 private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_util -;
+private import pgl3d::edit_mode::filling -;
 
 private metafunction dbg_editmode{f} no_operation;
 private metafunction dbg_conv{f} f;

@@ -40,19 +40,20 @@ primaryの値の意味(32bit rgba)
 
 
 secondaryの値の意味(32bit rgba)
-  aval := tex_val.a
-    aval_me := avalの上位2bit
-      aval_me == 0: 非金属
-        mate_diffuse = tex_val.rgb
-      aval_me == 1: emissionあり
-        mate_emit = tex_val.rgb
-      aval_me == 2: 金属
-        mate_specular = tex_val.rgb
-      aval_me == 3: 金属、emissionあり (これをvoxsurf参照に変更予定)
-      既定値
-        mate_specular = vec3(0.04)
-        mate_diffuse = vec3(0.0)
-        mate_emit = vec3(0.0)
+  primaryのnode_typeが2以上(壁、平面切断、球面切断)のとき
+    aval := tex_val.a
+      aval_me := avalの上位2bit
+        aval_me == 0: 非金属
+          mate_diffuse = tex_val.rgb
+        aval_me == 1: emissionあり
+          mate_emit = tex_val.rgb
+        aval_me == 2: 金属
+          mate_specular = tex_val.rgb
+        aval_me == 3: 金属、emissionあり (これをvoxsurf参照に変更予定)
+        既定値
+          mate_specular = vec3(0.04)
+          mate_diffuse = vec3(0.0)
+          mate_emit = vec3(0.0)
 
 
 (予定)voxsurf参照
