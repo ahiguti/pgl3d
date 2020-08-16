@@ -33,8 +33,16 @@ public tsvaluetype struct {t, b} array3_pot() private
 public threaded function {t} void
 array3_pot_set_size_l2(t mutable& o, uint w_l2, uint h_l2, uint d_l2)
 {
+  // データを失わずにリサイズする
   metafunction mapped_type m::symbol{t, "mapped_type"};
   metafunction mblk_l2 m::symbol{t, "mblk_l2"};
+  // データをooに移動する
+  t oo;
+  oo.width_l2 = o.width_l2;
+  oo.height_l2 = o.height_l2;
+  oo.depth_l2 = o.depth_l2;
+  oo.data.swap(o.data);
+  // oをリサイズする
   o.data.resize(0u, mapped_type());
   o.width_l2 = w_l2;
   o.height_l2 = h_l2;
@@ -44,6 +52,19 @@ array3_pot_set_size_l2(t mutable& o, uint w_l2, uint h_l2, uint d_l2)
   d_l2 = max(d_l2, mblk_l2);
   size_t sz = static_cast{size_t}(1u) << (w_l2 + h_l2 + d_l2);
   o.data.resize(sz, mapped_type());
+  // データをooからoにコピーする。ooが初期オブジェクトのときはoo.dataが
+  // 空なのでその場合はスキップする
+  if (!oo.data.empty()) {
+    const dsz = map{glm::uvec3, min}(o.get_size_uvec3(), oo.get_size_uvec3());
+    for (const z: 0 .. dsz.z) {
+      for (const y: 0 .. dsz.y) {
+        for (const x: 0 .. dsz.x) {
+          const v = oo.get(x, y, z);
+          o.set(x, y, z, v);
+        }
+      }
+    }
+  }
 }
 
 public threaded function {t} glm::uvec3

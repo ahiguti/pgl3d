@@ -29,11 +29,11 @@ fi
 
 build_script=./$platform/$PXC_BUILD_CONFIG.sh
 
-echo "PXC_BUILD_CONFIG=$PXC_BUILD_CONFIG"
-echo "PXC_BUILD_PROFILE=$PXC_BUILD_PROFILE"
-echo "platform=$platform"
-echo "build_target=$build_target"
-echo "args=$*"
+echo "$0: PXC_BUILD_CONFIG=$PXC_BUILD_CONFIG"
+echo "$0: PXC_BUILD_PROFILE=$PXC_BUILD_PROFILE"
+echo "$0: platform=$platform"
+echo "$0: build_target=$build_target"
+echo "$0: args=$*"
 
 newer_files=`find ./source -name "*.px" -and -newercc \
         "$build_target" 2> /dev/null`

@@ -48,6 +48,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     const mod_cs = (modmask & 5) == 5;
     const mod_rcs = (modmask & 10) == 10;
     const cursor_spd = mod_shift ? 16 : 1;
+    // debug_log("modmask", modmask);
     if (console_mode) {
       if (key == SDL_SCANCODE_ESCAPE || key == SDL_SCANCODE_RETURN) {
         if (key == SDL_SCANCODE_RETURN) {
@@ -147,7 +148,11 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       if (key == SDL_SCANCODE_MINUS) {
         set_space();
       } else if (key == SDL_SCANCODE_C) {
-        copy_value();
+        if (mod_rshift) {
+          filling_create();
+        } else {
+          copy_value();
+        }
       } else if (key == SDL_SCANCODE_V) {
         merge_mode const mmod =
           mod_ctrl ? merge_mode_or_ori() : merge_mode_opaque();
@@ -166,6 +171,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           select_contiguous();
         } else if (mod_shift) {
           swap_cursor();
+        } else if (mod_rshift) {
+          filling_select();
         } else {
           set_mark();
         }
@@ -182,6 +189,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         } else if (mod_ctrl) {
           // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
+        } else if (mod_rshift) {
+          filling_modify(-1, 0, 0);
         } else {
           move_cursor(-cdir.x * cursor_spd, 0, 0, cursor_move_r);
         }
@@ -198,6 +207,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         } else if (mod_ctrl) {
           // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
+        } else if (mod_rshift) {
+          filling_modify(1, 0, 0);
         } else {
           move_cursor(cdir.x * cursor_spd, 0, 0, cursor_move_r);
         }
@@ -213,6 +224,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
+        } else if (mod_rshift) {
+          filling_modify(0, -1, 0);
         } else {
           move_cursor(0, -cdir.y * cursor_spd, 0, cursor_move_r);
         }
@@ -228,6 +241,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
+        } else if (mod_rshift) {
+          filling_modify(0, 1, 0);
         } else {
           move_cursor(0, cdir.y * cursor_spd, 0, cursor_move_r);
         }
@@ -243,6 +258,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
+        } else if (mod_rshift) {
+          filling_modify(0, 0, -1);
         } else {
           move_cursor(0, 0, -cdir.z * cursor_spd, cursor_move_r);
         }
@@ -258,6 +275,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
+        } else if (mod_rshift) {
+          filling_modify(0, 0, 1);
         } else {
           move_cursor(0, 0, cdir.z * cursor_spd, cursor_move_r);
         }
@@ -279,6 +298,10 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
               set_cursor_tpat(true);
             }
           }
+        }
+      } else if (key == SDL_SCANCODE_SLASH) {
+        if (mod_rshift) {
+          filling_erase();
         }
       }
     } else {
@@ -357,6 +380,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       if (!is_space_voxel(vp) && !is_node_reference(vp)) {
         const cp = decode_color_param(vs);
         message += " " + to_string(cp);
+      }
+      const fi = ttev->get_filling(ttev->get_cursor_pos().first);
+      // debug_log("fi=", fi);
+      if (fi.size().x != 0) {
+        message += " fi=" + to_string(
+          ttev->get_cursor_pos().first - fi.offset);
       }
     }
     msg_r = message;
@@ -1420,6 +1449,74 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     (*p)[1].swap(copy_data.tex[1]);
     paste_value(0xff, merge_mode_opaque());
     copied = false;
+  }
+  private function void filling_erase()
+  {
+    debug_log("filling_erase");
+    const c = ttev->get_cursor_pos();
+    const succ = ttev->erase_filling(c.first);
+    debug_log("filling_erase", c.first, succ);
+  }
+  private function void filling_create()
+  {
+    debug_log("filling_create");
+    const cr = ttev->get_cursor_range();
+    filling fi;
+    fi.offset = cr.first;
+    fi.sizes[1] = cr.second.x;
+    fi.sizes[4] = cr.second.y;
+    fi.sizes[7] = cr.second.z;
+    const succ = ttev->set_filling(fi);
+    debug_log("filling_create", cr.first, cr.second, succ);
+  }
+  private function void filling_select()
+  {
+    debug_log("filling_select");
+    const fi = ttev->get_filling(ttev->get_cursor_pos().first);
+    if (fi.size().x == 0) {
+      debug_log("filling_select: not found");
+      return;
+    }
+    ttev->set_cursor_pos(fi.offset,
+      fi.offset + fi.size() - make_uvec3(1, 1, 1));
+    copy_value();
+  }
+  private function void filling_modify(int x, int y, int z)
+  {
+    const fi0 = ttev->get_filling(ttev->get_cursor_pos().first);
+    if (fi0.size().x == 0) {
+      debug_log("filling_modify: not found");
+      return;
+    }
+    mutable fi = fi0;
+    function void modify_dir(uint d, int v) {
+      uint const o = d * 3;
+      if (v < 0) {
+        // 左側を大きくし、そのぶん中央を小さくする
+        if (fi.sizes[o + 1] > 0) {
+          fi.sizes[o + 1] -= 1;
+          fi.sizes[o + 0] += 1;
+        } else {
+          fi.sizes[o + 1] = fi.sizes[o + 0];
+          fi.sizes[o + 0] = 0;
+        }
+      } else if (v > 0) {
+        // 右側を大きくし、そのぶん中央を小さくする
+        if (fi.sizes[o + 1] > 0) {
+          fi.sizes[o + 1] -= 1;
+          fi.sizes[o + 2] += 1;
+        } else {
+          fi.sizes[o + 1] = fi.sizes[o + 2];
+          fi.sizes[o + 2] = 0;
+        }
+      }
+    }
+    modify_dir(0, x);
+    modify_dir(1, y);
+    modify_dir(2, z);
+    ttev->erase_filling(fi0.offset);
+    ttev->set_filling(fi);
+    debug_log("filling_modify", fi.sizes);
   }
 }
 

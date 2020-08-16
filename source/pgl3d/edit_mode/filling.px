@@ -15,20 +15,24 @@ public threaded struct filling {
     uvec3 r;
     r.x = sizes[0] + sizes[1] + sizes[2];
     r.y = sizes[3] + sizes[4] + sizes[5];
-    r.z = sizes[6] + sizes[7] + sizes[9];
+    r.z = sizes[6] + sizes[7] + sizes[8];
     return r;
   }
 }
 
-public threaded interface filling_map_i filling_map {
+public multithreaded interface filling_map_i filling_map {
+  public function uvec3 get_size_l2() const;
   public function void set_size_l2(uvec3 const& p);
   public function ushort get(uvec3 const& p) const;
   public function filling get_filling(uvec3 const& p) const;
-  public function bool set_filling(uvec3 const& p, filling const& fi);
+  public function bool set_filling(filling const& fi);
   public function bool erase_filling(uvec3 const& p);
 }
 
-public threaded struct filling_map <filling_map_i> {
+public multithreaded struct filling_map <filling_map_i> {
+  public function uvec3 get_size_l2() const {
+    return tex.get_size_l2_uvec3();
+  }
   public function void set_size_l2(uvec3 const& p) {
     tex.set_size_l2(p.x, p.y, p.z);
   }
@@ -51,7 +55,8 @@ public threaded struct filling_map <filling_map_i> {
     }
     return r;
   }
-  public function bool set_filling(uvec3 const& p, filling const& fi) {
+  public function bool set_filling(filling const& fi) {
+    const p = fi.offset;
     const sz = fi.size();
     bool empty = true;
     range_foreach(sz) threaded function void (uint x, uint y, uint z) {
@@ -63,12 +68,16 @@ public threaded struct filling_map <filling_map_i> {
     }
     range_foreach(sz) threaded function void (uint x, uint y, uint z) {
       threaded function uint calc_one_dir(cslice{uint} const& dsz, uint i) {
+        uint r = 0u;
+        if (i == 0) {
+          r = 4u;
+        }
         if (dsz[0] + dsz[1] <= i) {
-          return 3u;
+          return r | 3u;
         } else if (dsz[0] <= i) {
-          return 2u;
+          return r | 2u;
         } else {
-          return 1u;
+          return r | 1u;
         }
       }
       const dx = calc_one_dir(fi.sizes[0u .. 3u], x);
@@ -81,12 +90,13 @@ public threaded struct filling_map <filling_map_i> {
   }
   public function bool erase_filling(uvec3 const& p) {
     const fi = get_filling(p);
+    const o = fi.offset;
     const sz = fi.size();
     if (sz == uvec3()) {
       return false;
     }
     range_foreach(sz) threaded function void (uint x, uint y, uint z) {
-      tex.set(p.x + x, p.y + y, p.z + z, ushort(0));
+      tex.set(o.x + x, o.y + y, o.z + z, ushort(0));
     }
     return true;
   }
@@ -95,10 +105,12 @@ public threaded struct filling_map <filling_map_i> {
     const texsz = tex.get_size_uvec3();
     uvec3 pos = p;
     farray{uint, 3} a;
+    uint i = 0;
     while (true) {
       const v = tex.get(pos.x, pos.y, pos.z);
       const vd = decode_filling_dir(v, d);
-      if (vd == 0 || (vd & 4u) != 0) {
+      if (vd == 0 || (i != 0 && (vd & 4u) != 0)) {
+        // 現在位置がfillingを外れたか、別のfillingの境界に至ったならbreak
         break;
       }
       uint const cfrag = (vd & 3u); // 左、中、右がそれぞれ1, 2, 3
@@ -122,6 +134,7 @@ public threaded struct filling_map <filling_map_i> {
       } else {
         throw runtime_error_template{"get_filling_sizes_dir"}("d");
       }
+      ++i;
     }
     return a;
   }

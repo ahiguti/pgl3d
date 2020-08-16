@@ -166,6 +166,12 @@ public struct app_application()
     if (keys[static_cast{uint}(SDL_SCANCODE_RCTRL)] != 0) {
       app.modmask |= 8;
     }
+    if (keys[static_cast{uint}(SDL_SCANCODE_LALT)] != 0) {
+      app.modmask |= 16;
+    }
+    if (keys[static_cast{uint}(SDL_SCANCODE_RALT)] != 0) {
+      app.modmask |= 32;
+    }
     handle_keys(app, keys, joysticks, speed);
     // debug_log("joy", joy_axes, "btn", joy_buttons);
   }

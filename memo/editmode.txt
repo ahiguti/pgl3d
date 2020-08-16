@@ -58,6 +58,9 @@ HLJKNP+CTRL+SHIFT 範囲をXYZ軸について回転
 HLJKNP+RCTRL+RSHIFT  カーソルの移動方向を逆転する
 0       tpat編集とtmap編集切り替え
 0+SHIFT tmapボクセルをtpatへ変換(逆方向は未実装)
+C+ALT   選択領域にfillingパターンを作成
+I+ALT   カーソル位置のfillingパターンを選択する
+/+ALT   カーソル位置のfillingパターンを登録削除する
 
 --------------------------------------------------------
 色変更モード

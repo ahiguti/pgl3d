@@ -3,7 +3,7 @@
 if [ "$PXC_BUILD_PROFILE" == "" ]; then
   PXC_BUILD_PROFILE=release
 fi
-echo PXC_BUILD_PROFILE=$PXC_BUILD_PROFILE
+echo $0: PXC_BUILD_PROFILE=$PXC_BUILD_PROFILE
 
 cd `dirname $0` &&
   pushd ../source > /dev/null && \

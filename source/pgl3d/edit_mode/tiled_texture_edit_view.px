@@ -7,6 +7,7 @@ private import pgl3d::edit_mode::texture_edit_view -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_texture -;
+private import pgl3d::edit_mode::filling -;
 
 private metafunction dbg_cursor{f} no_operation;
 private metafunction dbg_paste{f} no_operation;
@@ -334,6 +335,15 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
         tev_tpat.current_edit->data_sec, tpmod.first,
         tpmod.second, gl_tpat_sec);
     }
+  }
+  public function filling get_filling(uvec3 const& p) const {
+    return emt->vox.fillmap.get_filling(p);
+  }
+  public function bool set_filling(filling const& fi) {
+    return emt->vox.fillmap.set_filling(fi);
+  }
+  public function bool erase_filling(uvec3 const& p) {
+    return emt->vox.fillmap.erase_filling(p);
   }
 }
 

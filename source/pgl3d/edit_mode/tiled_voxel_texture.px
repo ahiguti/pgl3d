@@ -6,12 +6,14 @@ private import text::serialize::compact_pod -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::texutil -;
+private import pgl3d::edit_mode::filling -;
 
 public multithreaded struct tiled_voxel_texture()
 {
   public texture_data voxtile;
   public tptr{texture_edit} tmap_edit = make_tptr{texture_edit}();
   public tptr{texture_edit} tpat_edit = make_tptr{texture_edit}();
+  public filling_map fillmap;
 }
 
 private metafunction texture_data_mip_v0 varray{ptr{texture_data}};
@@ -73,6 +75,10 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
     if (vox.tpat_edit->data_pri[0].get_size_l2_uvec3() != tpszl2) {
       debug_log("resize tpat", tpszl2);
       vox.tpat_edit->resize(tpszl2, enable_short_circuit);
+    }
+    if (vox.fillmap.get_size_l2() != tmszl2) {
+      debug_log("resize filling", tmszl2);
+      vox.fillmap.set_size_l2(tmszl2);
     }
   }
 }
@@ -138,6 +144,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
   }
   vox.tpat_edit->data_pri.resize(pat_mip_num, texture_reshaped());
   vox.tpat_edit->data_sec.resize(pat_mip_num, texture_reshaped());
+  debug_log("update_mipmap_all set_distance begin");
   set_distance(enable_short_circuit, vox.tpat_edit->data_pri[0]);
     // tpatのmip0の距離を計算しなおす。(最適でないかもしれないので)
   for (const i: 1 .. vox.tpat_edit->data_pri.size()) {
