@@ -18,6 +18,9 @@ public threaded struct filling {
     r.z = sizes[6] + sizes[7] + sizes[8];
     return r;
   }
+  public function bool eq__(filling const& x) const {
+    return offset == x.offset && sizes == x.sizes;
+  }
 }
 
 public multithreaded interface filling_map_i filling_map {
@@ -29,7 +32,13 @@ public multithreaded interface filling_map_i filling_map {
   public function bool erase_filling(uvec3 const& p);
 }
 
-public multithreaded struct filling_map <filling_map_i> {
+public multithreaded struct filling_map <filling_map_i> public {
+  public function {tpl} void append_to_string(string mutable& o) const {
+    serialize_sequence{tpl}(tex, o);
+  }
+  public function {tpl} void parse_from_string(cstrref mutable& s) {
+    deserialize_sequence{tpl}(s, tex);
+  }
   public function uvec3 get_size_l2() const {
     return tex.get_size_l2_uvec3();
   }
@@ -99,6 +108,56 @@ public multithreaded struct filling_map <filling_map_i> {
       tex.set(o.x + x, o.y + y, o.z + z, ushort(0));
     }
     return true;
+  }
+  public function uvec3 find_next(uvec3 const& p) {
+    return find_internal{0}(p);
+  }
+  public function uvec3 find_prev(uvec3 const& p) {
+    return find_internal{1}(p);
+  }
+  function {revert} uvec3 find_internal(uvec3 const& p) {
+    const texsz = tex.get_size_uvec3();
+    uvec3 rpos;
+    uint x = p.x;
+    uint y = p.y;
+    uint z = p.z;
+    while (true) {
+      if (m::ne{revert, 0}) {
+        if (x == 0) {
+          x = texsz.x - 1;
+          if (y == 0) {
+            y = texsz.y - 1;
+            if (z == 0) {
+              z = texsz.z - 1;
+            } else {
+              --z;
+            }
+          } else {
+            --y;
+          }
+        } else {
+          --x;
+        }
+      } else {
+        if (++x >= texsz.x) {
+          x = 0;
+          if (++y >= texsz.y) {
+            y = 0;
+            if (++z >= texsz.z) {
+              z = 0;
+            }
+          }
+        }
+      }
+      const v = tex.get(x, y, z);
+      if ((v & 0x444) == 0x444) {
+        break;
+      }
+      if (x == p.x && y == p.y && z == p.z) {
+        break;
+      }
+    }
+    return make_uvec3(x, y, z);
   }
   function farray{uint, 3} get_filling_sizes_dir(uvec3 const& p, uint d)
     const {

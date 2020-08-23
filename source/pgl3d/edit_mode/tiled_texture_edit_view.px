@@ -40,6 +40,7 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     state.cursor_flick = 0;
     state.cursor_color_0 = 0xffffffffu;
     state.cursor_color_1 = 0xff00ffffu;
+    state.cursor_filling = filling();
     state.cursor_tpat = false;
     state.cursor_tmap_0 = make_uvec3(0, 0, tmap_size.z - 1u);
     state.cursor_tmap_1 = state.cursor_tmap_0;
@@ -177,11 +178,22 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
       return to_ivec3(tev_tmap.clamp(upos));
     }
   }
+  public function void set_cursor_filling(filling const& fi)
+  {
+    if (state.cursor_tpat) {
+      return;
+    }
+    state.cursor_filling = fi;
+    const c0 = fi.offset;
+    const c1 = fi.offset + fi.size() - make_uvec3(1, 1, 1);
+    set_tmap_cursor_pos(c0, c1);
+  }
   public function void set_cursor_pos(uvec3 c0, uvec3 c1)
   {
     if (state.cursor_tpat) {
       set_tpat_cursor_pos(c0, c1);
     } else {
+      state.cursor_filling = filling();
       set_tmap_cursor_pos(c0, c1);
     }
   }
@@ -301,15 +313,17 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   {
     if (state.cursor_tpat) {
       if (cursor_shown()) {
-        tev_tpat.set_cursor_color(state.cursor_color_0, state.cursor_color_1);
+        tev_tpat.set_cursor_color(state.cursor_color_0, state.cursor_color_1,
+          state.cursor_filling);
       } else {
-        tev_tpat.set_cursor_color(0, 0);
+        tev_tpat.set_cursor_color(0, 0, filling());
       }
     } else {
       if (cursor_shown()) {
-        tev_tmap.set_cursor_color(state.cursor_color_0, state.cursor_color_1);
+        tev_tmap.set_cursor_color(state.cursor_color_0, state.cursor_color_1,
+          state.cursor_filling);
       } else {
-        tev_tmap.set_cursor_color(0, 0);
+        tev_tmap.set_cursor_color(0, 0, filling());
       }
     }
   }
@@ -345,12 +359,19 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   public function bool erase_filling(uvec3 const& p) {
     return emt->vox.fillmap.erase_filling(p);
   }
+  public function uvec3 get_filling_next(uvec3 const& p) {
+    return emt->vox.fillmap.find_next(p);
+  }
+  public function uvec3 get_filling_prev(uvec3 const& p) {
+    return emt->vox.fillmap.find_prev(p);
+  }
 }
 
 public struct ttev_state() {
   public int cursor_flick;
   public uint cursor_color_0;
   public uint cursor_color_1;
+  public filling cursor_filling;
   public bool cursor_tpat;
   public uvec3 cursor_tpat_0;
   public uvec3 cursor_tpat_1;

@@ -4,6 +4,7 @@ public import meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::update_dist -;
 private import pgl3d::edit_mode::vecutil -;
+private import pgl3d::edit_mode::filling -;
 
 public struct texture_edit_view(tptr{texture_edit} const edit)
 {
@@ -15,6 +16,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
   public texture_reshaped tview_sec = current_edit->data_sec[0]; // copy
   private uint cursor_color_0 = 0xffffffff;
   private uint cursor_color_1 = 0xff00ffff;
+  private filling cursor_filling;
   private uvec3 cursor_0 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
   private uvec3 cursor_1 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
   private modified_range modified;
@@ -39,9 +41,9 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
   public function pair{uvec3, uvec3} get_view_modified(bool reset_flag) {
     return modified.get_modified_merged(reset_flag);
   }
-  public function void set_cursor_color(uint c0, uint c1)
+  public function void set_cursor_color(uint c0, uint c1, filling const& fi)
   {
-    if (c0 == cursor_color_0 && c1 == cursor_color_1) {
+    if (c0 == cursor_color_0 && c1 == cursor_color_1 && fi == cursor_filling) {
       return;
     }
     const c0_rgb = c0 & 0x00ffffffu;
@@ -85,9 +87,33 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       /* 領域にc1色をセットし周囲の距離を更新する */
       const mimx = texture_data_fill_range_recalc_distance_quick(
         tview_pri, get_cursor_mi(), sz, c1);
-      /* secには領域にc1のrgbをセット */
-      texture_data_fill_range(tview_sec, get_cursor_mi(), sz,
-        c1_rgb);
+      if (fi.size().x == 0) {
+        /* secには領域にc1のrgbをセット */
+        texture_data_fill_range(tview_sec, get_cursor_mi(), sz,
+          c1_rgb);
+      } else {
+        /* filling選択中 */
+        const mi = get_cursor_mi();
+        range_foreach(sz) function void(uint x, uint y, uint z) {
+          uint c = 0x00808080u;
+          if (x >= fi.sizes[0] + fi.sizes[1]) {
+            c ^= 0x40;
+          } else if (x >= fi.sizes[0]) {
+            c ^= 0x20;
+          }
+          if (y >= fi.sizes[3] + fi.sizes[4]) {
+            c ^= 0x4000;
+          } else if (y >= fi.sizes[3]) {
+            c ^= 0x2000;
+          }
+          if (z >= fi.sizes[6] + fi.sizes[7]) {
+            c ^= 0x400000;
+          } else if (z >= fi.sizes[6]) {
+            c ^= 0x200000;
+          }
+          tview_sec.set(mi.x + x, mi.y + y, mi.z + z, c);
+        }
+      }
       /* cursor_0だけはc0色をセット */
       tview_pri.set(cursor_0.x, cursor_0.y, cursor_0.z, c0);
       tview_sec.set(cursor_0.x, cursor_0.y, cursor_0.z, c0_rgb);
@@ -95,6 +121,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
     }
     cursor_color_0 = c0;
     cursor_color_1 = c1;
+    cursor_filling = fi;
   }
   public function void set_cursor_pos(uvec3 c0, uvec3 c1)
   {
@@ -102,8 +129,9 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
     // 更新しないので、miplevel0以外のmipmapは正常に表示されないので注意。
     const saved_cursor_color_0 = cursor_color_0;
     const saved_cursor_color_1 = cursor_color_1;
+    const saved_cursor_filling = cursor_filling;
     if (cursor_color_0 != 0) {
-      set_cursor_color(0, 0);
+      set_cursor_color(0, 0, filling());
     }
     c0 = clamp(c0);
     c1 = clamp(c1);
@@ -192,7 +220,8 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
     cursor_0 = c0;
     cursor_1 = c1;
     if (saved_cursor_color_0 != 0) {
-      set_cursor_color(saved_cursor_color_0, saved_cursor_color_1);
+      set_cursor_color(saved_cursor_color_0, saved_cursor_color_1,
+        saved_cursor_filling);
     }
   }
   public function uint edit_get(uvec3 const& pos, texture_value_index_e idx,

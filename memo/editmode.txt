@@ -42,25 +42,27 @@ ESCAPE   コンソールモードに入る
 --------------------------------------------------------
 パラメータ変更モードでないとき
 
--       空白にする
-C       コピー
-V       ペースト
-V+SHIFT 色だけペースト
-V+CTRL  マージ処理付きペースト
-,+SHIFT 縮小する
-.+SHIFT 拡大する
-I       範囲指定開始・終了
-I+SHIFT カーソルの始点と終点を入れ替える
-HLJKNP  カーソルを-X,+X,-Y,+Y,-Z,+Z方向へ移動
+-        空白にする
+C        コピー
+V        ペースト
+V+SHIFT  色だけペースト
+V+CTRL   マージ処理付きペースト
+,+SHIFT  縮小する
+.+SHIFT  拡大する
+I        範囲指定開始・終了
+I+SHIFT  カーソルの始点と終点を入れ替える
+HLJKNP   カーソルを-X,+X,-Y,+Y,-Z,+Z方向へ移動
 HLJKNP+CTRL 範囲をXYZ軸方向について鏡像反転
 HLJKNP+CTRL+SHIFT 範囲をXYZ軸について回転
                   (残り2座標について範囲が同じ大きさである必要がある)
 HLJKNP+RCTRL+RSHIFT  カーソルの移動方向を逆転する
-0       tpat編集とtmap編集切り替え
-0+SHIFT tmapボクセルをtpatへ変換(逆方向は未実装)
-C+ALT   選択領域にfillingパターンを作成
-I+ALT   カーソル位置のfillingパターンを選択する
-/+ALT   カーソル位置のfillingパターンを登録削除する
+0        tpat編集とtmap編集切り替え
+0+SHIFT  tmapボクセルをtpatへ変換(逆方向は未実装)
+C+RSHIFT 選択領域にfillingパターンを作成
+I+RSHIFT カーソル位置のfillingパターンを選択する
+Q+RSHIFT カーソル位置のfillingパターンを登録削除する
+,+RSHIFT 次のfillingパターンへ移動
+.+RSHIFT 前のfillingパターンへ移動
 
 --------------------------------------------------------
 色変更モード

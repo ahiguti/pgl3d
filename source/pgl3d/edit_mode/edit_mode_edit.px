@@ -91,8 +91,13 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       msg_r = get_console_text();
       return;
     } else if (key == SDL_SCANCODE_F5 || key == SDL_SCANCODE_F12) {
-      emt->vox.update_mipmap();
-      sync_gl_mipmap_all(*emt);
+      // SHIFT+F12ならmipmap更新を省略する
+      if (key == SDL_SCANCODE_F5 || !mod_shift) {
+        emt->vox.update_mipmap();
+        sync_gl_mipmap_all(*emt);
+      } else {
+        debug_log("F12: updating mipmap skipped");
+      }
       if (key == SDL_SCANCODE_F12) {
         save_state();
       }
@@ -149,7 +154,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         set_space();
       } else if (key == SDL_SCANCODE_C) {
         if (mod_rshift) {
-          filling_create();
+          filling_create(cursor_move_r);
         } else {
           copy_value();
         }
@@ -161,18 +166,20 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       } else if (key == SDL_SCANCODE_COMMA) {
         if (mod_shift) {
           shrink_range();
+        } else if (mod_rshift) {
+          filling_next(true, cursor_move_r);
         }
       } else if (key == SDL_SCANCODE_PERIOD) {
         if (mod_shift) {
           scale_range();
+        } else if (mod_rshift) {
+          filling_next(false, cursor_move_r);
         }
       } else if (key == SDL_SCANCODE_I) {
-        if (mod_ctrl) {
-          select_contiguous();
-        } else if (mod_shift) {
+        if (mod_shift) {
           swap_cursor();
         } else if (mod_rshift) {
-          filling_select();
+          filling_select(cursor_move_r);
         } else {
           set_mark();
         }
@@ -299,7 +306,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
             }
           }
         }
-      } else if (key == SDL_SCANCODE_SLASH) {
+      } else if (key == SDL_SCANCODE_Q) {
         if (mod_rshift) {
           filling_erase();
         }
@@ -424,7 +431,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   /////////////////////////////////////////////////////////////////////
   private struct edit_state() {
     public ttev_state ttev;
-    public glm::ivec3 cdir; // 各軸のカーソル移動を変換する
+    public glm::ivec3 cdir = glm::make_ivec3(1, 1, 1);
+      // 各軸のカーソル移動を変換する
   }
   private ptr{edit_mode_texture} emt = emt0;
   private ptr{tiled_texture_edit_view} const ttev =
@@ -469,7 +477,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       edit_state est;
       sdl_load_file("/build/edit_state.raw", buf);
       if (!buf.empty()) {
-        est = from_string_compact_pod{edit_state}(buf);
+        // TODO: from_string_compact_podがfarrayを使えない
+        est = from_string{edit_state}(buf);
         ttev->set_state(est.ttev);
         cdir = est.cdir;
       }
@@ -486,7 +495,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     edit_state est;
     est.ttev = ttev->get_state();
     est.cdir = cdir;
-    sdl_save_file("/build/edit_state.raw", to_string_compact_pod(est));
+    sdl_save_file("/build/edit_state.raw", to_string(est));
     const msz = emt->vox.tmap_edit->data_pri[0].get_size_l2_uvec3();
     const psz = emt->vox.tpat_edit->data_pri[0].get_size_l2_uvec3();
     {
@@ -511,7 +520,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       // tpatテクスチャを保存。
       texture_edit const& tpat = *emt->vox.tpat_edit;
       string fn = "/build/edit_common_tpat.raw";
-      sdl_save_file(fn, to_string_compact_pod(tpat));
+      sdl_save_file(fn, to_string(tpat));
     }
     {
       // tmapテクスチャのprimaryとsecondaryを保存。
@@ -672,9 +681,6 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       debug_log("unrecognized command", toks);
       message = "unrecognized command";
     }
-  }
-  private function void select_contiguous()
-  {
   }
   private function void set_mark()
   {
@@ -1455,9 +1461,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     debug_log("filling_erase");
     const c = ttev->get_cursor_pos();
     const succ = ttev->erase_filling(c.first);
+    if (succ) {
+      ttev->set_cursor_pos(c.first, c.second); // cursor fillingが解除される
+    }
     debug_log("filling_erase", c.first, succ);
   }
-  private function void filling_create()
+  private function void filling_create(glm::vec3 mutable& cursor_move_r)
   {
     debug_log("filling_create");
     const cr = ttev->get_cursor_range();
@@ -1467,9 +1476,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     fi.sizes[4] = cr.second.y;
     fi.sizes[7] = cr.second.z;
     const succ = ttev->set_filling(fi);
-    debug_log("filling_create", cr.first, cr.second, succ);
+    if (succ) {
+      debug_log("filling_create", cr.first, cr.second, succ);
+      filling_set_cursor(fi, cursor_move_r);
+    }
   }
-  private function void filling_select()
+  private function void filling_select(glm::vec3 mutable& cursor_move_r)
   {
     debug_log("filling_select");
     const fi = ttev->get_filling(ttev->get_cursor_pos().first);
@@ -1477,9 +1489,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       debug_log("filling_select: not found");
       return;
     }
-    ttev->set_cursor_pos(fi.offset,
-      fi.offset + fi.size() - make_uvec3(1, 1, 1));
-    copy_value();
+    filling_set_cursor(fi, cursor_move_r);
   }
   private function void filling_modify(int x, int y, int z)
   {
@@ -1516,7 +1526,31 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     modify_dir(2, z);
     ttev->erase_filling(fi0.offset);
     ttev->set_filling(fi);
+    ttev->set_cursor_filling(fi);
     debug_log("filling_modify", fi.sizes);
+  }
+  private function void filling_next(bool revert,
+    glm::vec3 mutable& cursor_move_r)
+  {
+    const p = ttev->get_cursor_pos().first;
+    const np = revert ? ttev->get_filling_prev(p) : ttev->get_filling_next(p);
+    if (np == p) {
+      debug_log("filling_next: not found");
+      return;
+    }
+    const fi = ttev->get_filling(np);
+    const d = to_ivec3(np) - to_ivec3(p);
+    move_cursor(d.x, d.y, d.z, cursor_move_r);
+    ttev->set_cursor_filling(fi);
+  }
+  private function void filling_set_cursor(filling const& fi,
+    glm::vec3 mutable& cursor_move_r)
+  {
+    const p0 = to_ivec3(ttev->get_cursor_pos().first);
+    const p1 = to_ivec3(fi.offset);
+    const d = p1 - p0;
+    move_cursor(d.x, d.y, d.z, cursor_move_r);
+    ttev->set_cursor_filling(fi);
   }
 }
 

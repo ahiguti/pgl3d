@@ -183,12 +183,28 @@ generate_rand_quat(rand_generator_ptr const& rnd)
 public threaded function {f} void
 range_foreach(uvec3 const& sz)
 {
-  for (const z: 0 .. sz.z) {
-    for (const y: 0 .. sz.y) {
-      for (const x: 0 .. sz.x) {
-        f(x, y, z);
+  if (m::eq{m::ret_type{f}, bool}) {
+    bool c = false;
+    for (const z: 0 .. sz.z) {
+      for (const y: 0 .. sz.y) {
+        for (const x: 0 .. sz.x) {
+          c = f(x, y, z);
+          if (!c) { break; }
+        }
+        if (!c) { break; }
+      }
+      if (!c) { break; }
+    }
+  } else if (m::eq{m::ret_type{f}, void}) {
+    for (const z: 0 .. sz.z) {
+      for (const y: 0 .. sz.y) {
+        for (const x: 0 .. sz.x) {
+          f(x, y, z);
+        }
       }
     }
+  } else {
+    m::error{"invalid argument"}();
   }
 }
 
