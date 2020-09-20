@@ -173,7 +173,7 @@ scale_voxel_value(texel_value v_pri, texel_value v_sec, t mutable& tex_pri,
             offset = m * offset;
             offset = (offset + 1) / 2;
             const c = p.coord * 2u + to_uvec3(offset);
-            dbg_scale() function void () {
+            dbg_scale() {
               debug_log("offset", offset, "c", c);
             }
             cv = f(c, texture_value_index_primary, 0u);
@@ -199,7 +199,7 @@ rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
 	const vp = rotate_voxel_value(m, spri.get(x, y, z));
 	const va = ssec.get(x, y, z);
 	const p = rotate_offset(m, glm::make_ivec3(si(x), si(y), si(z)), sz);
-	dbg_rotate() function void () {
+	dbg_rotate() {
 	  debug_log("rotate_texture_range", x, y, z, p, vp, va);
 	}
 	const up = to_uvec3(p);
@@ -226,7 +226,7 @@ rotate_offset(imat3 const& m, ivec3 const& v, uvec3 const& sz)
 public function uint
 rotate_voxel_value(imat3 const& m, uint v)
 {
-  dbg_rotate() function void () {
+  dbg_rotate() {
     debug_log("rotate_voxel_value", to_hexstring(v), is_node_reference(v));
   }
   if (is_plane_node(v)) {
@@ -240,7 +240,7 @@ rotate_voxel_value(imat3 const& m, uint v)
     v = encode_sphere_node(sp);
   } else if (is_node_reference(v)) {
     mutable rp = decode_noderef_param(v);
-    dbg_rotate() function void () {
+    dbg_rotate() {
       debug_log("apply mat:", m.to_cslice());
       debug_log("oldtr mat:", rp.get_imat3().to_cslice(), "rp:", rp);
     }
@@ -254,7 +254,7 @@ rotate_voxel_value(imat3 const& m, uint v)
       s[1], s[4], s[7],
       s[2], s[5], s[8]);
     rp.set_imat3(rm * m_trans);
-    dbg_rotate() function void () {
+    dbg_rotate() {
       debug_log("modtr mat:", rp.get_imat3().to_cslice(), "rp:", rp);
     }
     v = encode_noderef_param(rp);

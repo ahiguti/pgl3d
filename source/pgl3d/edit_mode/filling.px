@@ -7,6 +7,7 @@ private import pgl3d::texture::texture -;
 private import pgl3d::engine::util -;
 
 metafunction filling_texture array3_pot{varray{ushort}, 0};
+metafunction dbg_filling{f} f; // no_operation;
 
 public threaded struct filling {
   public uvec3 offset; // パターンの起点がtmapのどのオフセットにあるか
@@ -68,14 +69,14 @@ public multithreaded struct filling_map <filling_map_i> public {
     const p = fi.offset;
     const sz = fi.size();
     bool empty = true;
-    range_foreach(sz) threaded function void (uint x, uint y, uint z) {
+    range_foreach(sz) void (uint x, uint y, uint z) {
       const v = tex.get(p.x + x, p.y + y, p.z + z);
       empty &= (v == 0);
     }
     if (!empty) {
       return false;
     }
-    range_foreach(sz) threaded function void (uint x, uint y, uint z) {
+    range_foreach(sz) void (uint x, uint y, uint z) {
       threaded function uint calc_one_dir(cslice{uint} const& dsz, uint i) {
         uint r = 0u;
         if (i == 0) {
@@ -104,7 +105,7 @@ public multithreaded struct filling_map <filling_map_i> public {
     if (sz == uvec3()) {
       return false;
     }
-    range_foreach(sz) threaded function void (uint x, uint y, uint z) {
+    range_foreach(sz) void (uint x, uint y, uint z) {
       tex.set(o.x + x, o.y + y, o.z + z, ushort(0));
     }
     return true;

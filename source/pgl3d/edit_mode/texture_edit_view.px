@@ -94,7 +94,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       } else {
         /* filling選択中 */
         const mi = get_cursor_mi();
-        range_foreach(sz) function void(uint x, uint y, uint z) {
+        range_foreach(sz) void (uint x, uint y, uint z) {
           uint c = 0x00808080u;
           if (x >= fi.sizes[0] + fi.sizes[1]) {
             c ^= 0x40;

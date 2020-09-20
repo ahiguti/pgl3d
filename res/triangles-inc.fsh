@@ -200,26 +200,35 @@ float voxel_collision_sphere(in vec3 v, in vec3 a, in vec3 c,
 <%if><%eq><%stype/>1<%/>
 
 const int tile3_size_log2 = 6;
-  // タイルの最大スケール値。これ以上大きくすると影がピーターパンをおこす
 const int tile3_size = 1 << tile3_size_log2;
+  // タイルの最大スケール値。これ以上大きくすると影がピーターパンをおこす
 const ivec3 pattex3_size_log2 = <%pattex3_size_log2/>;
 const ivec3 pattex3_size = ivec3(1) << pattex3_size_log2;
+  // タイルパターンテクスチャの大きさ
 const ivec3 maptex3_size_log2 = <%maptex3_size_log2/>;
 const ivec3 maptex3_size = ivec3(1) << maptex3_size_log2;
+  // タイルマップテクスチャの大きさ
 const int virt3_size_log2 =
   max(max(maptex3_size_log2.x, maptex3_size_log2.y), maptex3_size_log2.z)
   + tile3_size_log2;
 const int virt3_size = 1 << virt3_size_log2;
+  // 長辺仮想サイズ。タイルの最大スケールを使ったときのもの。
 
 const ivec2 voxsurf_size_log2 = <%voxsurf_size_log2/>;
 const ivec2 voxsurf_size = ivec2(1) << voxsurf_size_log2;
+  // 表面に貼り付ける2dテクスチャの大きさ
 
 uniform <%mediump_sampler3d/> sampler_voxtpat;
+  // タイルパターンテクスチャ#0
 uniform <%mediump_sampler3d/> sampler_voxtpax;
+  // タイルパターンテクスチャ#1
 uniform <%mediump_sampler3d/> sampler_voxtmap;
+  // タイルマップテクスチャ#0
 uniform <%mediump_sampler3d/> sampler_voxtmax;
+  // タイルマップテクスチャ#1
 
 uniform sampler2D sampler_voxsurf;
+  // 表面に貼り付ける2dテクスチャ
 
 int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
 {
@@ -235,8 +244,8 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   vec4 value = <%texture3d/>(sampler_voxtmap, curpos_t / map3_size);
   <%/>
   int node_type = int(round_255(value.a));
-  bool is_pat = (node_type == 1);
   /*
+  bool is_pat = (node_type == 1);
   if (is_pat) {
     vec3 curpos_tp = round_255(value.rgb) * tile3_size;
       // 16刻み4096迄
@@ -270,8 +279,8 @@ int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
   vec4 value = <%texture3d/>(sampler_voxtmap, curpos_t / map3_size);
   <%/>
   int node_type = int(round_255(value.a));
-  bool is_pat = (node_type == 1);
 /*
+  bool is_pat = (node_type == 1);
   if (is_pat) {
     vec3 curpos_tp = round_255(value.rgb) * tile3_size;
       // 16刻み4096迄
@@ -429,6 +438,15 @@ void tpat_sgn_valuerot(in vec3 i_p, in vec3 i_n, in vec3 sgn, out vec3 o_p,
   if (sgn.x < 0) { swap_float(o_p.x, o_n.x); }
   if (sgn.y < 0) { swap_float(o_p.y, o_n.y); }
   if (sgn.z < 0) { swap_float(o_p.z, o_n.z); }
+}
+
+vec3 sphere_scale(vec3 v)
+{
+  // それぞれ2bit。拡大率3は使い道が少ないので8に変換する。
+  if (v.x == 3) { v.x = 8; }
+  if (v.y == 3) { v.y = 8; }
+  if (v.z == 3) { v.z = 8; }
+  return v;
 }
 
 bool debug_scale = false;
@@ -646,6 +664,7 @@ int raycast_tilemap(
           // 楕円体
           vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
           vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
+          sp_scale = sphere_scale(sp_scale);
           sp_center = sp_center * tpat_sgn; // tpat sgnを適用
           float sp_radius = float(node_type - 1);
           bool ura = (node_type - 1 > 64);
@@ -715,6 +734,7 @@ int raycast_tilemap(
           bool light_hit_wall = false;
           vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
           vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
+          sp_scale = sphere_scale(sp_scale);
           sp_center = sp_center * tpat_sgn; // tpat sgnを適用
           float sp_radius = float(node_type - 64 - 1) * 1.0;
           vec3 sp_nor = vec3(0.0);

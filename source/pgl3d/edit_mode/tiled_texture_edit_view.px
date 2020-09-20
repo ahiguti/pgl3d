@@ -150,9 +150,9 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   public function void set_tmap_cursor_pos(uvec3 c0, uvec3 c1)
   {
     reset_cursor_flick_nosyncgl();
-    dbg_cursor() function void () { debug_log("set_tmap_cursor_pos", c0); }
+    dbg_cursor() { debug_log("set_tmap_cursor_pos", c0); }
     c0 = tev_tmap.clamp(c0);
-    dbg_cursor() function void () { debug_log("set_tmap_cursor_pos ->", c0); }
+    dbg_cursor() { debug_log("set_tmap_cursor_pos ->", c0); }
     c1 = tev_tmap.clamp(c1);
     state.cursor_tmap_0 = c0;
     state.cursor_tmap_1 = c1;

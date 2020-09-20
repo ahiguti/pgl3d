@@ -52,7 +52,7 @@ public struct motion_controller_serial(uint index)
       {
         const line = buffer[p0 + 1 .. p1];
         uint i = 0;
-        split_foreach(line, ',') function void (cstrref const& s) {
+        split_foreach(line, ',') void (cstrref const& s) {
           const v = from_string{float}(s);
           if (i < 4u) {
             a[i] = v;

@@ -129,7 +129,7 @@ texture_edit()
     mutable& tgt_1 = sec[0];
     const msz = map{uvec3, min}(src_0.get_size_uvec3(),
       tgt_0.get_size_uvec3());
-    range_foreach(msz) threaded function void (uint x, uint y, uint z) {
+    range_foreach(msz) void (uint x, uint y, uint z) {
       tgt_0.set(x, y, z, src_0.get(x, y, z));
       tgt_1.set(x, y, z, src_1.get(x, y, z));
     }
@@ -222,7 +222,7 @@ texture_edit()
     v_sec = is_space_voxel(v_pri) ? 0u : v_sec;
     texture_data_fill_range(data_pri[0], dpos, sz, v_pri);
     texture_data_fill_range(data_sec[0], dpos, sz, v_sec);
-    dbg_dist() function void () {
+    dbg_dist() {
       debug_log("fill_range", dpos, sz);
     }
     recalc_distance_range(true, dpos, sz, v_pri == 0u);
@@ -248,7 +248,7 @@ texture_edit()
     if (empty_range(sz)) {
       return;
     }
-    dbg_paste() threaded function void () {
+    dbg_paste() {
       debug_log("editable_voxel paste_range", spos, sz, dpos, index_mask);
     }
     bool shape_modified = false;
@@ -263,7 +263,7 @@ texture_edit()
 	src_aux, spos, sz);
     }
     if (shape_modified) {
-      dbg_paste() threaded function void() {
+      dbg_paste() {
         debug_log("editable_voxel paste_range recalc dist", spos, sz, dpos);
       }
       recalc_distance_range(true, dpos, sz, false);
@@ -277,12 +277,12 @@ texture_edit()
   {
     /* 領域の更新に伴う距離の更新をおこなう。領域が全て空白になったと
      * わかっている場合はclear_flagを真にしてよい。*/
-    dbg_dist() function void () {
+    dbg_dist() {
       debug_log("recalc_distance_range", pos, sz, clear_flag);
     }
     ivec3 mod_mi = to_ivec3(pos);
     ivec3 mod_mx = mod_mi + to_ivec3(sz) - make_ivec3(1, 1, 1);
-    dbg_dist() function void () {
+    dbg_dist() {
       debug_log("recalc_distance_range nogrid", mod_mi, mod_mx);
     }
     if (clear_flag) {

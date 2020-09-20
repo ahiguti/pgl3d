@@ -400,7 +400,7 @@ prepare_parallax_mapping_texture_data(app_textures mutable& txs)
 
 function void parallax_png_decode(texture_data mutable& td)
 {
-  td.foreach() function {t} void(uint x, uint y, uint z, t mutable& v) {
+  td.foreach() function {t} void (uint x, uint y, uint z, t mutable& v) {
     const depth = (v & 0xff) / 1;
     v = depth << 16u;
   }

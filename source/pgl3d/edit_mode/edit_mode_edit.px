@@ -63,7 +63,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       }
       if (key == SDL_SCANCODE_BACKSPACE) {
         if (console_text_cursor > 0) {
-          dbg_console() function void () {
+          dbg_console() {
             debug_log("cur,txt", console_text_cursor, console_text);
           }
           const s = console_text[0 .. console_text_cursor - 1u] +
@@ -141,7 +141,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         gen_test_param = max(gen_test_param - 1, -15);
         *rndp = *rndp_saved;
       }
-      dbg_gen() function void () {
+      dbg_gen() {
         debug_log("gen_test_param", gen_test_param);
       }
       *rndp_saved = *rndp;
@@ -191,7 +191,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           if (ssz.y == ssz.z) {
             rotate_range(glm::make_imat3(1, 0, 0, 0, 0, -1, 0, 1, 0));
           } else {
-            dbg_editmode() function void () { debug_log("ssz.y != ssz.z"); }
+            dbg_editmode() { debug_log("ssz.y != ssz.z"); }
           }
         } else if (mod_ctrl) {
           // x軸反転
@@ -209,7 +209,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           if (ssz.y == ssz.z) {
             rotate_range(glm::make_imat3(1, 0, 0, 0, 0, 1, 0, -1, 0));
           } else {
-            dbg_editmode() function void () { debug_log("ssz.y != ssz.z"); }
+            dbg_editmode() { debug_log("ssz.y != ssz.z"); }
           }
         } else if (mod_ctrl) {
           // x軸反転
@@ -227,7 +227,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           if (ssz.z == ssz.x) {
             rotate_range(glm::make_imat3(0, 0, 1, 0, 1, 0, -1, 0, 0));
           } else {
-            dbg_editmode() function void () { debug_log("ssz.z != ssz.x"); }
+            dbg_editmode() { debug_log("ssz.z != ssz.x"); }
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
@@ -244,7 +244,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           if (ssz.z == ssz.x) {
             rotate_range(glm::make_imat3(0, 0, -1, 0, 1, 0, 1, 0, 0));
           } else {
-            dbg_editmode() function void () { debug_log("ssz.z != ssz.x"); }
+            dbg_editmode() { debug_log("ssz.z != ssz.x"); }
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
@@ -261,7 +261,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           if (ssz.x == ssz.y) {
             rotate_range(glm::make_imat3(0, -1, 0, 1, 0, 0, 0, 0, 1));
           } else {
-            dbg_editmode() function void () { debug_log("ssz.x != ssz.y"); }
+            dbg_editmode() { debug_log("ssz.x != ssz.y"); }
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
@@ -278,7 +278,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           if (ssz.x == ssz.y) {
             rotate_range(glm::make_imat3(0, 1, 0, -1, 0, 0, 0, 0, 1));
           } else {
-            dbg_editmode() function void () { debug_log("ssz.x != ssz.y"); }
+            dbg_editmode() { debug_log("ssz.x != ssz.y"); }
           }
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
@@ -289,16 +289,16 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         }
       } else if (key == SDL_SCANCODE_0) {
         if (get_cursor_tpat()) {
-          dbg_conv() function void () { debug_log("scancode_0"); }
+          dbg_conv() { debug_log("scancode_0"); }
           if (mod_shift) {
-            dbg_conv() function void () { debug_log("convert_to_tmap"); }
+            dbg_conv() { debug_log("convert_to_tmap"); }
             convert_to_tmap();
           } else {
             set_cursor_tpat(false);
           }
         } else {
           if (mod_shift) {
-            dbg_conv() function void () { debug_log("convert_to_tpat"); }
+            dbg_conv() { debug_log("convert_to_tpat"); }
             convert_to_tpat();
           } else {
             if (is_cur_tmap_node_reference()) {
@@ -407,7 +407,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       console_text = r;
     }
     console_text_cursor += s.size();
-    dbg_editmode() function void () {
+    dbg_editmode() {
       debug_log("on_textinput: ", s, console_text);
     }
     msg_r = get_console_text();
@@ -462,7 +462,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   /////////////////////////////////////////////////////////////////////
   private function void init()
   {
-    dbg_editmode() function void () {
+    dbg_editmode() {
       debug_log("edit_mode", "voxtmap",
         emt->vox.tmap_edit->data_pri[0].get_size_uvec3());
     }
@@ -491,7 +491,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   {
     // 編集中のテクスチャなどを保存する。保存されたデータのロードは
     // アプリ側で行う必要がある。
-    dbg_save() function void () { debug_log("edit_mode: save"); }
+    dbg_save() { debug_log("edit_mode: save"); }
     edit_state est;
     est.ttev = ttev->get_state();
     est.cdir = cdir;
@@ -516,6 +516,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       string fn = "/build/edit_selection.ser";
       sdl_save_file(fn, to_string(copy_data));
     }
+    /*
     {
       // tpatテクスチャを保存。
       texture_edit const& tpat = *emt->vox.tpat_edit;
@@ -539,6 +540,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       sdl_save_file("/build/edit_common_tmsec.raw",
         to_string_compact_pod(tmsec_cpy));
     }
+    */
     message = "edit_mode: saved";
   }
   private function string get_console_text() const
@@ -560,7 +562,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       edit_params_mode == edit_params_mode_sphere_1 ? 0xffff00ffu :
       0xff0000ffu;
     ttev->set_cursor_color(c, 0xffc08040);
-    dbg_editmode() function void () {
+    dbg_editmode() {
       debug_log("update_cursor_color", c);
     }
   }
@@ -957,7 +959,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void convert_to_tpat()
   {
     // 現在の選択領域を内容を持つようなタイルを新しく作る。
-    dbg_conv() function void () { debug_log("convert_to_tpat"); }
+    dbg_conv() { debug_log("convert_to_tpat"); }
     if (get_cursor_tpat()) {
       debug_log("convert_to_tpat: failed(cursor tpat)");
       return;
@@ -983,12 +985,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     ttev->set_cursor_pos(cur, cur);
     copy_data.cursor_offset = make_uvec3(0u, 0u, 0u);
     // カーソル位置へタイル値を書き込む
-    range_foreach(patsz) function void (uint x, uint y, uint z) {
+    range_foreach(patsz) void (uint x, uint y, uint z) {
       mutable np = decode_noderef_param(nv);
       np.coord += make_uvec3(x, y, z);
       np.scale = cur_tile_scale_log2 - 1u;
       const cur_p = cur + make_uvec3(x, y, z);
-      dbg_conv() function void () { debug_log("convert_to_tpat: tmap set",
+      dbg_conv() { debug_log("convert_to_tpat: tmap set",
         cur_p, np); }
       ttev->tmap_edit_set(cur_p, texture_value_index_primary,
         encode_noderef_param(np));
@@ -1069,12 +1071,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function void scale_range()
   {
-    dbg_scale() function void () {
+    dbg_scale() {
       debug_log("scale_range: p0: copy_data:", copy_data,
         ttev->get_cursor_pos());
     }
     copy_value();
-    dbg_scale() function void () {
+    dbg_scale() {
       debug_log("scale_range: p1: copy_data:", copy_data,
         ttev->get_cursor_pos());
     }
@@ -1113,19 +1115,19 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     if (o.x != 0u) { o.x += 1u; }
     if (o.y != 0u) { o.y += 1u; }
     if (o.z != 0u) { o.z += 1u; }
-    dbg_scale() function void () {
+    dbg_scale() {
       debug_log("scale_range: 0: copy_data:", copy_data,
         ttev->get_cursor_pos());
     }
     paste_value(0xffu, merge_mode_opaque());
-    dbg_scale() function void () {
+    dbg_scale() {
       debug_log("scale_range: 1: copy_data:", copy_data,
         ttev->get_cursor_pos());
     }
     // 選択領域を広げたので反映させるためにmove_cursorを呼ぶ
     glm::vec3 cursor_move_r;
     move_cursor(0, 0, 0, cursor_move_r);
-    dbg_scale() function void () {
+    dbg_scale() {
       debug_log("scale_range: 2: copy_data:", copy_data,
         ttev->get_cursor_pos());
     }
@@ -1136,7 +1138,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     const sz = copy_data.copy_size;
     const spri = copy_data.tex[0]; // copy
     const ssec = copy_data.tex[1]; // copy
-    dbg_rotate() function void() {
+    dbg_rotate() {
       debug_log("tex[0]", copy_data.tex[0]);
       debug_log("spri", spri);
     }
@@ -1444,7 +1446,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void gen_test()
   {
     // テスト中
-    dbg_gen() function void() {
+    dbg_gen() {
       debug_log("gen_test");
     }
     const cur = ttev->get_cursor_range();

@@ -52,7 +52,7 @@ erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
   um.set_size_l2(tsl2.x - scale_log2, tsl2.y - scale_log2,
     tsl2.z - scale_log2);
   // tpatのうち空白パターンに印をつける
-  range_foreach(coord_range) function void (uint x, uint y, uint z) {
+  range_foreach(coord_range) void (uint x, uint y, uint z) {
     const c = make_uvec3(x, y, z);
     const pos = c * tile_size;
     farray{texture_data, 2} tex;
@@ -60,7 +60,7 @@ erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
     tex[1].set_size_l2(scale_log2, scale_log2, scale_log2);
     ttev.tpat_edit_copy_range(pos, tile_size3, tex[0], tex[1], uvec3());
     bool is_space = true;
-    tex[0].foreach() function void (uint x, uint y, uint z, uint v) {
+    tex[0].foreach() void (uint x, uint y, uint z, uint v) {
       if (!is_space_voxel(v)) {
         is_space = false;
       }
@@ -70,7 +70,7 @@ erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
     }
   }
   // tmapを見て使用しているパターンに印をつける
-  range_foreach(ttev.tmap_size) function void (uint x, uint y, uint z) {
+  range_foreach(ttev.tmap_size) void (uint x, uint y, uint z) {
     const v = ttev.tmap_edit_get(make_uvec3(x, y, z),
       texture_value_index_primary, 0);
     if (!is_node_reference(v)) {
@@ -121,7 +121,7 @@ erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
     uint cnt_use = 0;
     uint cnt_empty = 0;
     uint cnt_clear = 0;
-    range_foreach(coord_range) function void (uint x, uint y, uint z) {
+    range_foreach(coord_range) void (uint x, uint y, uint z) {
       if (um.get(x, y, z) != 0u) {
         ++cnt_use;
       } else if (em.get(x, y, z) != 0u) {
@@ -170,7 +170,7 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
   farray{texture_data, 2} tmtex; // tmapテクスチャの作業コピー
   farray{scale_entry, absmax_tile_scale_log2} scales; // 各scale値ごとのデータ
   // 各tmapエントリについて使用しているtpatのデータをscalesに入れる。
-  range_foreach(ttev.tmap_size) function void (uint x, uint y, uint z) {
+  range_foreach(ttev.tmap_size) void (uint x, uint y, uint z) {
     const v = ttev.tmap_edit_get(make_uvec3(x, y, z),
       texture_value_index_primary, 0);
     if (!is_node_reference(v)) {
@@ -194,7 +194,7 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
       varray{uint} mutable& k = sce;
       // primaryの値をkに追加
       bool is_space = true;
-      tex[0].foreach() function void (uint x, uint y, uint z, uint v) {
+      tex[0].foreach() void (uint x, uint y, uint z, uint v) {
         if (is_space_voxel(v)) {
           v = make_space_voxel(); // 空白距離情報を持たない空白値にする
         } else {
@@ -203,7 +203,7 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
         k.push_back(v);
       }
       // secondaryの値をkに追加
-      tex[1].foreach() function void (uint x, uint y, uint z, uint v) {
+      tex[1].foreach() void (uint x, uint y, uint z, uint v) {
         k.push_back(v);
       }
       mutable& e = sc.values[k];
@@ -224,7 +224,7 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
     ttev.tpat_edit_copy_range(uvec3(), ttev.tpat_size, tptex[0], tptex[1],
       uvec3());
     // tpatテクスチャをクリアする
-    range_foreach(ttev.tpat_size) function void (uint x, uint y, uint z) {
+    range_foreach(ttev.tpat_size) void (uint x, uint y, uint z) {
       tptex[0].set(x, y, z, make_space_voxel());
     }
     debug_log("dedup_tpat: update tpat");
@@ -262,9 +262,9 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
         e.nref_value = nv;
         if (is_node_reference(nv)) {
           noderef_param nref = decode_noderef_param(nv);
-          dbg_conv() function void () { debug_log("nref coord", nref.coord); }
+          dbg_conv() { debug_log("nref coord", nref.coord); }
           const dpos = nref.coord * tile_size;
-          range_foreach(tile_size3) function void (uint x, uint y, uint z) {
+          range_foreach(tile_size3) void (uint x, uint y, uint z) {
             tptex[0].set(dpos.x + x, dpos.y + y, dpos.z + z,
               tex[0].get(x, y, z));
             tptex[1].set(dpos.x + x, dpos.y + y, dpos.z + z,
@@ -286,7 +286,7 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
     tmtex[1].set_size_l2(tmszl2.x, tmszl2.y, tmszl2.z);
     ttev.tmap_edit_copy_range(uvec3(), ttev.tmap_size, tmtex[0], tmtex[1],
       uvec3());
-    range_foreach(ttev.tmap_size) function void (uint x, uint y, uint z) {
+    range_foreach(ttev.tmap_size) void (uint x, uint y, uint z) {
       mutable v = tmtex[0].get(x, y, z);
       if (!is_node_reference(v)) {
         return;
@@ -407,10 +407,10 @@ find_empty_tpat(t mutable& ttev,
       return r;
     }
     bool is_space = true;
-    range_foreach(blksz) function void (uint x, uint y, uint z) {
+    range_foreach(blksz) void (uint x, uint y, uint z) {
       is_space &= is_space_pat(p + make_uvec3(x, y, z));
     }
-    dbg_conv() function void () {
+    dbg_conv() {
       debug_log("find_empty_tpat", p, is_space);
     }
     if (is_space) {
@@ -471,7 +471,7 @@ convert_from_pattern_save_data(pattern_save_data const& psd,
     return false;
   }
   mutable& tex_pri = cd.tex[0];
-  range_foreach(cd.copy_size) function void (uint x, uint y, uint z) {
+  range_foreach(cd.copy_size) void (uint x, uint y, uint z) {
     const v = tex_pri.get(x, y, z);
     if (!is_node_reference(v)) {
       return;

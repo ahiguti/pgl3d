@@ -36,7 +36,7 @@ public threaded function plane_param make_plane_param_dir(ivec3 cdir,
     p.nor /= di;
     p.dist = abs(cdir.x) * abs(cdir.y) * abs(cdir.z) / di;
     */
-    dbg_pgen() function void () { debug_log("pp cdir=", cdir, " p=", p); }
+    dbg_pgen() { debug_log("pp cdir=", cdir, " p=", p); }
   } else {
     // 軸に平行な平面で切断, キーリピート
     // repeatが0,4,8のときそれぞれx,y,z方向が0になる
@@ -72,7 +72,7 @@ public threaded function plane_param make_plane_param_dir(ivec3 cdir,
       p.nor /= gcd(abs(p.nor.x), abs(p.nor.y));
     }
     p.dist = 0;
-    dbg_pgen() function void () { debug_log("pp cdir=", cdir, " p=", p); }
+    dbg_pgen() { debug_log("pp cdir=", cdir, " p=", p); }
   }
   // 領域をちょうど切断するようなパラメータを返す。テクスチャエントリ
   // に収まる範囲とはかぎらない。
@@ -90,7 +90,7 @@ procedural_gen_spline(ptr{rand_generator} rndp, uvec3 sz, int gen_param)
   tex.set_size_l2(szl2.x, szl2.y, szl2.z);
   generate_rand_spline(rndp, tex, sz, 20,
     static_cast{float}(gen_param) / 15.0f);
-  range_foreach(sz) threaded function void (uint x, uint y, uint z) {
+  range_foreach(sz) void (uint x, uint y, uint z) {
     if (tex.get(x, y, z) != 0u) {
       c.tex[0].set(x, y, z, make_filled_voxel());
       c.tex[1].set(x, y, z, 0x00808080u);
@@ -655,7 +655,7 @@ private threaded function void pgen_fill_value(uvec3 const& pos,
 private threaded function void pgen_fill_plane(uvec3 const& pos,
   uvec3 const& sz, plane_param const& pp, pgen_context mutable& ctx)
 {
-  dbg_pgen() function void () {
+  dbg_pgen() {
     debug_log("pgen_fill_plane", sz);
   }
   threaded function void ffunc(uint x, uint y, uint z)
