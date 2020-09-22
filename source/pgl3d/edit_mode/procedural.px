@@ -124,21 +124,21 @@ spline_postprocess(pgen_context mutable& ctx)
   range_foreach{pp_copy_back}(sz);
   tex = ctx.tex[0]; // copy again
   range_foreach{pp_right_angle_one}(sz);
-  threaded function void pp_copy_back(uint x, uint y, uint z)
+  function void pp_copy_back(uint x, uint y, uint z)
   {
     const v = get(x, y, z);
     if (!is_space_voxel(v)) {
       ctx.tex[0].set(x, y, z, v);
     }
   }
-  threaded function texel_value get(uint x, uint y, uint z)
+  function texel_value get(uint x, uint y, uint z)
   {
     if (x >= sz.x || y >= sz.y || z >= sz.z) {
       return make_space_voxel();
     }
     return tex.get(x, y, z);
   }
-  threaded function void pp_right_angle_one(uint x, uint y, uint z)
+  function void pp_right_angle_one(uint x, uint y, uint z)
   {
     const v = get(x, y, z);
     if (!is_filled(v)) {
@@ -168,7 +168,7 @@ spline_postprocess(pgen_context mutable& ctx)
     const sz = make_uvec3(1u, 1u, 1u);
     pgen_fill_plane(pos, sz, pp, ctx);
   }
-  threaded function void pp_one(uint x, uint y, uint z)
+  function void pp_one(uint x, uint y, uint z)
   {
     const v = get(x, y, z);
     if (is_filled(v)) {
@@ -275,7 +275,7 @@ private threaded function {t} dir2_mask
 get_space_dir(t const& tex, uvec3 const& p)
 {
   const sz = tex.get_size_uvec3();
-  threaded function texel_value get(uint x, uint y, uint z)
+  function texel_value get(uint x, uint y, uint z)
   {
     if (x >= sz.x || y >= sz.y || z >= sz.z) {
       return make_space_voxel();
@@ -300,7 +300,7 @@ private threaded function {t} dir2_mask
 get_wall_dir(t const& tex, uvec3 const& p)
 {
   const sz = tex.get_size_uvec3();
-  threaded function texel_value get(uint x, uint y, uint z)
+  function texel_value get(uint x, uint y, uint z)
   {
     if (x >= sz.x || y >= sz.y || z >= sz.z) {
       return make_space_voxel();
@@ -415,10 +415,10 @@ private threaded function void pgen_millefeuille(uvec3 const& p,
       draw_side(make_uvec3(p.y, p.x, p.z), make_uvec3(s.y, s.x, s.z),
         szy_mi, szy_mx, szx_mi, szx_mx, true);
     }
-    threaded function void draw_side(uvec3 const& pos, uvec3 const& sz,
+    function void draw_side(uvec3 const& pos, uvec3 const& sz,
       uint szx_mi, uint szx_mx, uint szy_mi, uint szy_mx, bool swap_xy)
     {
-      threaded function {t} void swap_xy_if(t mutable& vec)
+      function {t} void swap_xy_if(t mutable& vec)
       {
         if (swap_xy) {
           swap(vec.x, vec.y);
@@ -457,7 +457,7 @@ private threaded function void pgen_millefeuille(uvec3 const& p,
           ctx.tex[0].set(fpos.x, fpos.y, fpos.z, make_filled_voxel());
           ctx.tex[1].set(fpos.x, fpos.y, fpos.z, 0x00808080u);
         }
-        threaded function void clamp_plane_param(plane_param mutable& pp)
+        function void clamp_plane_param(plane_param mutable& pp)
         {
           pp.fit();
           /*
@@ -625,7 +625,7 @@ private threaded function void pgen_set_plane_dir(uvec3 const& pos,
 private threaded function void pgen_fill_filled(uvec3 const& pos,
   uvec3 const& sz, pgen_context mutable& ctx)
 {
-  threaded function void ffunc(uint x, uint y, uint z)
+  function void ffunc(uint x, uint y, uint z)
   {
     const x1 = pos.x + x;
     const y1 = pos.y + y;
@@ -640,7 +640,7 @@ private threaded function void pgen_fill_filled(uvec3 const& pos,
 private threaded function void pgen_fill_value(uvec3 const& pos,
   uvec3 const& sz, uint value, pgen_context mutable& ctx)
 {
-  threaded function void ffunc(uint x, uint y, uint z)
+  function void ffunc(uint x, uint y, uint z)
   {
     const x1 = pos.x + x;
     const y1 = pos.y + y;
@@ -658,7 +658,7 @@ private threaded function void pgen_fill_plane(uvec3 const& pos,
   dbg_pgen() {
     debug_log("pgen_fill_plane", sz);
   }
-  threaded function void ffunc(uint x, uint y, uint z)
+  function void ffunc(uint x, uint y, uint z)
   {
     const x1 = pos.x + x;
     const y1 = pos.y + y;

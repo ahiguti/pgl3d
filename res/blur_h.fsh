@@ -7,11 +7,10 @@ uniform sampler2D sampler_tex;
 uniform sampler2D sampler_tex_depth;
 uniform float option_value;
 
-vec3 tex_read(in vec2 delta)
+vec4 tex_read(in vec2 delta)
 {
-  vec3 v = <%texture2d/>(sampler_tex, vary_coord + delta * pixel_delta).xyz;
+  vec4 v = <%texture2d/>(sampler_tex, vary_coord + delta * pixel_delta);
   return v;
-  // return v * v;
 }
 
 const int kmax = 15;
@@ -82,16 +81,18 @@ void main(void)
     vec4 v = <%texture2d/>(sampler_tex, vary_coord);
     <%fragcolor/> = vec4(v.rgb, 1.0);
   } else {
-    vec3 v = vec3(0.0);
+    vec4 v = <%texture2d/>(sampler_tex, vary_coord);
+    vec3 s = vec3(0.0);
     for (int k = -kmax; k <= kmax; ++k) {
       <%if><%blur_direction_v/>
-      v = v + weight[k + kmax] * tex_read(vec2(0.0, float(k)));
+      vec4 rv = tex_read(vec2(0.0, float(k)));
       <%else/>
-      v = v + weight[k + kmax] * tex_read(vec2(float(k), 0.0));
+      vec4 rv = tex_read(vec2(float(k), 0.0));
       <%/>
+      // rv.rgb *= rv.a;
+      s = s + weight[k + kmax] * rv.rgb * 1.0; //  * rv.a;
     }
-    // <%fragcolor/> = vec4(sqrt(v), 1.0);
-    <%fragcolor/> = vec4(v, 1.0);
+    <%fragcolor/> = vec4((s + v.rgb) * 1.0, 1.0);
   }
 }
 

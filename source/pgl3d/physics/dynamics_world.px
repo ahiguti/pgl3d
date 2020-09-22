@@ -172,7 +172,7 @@ grid_bp_thread_object(tptr{grid_bp_shared} const& shared0)
 	if (sw.get(j, pos, radius) != 0U) {
 	  const btpos = btVector3_(pos.x, pos.y, pos.z);
 	  const d = glm::make_vec3(radius, radius, radius);
-	  threaded function bool near_cb(col_id_type col_id) {
+	  function bool near_cb(col_id_type col_id) {
 	    ++bp_count;
 	    if (!grid_bp_work_near[col_id]) {
 	      grid_bp_work_near[col_id] = true;

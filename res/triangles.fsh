@@ -317,12 +317,15 @@ vec3 light_diffuse(in float cos_n_l, in vec3 material_diffuse)
   return material_diffuse * cos_n_l / 3.141592;
 }
 
-vec3 light_all(in vec3 light_color, in float lstr, in vec3 mate_specular,
+vec4 light_all(in vec3 light_color, in float lstr, in vec3 mate_specular,
   in vec3 mate_diffuse, in vec3 mate_emit, in float mate_alpha,
   in vec3 camera_dir, in vec3 light_dir, in samplerCube samp, in vec3 nor,
   in bool vertical, in float ambient, in float local_light_str,
   in vec3 local_light)
 {
+  if (mate_emit.x > 0.1) {
+    return vec4(mate_emit, 1.0);
+  }
   vec3 half_l_v = normalize(light_dir + camera_dir);
   float cos_l_h = clamp(dot(light_dir, half_l_v), 0.0, 1.0);
   float cos_n_h = clamp(dot(nor, half_l_v), 0.0, 1.0);
@@ -348,7 +351,7 @@ vec3 light_all(in vec3 light_color, in float lstr, in vec3 mate_specular,
     clamp(dot(nor, reflection_vec), 0.0, 1.0), mate_specular)
     * (vertical ? mate_specular : vec3(1.0, 1.0, 1.0))
     * clamp(1.0 - mate_alpha * 16.0, 0.0, 1.0);
-  return light_sp_di + env;
+  return vec4(light_sp_di + env, 0.0);
   // return clamp(light_sp_di + env, 0.0, 1.0);
 }
 
@@ -366,7 +369,7 @@ vec4 get_sampler_sm(int i, vec2 p)
 
 void main(void)
 {
-  vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+  vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
   vec3 nor = vary_normal;
   vec3 rel_camera_pos = camera_pos - vary_position;
   vec3 camera_dir = normalize(rel_camera_pos);
@@ -915,7 +918,7 @@ void main(void)
     // ambient = clamp(1.0 / (frag_distance * 1024.0), 0.0, 0.0125);
     ambient = clamp(1.0 / (frag_distance * 128.0), 0.0, 0.025);
   <%/>
-  vec3 li1 = light_all(vec3(1.0, 1.0, 1.0), lstr * lstr_para, mate_specular,
+  vec4 li1 = light_all(vec3(1.0, 1.0, 1.0), lstr * lstr_para, mate_specular,
     mate_diffuse, mate_emit, mate_alpha, camera_dir,
     light_dir, sampler_env, nor, vertical, ambient, local_light_str,
     local_light);
@@ -927,16 +930,17 @@ void main(void)
     normalize(vary_normal), false, ambient);
   color.xyz += sqrt(mix(li2, li1, distbr));
   */
-  li1 *= exposure;
-  li1 = min(li1, 1.0 - 0.5 / exp(li1));
+  li1.rgb *= exposure;
+  // li1.rgb = min(li1.rgb, 1.0 - 0.5 / exp(li1.rgb));
   /// li1 = 1.0 - 1.0 / exp(li1);
-  li1 = sqrt(li1);
+  li1.rgb = sqrt(li1.rgb);
   // vec3 v01 = clamp(li1, 0.0, 1.0);
   // vec3 ve = 1.0 - 1.0 / exp(li1 * 10.0);
   // color.xyz += mix(v01, ve, v01);
   /// color.xyz += 1.0 - 1.0 / exp(li1);
-  color.xyz += li1;
+  color += li1;
   color.xyz += frag_randval * (1.0f / 256.0f); // reduce color banding
+  // if (color.a > 0.5) { color.r = 1.0; }
   <%fragcolor/> = color;
 }
 

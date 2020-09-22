@@ -275,7 +275,7 @@ private threaded function void gf_rand_bump(size_t num, float scale,
     const zsz = zmin + (zmax - zmin) * rnd->generate_float();
     const xp = (1.0f - xsz) * rnd->generate_float();
     const yp = (1.0f - ysz) * rnd->generate_float();
-    threaded function vec3 pos(vec3 const& vec, float x, float xmax)
+    function vec3 pos(vec3 const& vec, float x, float xmax)
     {
       return vec * x / xmax;
     }
@@ -314,7 +314,7 @@ private threaded function void gf_rand_bump2(size_t num, float scale,
       make_vec2(xp - xsz / 2.0f, yp - ysz / 2.0f),
       make_vec2(xsz / 2.0f, ysz / 2.0f));
     bool intersec = false;
-    threaded function bool has_intersect(pair{vec2, vec2} const& a,
+    function bool has_intersect(pair{vec2, vec2} const& a,
       pair{vec2, vec2} const& b)
     {
       const xd = fabs(a.first.x - b.first.x);
@@ -333,7 +333,7 @@ private threaded function void gf_rand_bump2(size_t num, float scale,
       continue;
     }
     posarr.push_back(p);
-    threaded function vec3 pos(vec3 const& vec, float x, float xmax)
+    function vec3 pos(vec3 const& vec, float x, float xmax)
     {
       return vec * x / xmax;
     }
@@ -656,7 +656,7 @@ private threaded function void gf_rectangle_split(size_t split_x,
   poly_t const& poly, mesh_index const& mp)
 {
   if (poly.size() != 4) { return; }
-  threaded function vec3 pos(vec3 const& vec, size_t i, size_t imax)
+  function vec3 pos(vec3 const& vec, size_t i, size_t imax)
   {
     return vec * (cast_float(i) / cast_float(imax));
   }

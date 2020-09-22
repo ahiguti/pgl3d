@@ -153,7 +153,7 @@ vertices(size_t num_float_per_vertex0)
 	positions.append(val.position.to_cslice());
       }
     }
-    threaded function void push_convex()
+    function void push_convex()
     {
       if (m::ne{use_primitive_restart, 0}) {
 	elements.push_back(0xffffffffU);
@@ -178,16 +178,16 @@ vertices(size_t num_float_per_vertex0)
       for (const i, mutable& v: ia) {
 	v = i;
       }
-      threaded function glm::vec3 ia_pos(size_t i) {
+      function glm::vec3 ia_pos(size_t i) {
 	return vals[ia[i]].position;
       }
-      threaded function size_t ia_prev(size_t i) {
+      function size_t ia_prev(size_t i) {
 	return (i == 0) ? (ia.size() - 1) : (i - 1);
       }
-      threaded function size_t ia_next(size_t i) {
+      function size_t ia_next(size_t i) {
 	return (i != ia.size() - 1) ? (i + 1) : 0u;
       }
-      threaded function glm::vec3 cross_one(size_t i)
+      function glm::vec3 cross_one(size_t i)
       {
 	/* TODO: optimize */
 	return glm::cross(
@@ -201,7 +201,7 @@ vertices(size_t num_float_per_vertex0)
       while (ia.size() >= 3) {
 	size_t i = ia.size() - 1;
 	while (true) {
-	  threaded function bool removable() {
+	  function bool removable() {
 	    const ci = cross_one(i);
 	    if (m::is_true{debug_triangulation}) {
 	      if (vals.size() >= 5) {
@@ -246,7 +246,7 @@ vertices(size_t num_float_per_vertex0)
 	    }
 	    return true;
 	  }
-	  threaded function void push_one()
+	  function void push_one()
 	  {
 	    if (m::ne{use_primitive_restart, 0}) {
 	      elements.push_back(0xffffffffU);

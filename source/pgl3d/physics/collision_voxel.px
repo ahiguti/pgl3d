@@ -39,7 +39,7 @@ collision_voxel_collide(collision_voxel const& cv,
   const& data = tex.data_pri[miplevel];
   const sz = data.get_size_uvec3();
   const sz_l2 = fold_list{max}(0u, data.get_size_l2_uvec3());
-  threaded function uint coord_int(float v) {
+  function uint coord_int(float v) {
     return static_cast{uint}(ldexp(v, static_cast{int}(sz_l2)));
   }
   const coord = map{glm::uvec3, coord_int}(tpos3);

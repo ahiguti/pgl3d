@@ -47,7 +47,7 @@ public valuetype struct pgl3d_config(cstrref const& confstr)
   function void init(cstrref const& confstr)
   {
     // println(cnf);
-    threaded function void ln(cstrref const& line)
+    function void ln(cstrref const& line)
     {
       const a = make_farray_split{2}(line, '=');
       if (!a[0].empty()) {

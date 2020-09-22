@@ -32,7 +32,7 @@ wfobject_read(cstrref const& str)
   const g = make_ptr{wfgroup}(); 
   varray{wfelement} elems_work;
   split_foreach{parse_line}(str, '\n');
-  threaded function void parse_line(cstrref mutable line) {
+  function void parse_line(cstrref mutable line) {
     if (line.size() >= 2) {
       const ch0 = line[0];
       const ch1 = line[1];

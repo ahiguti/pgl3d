@@ -77,7 +77,7 @@ public multithreaded struct filling_map <filling_map_i> public {
       return false;
     }
     range_foreach(sz) void (uint x, uint y, uint z) {
-      threaded function uint calc_one_dir(cslice{uint} const& dsz, uint i) {
+      function uint calc_one_dir(cslice{uint} const& dsz, uint i) {
         uint r = 0u;
         if (i == 0) {
           r = 4u;
@@ -201,7 +201,7 @@ public multithreaded struct filling_map <filling_map_i> public {
   function uvec3 get_filling_min_offset(uvec3 const& p) const {
     // fillingが定義されている範囲の始点(一番若いオフセット)を返す
     uvec3 pos = p;
-    threaded function void move_offset(uint d) {
+    function void move_offset(uint d) {
       // 一軸についてfillingの始点へ移動
       while (true) {
         const v = tex.get(pos.x, pos.y, pos.z);
@@ -240,7 +240,7 @@ public multithreaded struct filling_map <filling_map_i> public {
     // fillingが定義されている範囲の終点を探す
     const texsz = tex.get_size_uvec3();
     uvec3 pos = p;
-    threaded function void move_offset(uint d) {
+    function void move_offset(uint d) {
       // 一軸についてfillingの終点へ移動
       while (true) {
         mutable npos = pos;

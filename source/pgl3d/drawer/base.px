@@ -234,7 +234,7 @@ dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
       // debug_log("p2", p2);
       // debug_log("p3", p3);
       // debug_log("lx,ly", lx, ly, lxm, lym);
-      threaded function vec3 to_uvw(vec3 const& pos) {
+      function vec3 to_uvw(vec3 const& pos) {
 	const v = pos - pos0;
 	return make_vec3(dot(v, ex), dot(v, ey), 1.0f);
       }

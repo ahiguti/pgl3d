@@ -224,7 +224,7 @@ public struct app_application()
       // static_cast{float}( static_cast{int}(pj.option_value) & 1);
     app.dp_blur_h->option_value = 0.0;
     app.dp_ssao->option_value = 1.0; // pj.option_value;
-    *app.cond_blur = (static_cast{int}(pj.option_value) & 1) == 1;
+    *app.cond_blur = (static_cast{int}(pj.option_value) & 1) == 0;
     *app.cond_noblur = !*app.cond_blur;
     // debug_log("blur", *app.cond_blur);
     /*
@@ -370,7 +370,7 @@ private multithreaded struct raycast_objects()
     scene_node mutable sn = scene_node(joint_id_type(), mat4_identity());
     uint const ndr = static_cast{uint}(
       rdi.subdrawer_vbid_max - rdi.subdrawer_vbid_min) + 1;
-    threaded function void extend_whole_instances(vbid_t vbid, vsid_t vsid)
+    function void extend_whole_instances(vbid_t vbid, vsid_t vsid)
     {
       if (whole_instances.size() <= static_cast{size_t}(vbid)) {
 	whole_instances.resize(static_cast{size_t}(vbid) + 1,
@@ -599,7 +599,7 @@ public multithreaded struct app_scene_shared(io const& sys0)
   public bool engine_status = true;
   public float light_on;
   public glm::vec2 light;
-  public float exposure = 2.0f;
+  public float exposure = 1.0f;
   public int option_value = 0;
   public int option_value2 = -1;
   public texture_info default_font_texture_info;
@@ -1976,7 +1976,7 @@ scene_objects(collision_shape_data_array const& shape0, size_t num_split0,
     const& va = sh.vattrs;
     const& e = sh.elements;
     const mass = sh.mass;
-    threaded function ptr{collision_shape_i} get_shape() {
+    function ptr{collision_shape_i} get_shape() {
       if (sh.shape == collision_shape_e_sphere) {
 	return make_sphere_shape(v, e);
       } else if (sh.shape == collision_shape_e_box) {
@@ -2053,7 +2053,7 @@ lpbullet_swarm <swarm_i>
       lpb.set_size(0.25f * sz);
       lpb.set_step(step);
     }
-    threaded function bool lp_is_finished(lpbullet_data const& lpb)
+    function bool lp_is_finished(lpbullet_data const& lpb)
     {
       return lpb.get_step() > lpb.get_step_limit();
     }
@@ -2279,14 +2279,13 @@ scene_control_step(scene_control mutable& sctl,
   }
   const speed = frame_speed;
   // mutable& snode = *sctl.snode;
-  threaded function void step_lp()
+  function void step_lp()
   {
     for (const i, const& lpbsw: sctl.lpbullet_swarms) {
       lpbsw->on_step(speed);
     }
   }
-  threaded function void spawn_lp_one(glm::mat4 const& m, float steplim,
-    float length)
+  function void spawn_lp_one(glm::mat4 const& m, float steplim, float length)
   {
     // size_t const lim = is_gles != 0 ? 20000U : 200000U;
     size_t const lim = static_cast{size_t}(300000U)
@@ -2320,7 +2319,7 @@ scene_control_step(scene_control mutable& sctl,
     return;
   }
   scene_node sn_work = make_node();
-  threaded function void prepare_one(scene_node const& sn)
+  function void prepare_one(scene_node const& sn)
   {
     const vbid = sn.joint_id.vbid;
     const vsid = sn.joint_id.vsid;
@@ -2338,7 +2337,7 @@ scene_control_step(scene_control mutable& sctl,
       ftable[vbid](sn, ncd, idata);
     }
   }
-  threaded function void step_snobj_dynamics(bool spawn_obj, bool spawn_lp_flag)
+  function void step_snobj_dynamics(bool spawn_obj, bool spawn_lp_flag)
   {
     const physics_fps = 60;
     const timestep = 1.0f / static_cast{float}(physics_fps);
@@ -2369,7 +2368,7 @@ scene_control_step(scene_control mutable& sctl,
       // 大オブジェクトに小オブジェクトが衝突した。とりあえず小オブジェクト
       // を消すようにしておく。後で修正。 TODO
       varray{ptr{rigid_body_i}} rb_to_remove;
-      threaded function void remove_if(size_t i, ptr{rigid_body_i} const& obj)
+      function void remove_if(size_t i, ptr{rigid_body_i} const& obj)
       {
 	if (obj->get_collide()) {
 	  rb_to_remove.push_back(obj);
@@ -2381,7 +2380,7 @@ scene_control_step(scene_control mutable& sctl,
       }
     }
     scene_node cursn = scene_node(joint_id_type(), mat4_identity());
-    threaded function void step_obj(size_t i, ptr{rigid_body_i} const& obj)
+    function void step_obj(size_t i, ptr{rigid_body_i} const& obj)
     {
       cursn.joint_id = obj->get_joint_id();
       obj->get_world_transform_mat4(cursn.trans.value);

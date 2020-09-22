@@ -18,7 +18,7 @@ public threaded function {t} void
 generate_rand_spline(ptr{rand_generator} const& rndp,
   t mutable& tex, uvec3 const& texsz, int split, float thr_param)
 {
-  threaded function ptr{cubic_b_spline} gen_spline(float center, float scale)
+  function ptr{cubic_b_spline} gen_spline(float center, float scale)
   {
     int rnd_rep = 2; // 大きいと正規分布に近づく
     varray{float} points;
@@ -53,7 +53,7 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
   int zsz = static_cast{int}(texsz.z);
   varray{float} buf;
   buf.resize(static_cast{size_t}(xsz * ysz * zsz), 0.0f);
-  threaded function void set(int x, int y, int z, float v)
+  function void set(int x, int y, int z, float v)
   {
     if (x >= xsz || y >= ysz || z >= zsz ||
         x < 0 || y < 0 || z < 0) {
@@ -62,7 +62,7 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
     }
     buf[static_cast{size_t}((z * ysz + y) * xsz + x)] = v;
   }
-  threaded function float get(int x, int y, int z)
+  function float get(int x, int y, int z)
   {
     if (x >= xsz || y >= ysz || z >= zsz ||
         x < 0 || y < 0 || z < 0) {

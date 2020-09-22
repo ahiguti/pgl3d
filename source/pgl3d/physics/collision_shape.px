@@ -47,7 +47,7 @@ make_triangle_mesh_shape(cslice{float} const& v, cslice{uint} const& e)
 {
   ptr{triangle_mesh_i} trmesh = make_triangle_mesh();
   varray{float} triangles;
-  threaded function void add_tri(cslice{float} const& fv) {
+  function void add_tri(cslice{float} const& fv) {
     trmesh->add_triangle(fv);
     triangles.append(fv);
   }
@@ -158,7 +158,7 @@ public threaded function ptr{collision_shape_i}
 make_convex_hull_shape(cslice{float} const& v, cslice{uint} const& e)
 {
   varray{float} triangles;
-  threaded function void add_tri(cslice{float} const& fv) {
+  function void add_tri(cslice{float} const& fv) {
     // debug_log("tri: ", fv);
     triangles.append(fv);
   }

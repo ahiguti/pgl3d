@@ -123,8 +123,7 @@ public threaded function void
 grid_broadphase_add(grid_broadphase mutable& bp, col_id_type id,
   vec3 const& aabb_min, vec3 const& aabb_max)
 {
-  threaded function bool cb(geom_index_type x, geom_index_type y,
-    geom_index_type z)
+  function bool cb(geom_index_type x, geom_index_type y, geom_index_type z)
   {
     bp.add_object_quantized(id, x, y, z);
     return false;
@@ -165,8 +164,7 @@ public threaded function {func} void
 grid_broadphase_find(grid_broadphase const& bp, vec3 const& aabb_min,
   vec3 const& aabb_max)
 {
-  threaded function bool cb(geom_index_type x, geom_index_type y,
-    geom_index_type z)
+  function bool cb(geom_index_type x, geom_index_type y, geom_index_type z)
   {
     const gidx = bp.get_geom_index(x, y, z);
     filling_index_type fi = bp.pos_to_filling[gidx];
@@ -186,8 +184,7 @@ public threaded function void
 grid_broadphase_prefetch(grid_broadphase const& bp, vec3 const& aabb_min,
   vec3 const& aabb_max)
 {
-  threaded function bool cb(geom_index_type x, geom_index_type y,
-    geom_index_type z)
+  function bool cb(geom_index_type x, geom_index_type y, geom_index_type z)
   {
 /*
     const gidx = bp.get_geom_index(x, y, z);
@@ -205,7 +202,7 @@ grid_broadphase_get_collision_pairs(grid_broadphase const& bp,
   t const& objects, tree_set{pair{col_id_type, col_id_type}} mutable& pairs)
 {
   const sli = objects.crange();
-  threaded function bool cb(col_id_type id0, col_id_type id1) {
+  function bool cb(col_id_type id0, col_id_type id1) {
     const& obj0 = sli[id0];
     const& obj1 = sli[id1];
     if (obj0.collide(obj1)) {
@@ -221,7 +218,7 @@ grid_broadphase_find_first(grid_broadphase const& bp,
   cslice{t0} const& objects, t1 const& obj)
 {
   col_id_type r = static_cast{col_id_type}(objects.size());
-  threaded function bool check_collide(col_id_type id)
+  function bool check_collide(col_id_type id)
   {
     const& o = objects[id];
     if (obj.collide(o)) {

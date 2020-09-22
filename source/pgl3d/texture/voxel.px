@@ -572,7 +572,7 @@ noderef_param_set_imat3(noderef_param mutable& p, imat3 const& ma)
   xyz -> xzy  xy yz zx (unused)
   */
   const& m = ma.to_cslice();
-  threaded function void set_sgn(uint i0, uint i1, uint i2)
+  function void set_sgn(uint i0, uint i1, uint i2)
   {
     p.sgn = make_uvec3(
       m[i0] < 0 ? 1u : 0u,
@@ -732,7 +732,7 @@ public threaded function void plane_param_fit(plane_param mutable& pp)
   if (max_xyz <= 7) {
     return;
   }
-  threaded function void modify(int v, int mutable& a) {
+  function void modify(int v, int mutable& a) {
     mutable a1 = mul_div(a, v, max_xyz);
     if (a1 == 0) {
       a1 = (a > 0) ? 1 : ((a < 0) ? -1 : 0);
@@ -914,7 +914,7 @@ public threaded function uint make_sphere_node(sphere_param const& p,
   const c = p.center -
     map{ivec3, operator::mul}(offset, p.scale) * offset_mul / 2;
     // offset_mulは1ボクセルあたりのoffset値の変化する量。
-  threaded function int distance2(ivec3 const pos)
+  function int distance2(ivec3 const pos)
   {
     // posはシェーダでは0.5までの範囲。この関数は1までの範囲なので2倍された値。
     const a_pt = map{ivec3, operator::mul}(p.scale, pos);
@@ -925,7 +925,7 @@ public threaded function uint make_sphere_node(sphere_param const& p,
     return len2_ac_pt;
   }
   /* 球の内側なら負, 境界上なら0, 外側なら正 */
-  threaded function int collision(ivec3 const pos)
+  function int collision(ivec3 const pos)
   {
     return distance2(pos) - p.dist * p.dist * 4;
   }
@@ -980,10 +980,10 @@ public threaded function uint make_sphere_node(sphere_param const& p,
       }
       */
     }
-    threaded function bool check_one(int x, int y, int z) {
+    function bool check_one(int x, int y, int z) {
       return abs(pp.nor.x) == x && abs(pp.nor.y) == y && abs(pp.nor.z) == z;
     }
-    threaded function void dist_modify_one(int d, int x, int y, int z, int v) {
+    function void dist_modify_one(int d, int x, int y, int z, int v) {
       if (p.dist != d) {
 	return;
       }
