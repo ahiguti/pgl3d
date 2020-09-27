@@ -441,7 +441,7 @@ public struct drawer_triangles(shader_config const& glc0,
 	pow(glc.shadowmap_scale, static_cast{float}(num_shadowmaps - 1))
 	* glc.shadowmap_distance);
       bnd["raycast_iter"] = to_string(
-+       glc.conf.get("raycast_iter", 128, 32, 1024));
+        glc.conf.get("raycast_iter", 128, 32, 1024));
       debug_log("triangles bnd", bnd);
       s0.some = init_triangles_shader(glc, bnd, stype);
       s1.some = init_zprepass_shader(glc, bnd, stype);
@@ -678,7 +678,11 @@ public struct drawer_triangles(shader_config const& glc0,
 	glUniform1f(sdr.u_ndelta_scale,
 	  static_cast{float}(8192 / cam_df.shadowmap_size) * 0.02);
       }
-      glUniform1f(sdr.u_exposure, cam_df.exposure);
+      float ex = (static_cast{int}(cam_df.option_value) % 2) == 0
+        ? cam_df.exposure : cam_df.exposure * 4.0f;
+        // option_valueの最下位bitが1のときblur_hフィルタを通らないので
+        // exposureを4倍にする
+      glUniform1f(sdr.u_exposure, ex);
       glUniform1f(sdr.u_random_seed, 0.0f);
       /*
       glUniform1f(sdr.u_random_seed,

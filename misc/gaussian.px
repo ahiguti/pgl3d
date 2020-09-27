@@ -4,7 +4,7 @@ public namespace gaussian;
 import common -;
 import numeric::fpmath -;
 
-const s = 6.0;
+const s = 1.5;
 const k = 15;
 const pi = 3.1415926535897932384626;
 varray{double} vs;

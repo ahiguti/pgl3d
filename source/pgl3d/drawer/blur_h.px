@@ -16,7 +16,7 @@ private tsvaluetype struct blur_h_uniforms()
 {
   public glm::vec2 pixel_delta;
   public int sampler_tex;
-  public int sampler_tex_depth;
+  public int sampler_tex_2;
   public float option_value;
 }
 
@@ -26,21 +26,34 @@ public struct drawer_blur_h_params {
 
 public struct drawer_blur_h(shader_config const& glc,
   drawer_shared const& ds, ptr{drawer_blur_h_params} const& params0,
-  bool direction_v, string const& src_fbname0)
+  ptr{uint} const& white_count_ptr0, bool direction_v0,
+  string const& src_fbname0, string const& src2_fbname0)
 <drawstep_i>
 {
   metafunction tattr blur_h_vertex_attributes;
   ptr{drawer_blur_h_params} const params = params0;
+  ptr{uint} white_count_ptr = white_count_ptr0;
+  bool const direction_v = direction_v0;
   string const src_fbname = src_fbname0;
+  string const src2_fbname = src2_fbname0;
   option{cptr{gl_framebuffer}} srcfbo;
+  option{cptr{gl_framebuffer}} src2fbo;
   blur_h_shader_ptr sdr_re = init_blur_h_shader(glc, direction_v);
   vbid_t const vbid_blur_h = ds.vbid_pool->intern("vbid_generic_filter");
+  auto_buffer white_count;
   init(ds);
   function void init(drawer_shared const& ds) {
     const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
     if (!src_fbname.empty()) {
       srcfbo.some = *respool->framebuffers.equal_range(src_fbname);
     }
+    if (!src2_fbname.empty()) {
+      src2fbo.some = *respool->framebuffers.equal_range(src2_fbname);
+    }
+    white_count.generate();
+    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, white_count.get());
+    glBufferData(GL_ATOMIC_COUNTER_BUFFER, 4, rawptr{void}(), GL_DYNAMIC_DRAW);
+    debug_log("white_count buf", white_count.get());
   }
   public function vbid_t get_vbid() const { return vbid_blur_h; }
   public function vbid_t get_instances_vbid() const { return vbid_blur_h; }
@@ -97,6 +110,13 @@ public struct drawer_blur_h(shader_config const& glc,
   }
   public function bool reload_shaders(shader_config const& glc)
   {
+    try {
+      const sdr = init_blur_h_shader(glc, direction_v);
+      sdr_re = sdr;
+    } catch (runtime_error ex) {
+      debug_log("reload failed: " + ex.message());
+      return false;
+    }
     return true;
   }
   public function void draw_drawstep(draw_data mutable& ddata)
@@ -106,10 +126,14 @@ public struct drawer_blur_h(shader_config const& glc,
     glDepthMask(0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, srcfbo.some->texture_color[0].get());
+    if (const& s2f: src2fbo.some) {
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, s2f->texture_color[0].get());
+    }
     mutable& sdr = *sdr_re;
     glUseProgram(sdr.program);
     glUniform1i(sdr.u_sampler_tex, 0);
-    glUniform1i(sdr.u_sampler_tex_depth, 1);
+    glUniform1i(sdr.u_sampler_tex_2, 1);
     const pixel_delta = glm::make_vec2(
       1.0f / static_cast{float}(srcfbo.some->width),
       1.0f / static_cast{float}(srcfbo.some->height));
@@ -118,8 +142,23 @@ public struct drawer_blur_h(shader_config const& glc,
     mutable opval = static_cast{int}(params->option_value);
     opval %= 2;
     glUniform1f(sdr.u_option_value, static_cast{float}(opval));
+    if (direction_v) {
+      GLuint wc = 0;
+      glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, white_count.get());
+      glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 4,
+        size_t_to_rawptr{void}(rawptr_to_size_t(address(wc))));
+      glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, white_count.get());
+    }
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
     bo.draw(0, sdr);
+    if (direction_v) {
+      GLuint wc = 0;
+      glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 4,
+        size_t_to_rawptr{void}(rawptr_to_size_t(address(wc))));
+      *white_count_ptr = wc;
+      // debug_log("wc", wc);
+      glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+    }
   }
   public function option{ptr{edit_mode_i}} get_edit_mode() const
   {

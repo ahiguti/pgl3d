@@ -201,6 +201,20 @@ public struct app_application()
       //   debug_log("(no)edit_mode on frame", t1 - t0);
       // }
     }
+    /*
+    {
+      const& cam = *app.proj_pm;
+      const reso = static_cast{uint}(cam.virt_height * cam.virt_width);
+      const wc = *app.white_count_ptr;
+      {
+        if (wc * 10u > reso) {
+          app.exposure *= 0.99;
+        } else if (wc * 40u < reso) {
+          app.exposure *= 1.01;
+        }
+      }
+    }
+    */
     // debug_log("app on_frame done");
   }
   public function void on_motion_pre()
@@ -508,6 +522,7 @@ private struct app_app()
     make_ptr{drawer_blur_h_params}();
   public ptr{bool} cond_blur = make_ptr{bool}(false);
   public ptr{bool} cond_noblur = make_ptr{bool}(true);
+  public ptr{uint} white_count_ptr = make_ptr{uint}(0u);
   public ptr{glm::uvec2} pviewport_main = make_ptr{glm::uvec2}();
   public ptr{glm::uvec2} pviewport_disp = make_ptr{glm::uvec2}();
   public ptr{glm::uvec2} pviewport_sm = make_ptr{glm::uvec2}();
@@ -1287,26 +1302,24 @@ private function varray{drawer_cond} init_drawsteps(
     {
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
         app.pviewport_main,
-        "col0", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
-        false));
-        // col0再利用
+        "col2", true, make_varray{string}("GL_RGBA"), "", true));
+        // col2, bilinear
       r.push_back(make_drawstep_blur(cblur, sconf, ds, app.dp_blur, "col1"));
-        // col1からcol0へblurフィルタ実行
+        // col1からcol2へblurフィルタ実行
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
         app.pviewport_main,
-        "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
-        false));
-        // col1再利用
-      r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h, false,
-        "col0"));
-        // blur_h (direction_h) col0 -> col1
+        "col3", true, make_varray{string}("GL_RGBA"), "", false));
+        // col3, nearest
+      r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
+        app.white_count_ptr, false, "col2", ""));
+        // blur_h (direction_h) col2 -> col3
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_disp,
         app.pviewport_disp,
         "", true, make_varray{string}(), "", false));
         // set toplevel framebuffer
-      r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h, true,
-        "col1"));
-        // blur_h (direction_v) col1 -> toplevel
+      r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
+        app.white_count_ptr, true, "col3", "col2"));
+        // blur_h (direction_v) col3, col2 -> toplevel
     }
     {
       r.push_back(make_drawstep_setfb(cnoblur, sconf, ds, app.pviewport_disp,

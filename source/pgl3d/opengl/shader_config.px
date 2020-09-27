@@ -70,7 +70,7 @@ shader_config(bool is_gles0, int major0, int minor0, int msaa0,
       }
     } else {
       if (is_gl3_or_gles3()) {
-	return "#version 150\n";
+	return "#version 420\n"; // return "#version 150\n";
       } else {
 	return "#version 120\n";
       }

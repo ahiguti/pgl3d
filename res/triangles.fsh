@@ -347,6 +347,7 @@ vec4 light_all(in vec3 light_color, in float lstr, in vec3 mate_specular,
     ? vec3(0.01, 0.01, 0.2) : reflection_vec;
   float env_coefficient = 0.125;
   vec3 env = <%texture_cube/>(sampler_env, sampler_vec).xyz * env_coefficient;
+  env *= 0.125f;
   env = env * env * reflection_fresnel(
     clamp(dot(nor, reflection_vec), 0.0, 1.0), mate_specular)
     * (vertical ? mate_specular : vec3(1.0, 1.0, 1.0))
@@ -916,7 +917,7 @@ void main(void)
     // if (frag_distance > 0.9) { <%fragcolor/> = vec4(0.5); return; }
     // ambient = clamp(float(10 - hit) / 1024.0, 0.0, 0.0125);
     // ambient = clamp(1.0 / (frag_distance * 1024.0), 0.0, 0.0125);
-    ambient = clamp(1.0 / (frag_distance * 128.0), 0.0, 0.025);
+    ambient = clamp(1.0 / (frag_distance * 256.0), 0.0, 0.0125);
   <%/>
   vec4 li1 = light_all(vec3(1.0, 1.0, 1.0), lstr * lstr_para, mate_specular,
     mate_diffuse, mate_emit, mate_alpha, camera_dir,
@@ -930,7 +931,6 @@ void main(void)
     normalize(vary_normal), false, ambient);
   color.xyz += sqrt(mix(li2, li1, distbr));
   */
-  li1.rgb *= exposure;
   // li1.rgb = min(li1.rgb, 1.0 - 0.5 / exp(li1.rgb));
   /// li1 = 1.0 - 1.0 / exp(li1);
   li1.rgb = sqrt(li1.rgb);
@@ -938,6 +938,8 @@ void main(void)
   // vec3 ve = 1.0 - 1.0 / exp(li1 * 10.0);
   // color.xyz += mix(v01, ve, v01);
   /// color.xyz += 1.0 - 1.0 / exp(li1);
+  li1.rgb *= exposure * 0.5f * (option_value != 0.0 ? 4.0f : 1.0f);
+    // lensフィルタを使わないときは4倍
   color += li1;
   color.xyz += frag_randval * (1.0f / 256.0f); // reduce color banding
   // if (color.a > 0.5) { color.r = 1.0; }

@@ -167,10 +167,12 @@ public metafunction drawer_blur_h_params
 public function drawer_cond
 make_drawstep_blur_h(ptr{bool} const& cond, shader_config const& glc,
   drawer_shared const& ds, ptr{drawer_blur_h_params} const& params,
-  bool direction_v, string const& src_fbname)
+  ptr{uint} const& white_count_ptr, bool direction_v,
+  string const& src_fbname, string const& src2_fbname)
 {
   return drawer_cond(cond,
-    make_ptr{drawer_blur_h}(glc, ds, params, direction_v, src_fbname));
+    make_ptr{drawer_blur_h}(glc, ds, params, white_count_ptr, direction_v,
+      src_fbname, src2_fbname));
 }
 
 public metafunction drawer_ssao_params pgl3d::drawer::ssao::drawer_ssao_params;
