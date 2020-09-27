@@ -707,8 +707,8 @@ public threaded struct app_scene(node_factory const& nodefac0,
 	0, 0,
 	dss.default_font_texture_info.char_w,
 	dss.default_font_texture_info.char_h,
-	static_cast{float}(pj.virt_width),
-	static_cast{float}(pj.virt_height));
+	static_cast{float}(pj.display_width),
+	static_cast{float}(pj.display_height));
     }
     const t1 = get_time(sys);
     robjs.set_perspective(pj.camera_pers);
@@ -1253,6 +1253,7 @@ private function varray{drawer_cond} init_drawsteps(
   r.push_back(make_drawstep_fxaa(ctrue, sconf, ds, app.dp_fxaa, "col0"));
     // col0からcol1へfxaaフィルタ実行
   if (sconf.conf.get("capture_filter", 0, 0, 1) != 0) {
+    // TODO: blur_h反映
     debug_log("enable capture filter");
     r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
       app.pviewport_main,
@@ -1279,59 +1280,45 @@ private function varray{drawer_cond} init_drawsteps(
       // set toplevel framebuffer
     r.push_back(make_drawstep_passthrough(ctrue, sconf, ds, "col0"));
       // col0からtoplevelへpassthroughフィルタ実行
-  } else if (app.virt_scale != 1.0) {
-    debug_log("scaling draw");
-    r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
-      app.pviewport_main,
-      "col2", true, make_varray{string}("GL_RGBA"), "", true));
-      // set color framebuffer, bilinear
-    r.push_back(make_drawstep_blur(ctrue, sconf, ds, app.dp_blur, "col1"));
-      // col1からcol2へblurフィルタ実行
-    r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "blend"));
-    r.push_back(make_drawstep_rect2d(ctrue, sconf, ds));
-    r.push_back(make_drawstep_font2(ctrue, sconf, ds, app.pviewport_main));
-    r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_disp,
-      app.pviewport_disp,
-      "", true, make_varray{string}(), "", false));
-      // set toplevel framebuffer
-    r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "solid"));
-    r.push_back(make_drawstep_blur(ctrue, sconf, ds, app.dp_blur, "col2"));
-      // col2からtoplevelへblurフィルタ実行
   } else {
     debug_log("blur_h draw");
     {
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
         app.pviewport_main,
         "col2", true, make_varray{string}("GL_RGBA"), "", true));
-        // col2, bilinear
+        // (blur_h有りのとき) col2, bilinear
       r.push_back(make_drawstep_blur(cblur, sconf, ds, app.dp_blur, "col1"));
-        // col1からcol2へblurフィルタ実行
+        // (blur_h有りのとき) col1からcol2へblurフィルタ実行
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
         app.pviewport_main,
         "col3", true, make_varray{string}("GL_RGBA"), "", false));
-        // col3, nearest
+        // (blur_h有りのとき) col3, nearest
       r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
         app.white_count_ptr, false, "col2", ""));
-        // blur_h (direction_h) col2 -> col3
+        // (blur_h有りのとき) blur_h (direction_h) col2 -> col3
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_disp,
         app.pviewport_disp,
         "", true, make_varray{string}(), "", false));
-        // set toplevel framebuffer
+        // (blur_h有りのとき) set toplevel framebuffer
       r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
         app.white_count_ptr, true, "col3", "col2"));
-        // blur_h (direction_v) col3, col2 -> toplevel
+        // (blur_h有りのとき) blur_h (direction_v) col3, col2 -> toplevel
     }
     {
       r.push_back(make_drawstep_setfb(cnoblur, sconf, ds, app.pviewport_disp,
         app.pviewport_disp,
         "", true, make_varray{string}(), "", false));
-        // set toplevel framebuffer
-      r.push_back(make_drawstep_blur(cnoblur, sconf, ds, app.dp_blur, "col1"));
-        // col1からcol0へblurフィルタ実行
+        // (blur_h無しのとき) set toplevel framebuffer
+      r.push_back(make_drawstep_blur(cnoblur, sconf, ds, app.dp_blur,
+        "col1"));
+        // (blur_h無しのとき) col1からcol0へblurフィルタ実行
     }
     r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "blend"));
+      // blendに設定
     r.push_back(make_drawstep_rect2d(ctrue, sconf, ds));
+      // rect2dをtoplevelにblendで書き込み
     r.push_back(make_drawstep_font2(ctrue, sconf, ds, app.pviewport_disp));
+      // font2をtoplevelにblendで書き込み
   }
   for (const i, const& e: r) {
     if (const em: e.step->get_edit_mode().some) {
