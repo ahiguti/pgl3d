@@ -908,16 +908,27 @@ threaded function {t} t round_bias(t v, t b)
   return v > 0.0 ? (v + b) : (v - b);
 }
 
+threaded function ivec3 sphere_scale(ivec3 v)
+{
+  // それぞれ2bit。拡大率3は使い道が少ないので8に変換する。
+  // この関数はtriangle-inc.fshの同名の関数に相当。
+  if (v.x == 3) { v.x = 8; }
+  if (v.y == 3) { v.y = 8; }
+  if (v.z == 3) { v.z = 8; }
+  return v;
+}
+
 public threaded function uint make_sphere_node(sphere_param const& p,
   ivec3 const& offset, int offset_mul, uint modifier)
 {
+  const psc = sphere_scale(p.scale);
   const c = p.center -
-    map{ivec3, operator::mul}(offset, p.scale) * offset_mul / 2;
+    map{ivec3, operator::mul}(offset, psc) * offset_mul / 2;
     // offset_mulは1ボクセルあたりのoffset値の変化する量。
   function int distance2(ivec3 const pos)
   {
     // posはシェーダでは0.5までの範囲。この関数は1までの範囲なので2倍された値。
-    const a_pt = map{ivec3, operator::mul}(p.scale, pos);
+    const a_pt = map{ivec3, operator::mul}(psc, pos);
       // シェーダのa_vtの二倍の値
     const c_pt = c + c; // シェーダのc_vtの二倍の値
     const ac_pt = c_pt - a_pt;
@@ -947,8 +958,8 @@ public threaded function uint make_sphere_node(sphere_param const& p,
     const r2 = p.dist * p.dist * 4; // 球の半径の2乗
     const rdiff = sqrt(static_cast{double}(d2))
       - sqrt(static_cast{double}(r2));
-    const inor = map{ivec3, operator::mul}(c, p.scale);
-    // debug_log("sp inor", inor, c, p.scale);
+    const inor = map{ivec3, operator::mul}(c, psc);
+    // debug_log("sp inor", inor, c, psc);
     plane_param pp;
     if (true) {
       /*

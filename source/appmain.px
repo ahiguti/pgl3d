@@ -1291,8 +1291,9 @@ private function varray{drawer_cond} init_drawsteps(
         // (blur_h有りのとき) col1からcol2へblurフィルタ実行
       r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
         app.pviewport_main,
-        "col3", true, make_varray{string}("GL_RGBA"), "", false));
-        // (blur_h有りのとき) col3, nearest
+        "col3", true, make_varray{string}("GL_RGBA"), "",
+        app.virt_scale != 1.0));
+        // (blur_h有りのとき) col3, virt_scale==1.0ならnearest
       r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
         app.white_count_ptr, false, "col2", ""));
         // (blur_h有りのとき) blur_h (direction_h) col2 -> col3

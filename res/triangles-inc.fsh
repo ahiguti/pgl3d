@@ -189,7 +189,7 @@ float voxel_collision_sphere(in vec3 v, in vec3 a, in vec3 c,
   float len_ae_pt = ac_v_pt + (ura ? len_de_pt : -len_de_pt);
   vec3 e_pt = a_pt + v_ptn * len_ae_pt; // 視線が球面と接触する点
   vec3 ce_pt = e_pt - c_pt;
-  nor_r = normalize(ce_pt / max(mul_pt, 0.125)); // 0除算しない
+  nor_r = normalize(ce_pt * mul_pt);
   if (ura) {
     nor_r = -nor_r;
   }
