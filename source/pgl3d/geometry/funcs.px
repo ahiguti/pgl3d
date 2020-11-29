@@ -165,6 +165,9 @@ private threaded function void gf_cuboid_tex3d(vec3 const& coord_min,
   vec3 const& coord_max, vec3 const& center, float scale,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
+  // polyは無視される。centerを中央とする位置に大きさscaleの直方体を
+  // 作り、coord_minとcoord_maxで指定されたテクスチャオフセットの
+  // raycastテクスチャを適用する。
   const coord_sz = coord_max - coord_min;
   const px = coord_sz.x * scale;
   const py = coord_sz.y * scale;
@@ -183,7 +186,7 @@ private threaded function void gf_cuboid_tex3d(vec3 const& coord_min,
   arr[3].pos.x = center.x - px;
   arr[3].pos.y = center.y + py;
   arr[3].pos.z = center.z - pz;
-  // 底面の長方形を指定すると直方体が作られる
+  // 底面の長方形(arr)を指定すると直方体が作られる
   gf_ctx_tex3d(0, 0, coord_min, coord_max, ctx, arr, mp);
 }
 
@@ -191,7 +194,8 @@ private threaded function void gf_regular_polygon(float radius, size_t n,
   gf_poly const& c0, gf_poly const& c1, build_context_i const& ctx,
   poly_t const& poly, mesh_index const& mp)
 {
-  /* poly is ignored */
+  // polyは無視される。半径radiusの正n角形を作り、表にc0を、裏にc1を
+  // 適用する。
   mutable arr = darray{vertex_attr}(n, vertex_attr());
   for (const i: 0 .. n) {
     const a = (cast_float(i) * 2.0f * pi_float()) / cast_float(n);
@@ -208,7 +212,7 @@ private threaded function void gf_polygon_points(poly_t const& pts,
   gf_poly const& c0, gf_poly const& c1, build_context_i const& ctx,
   poly_t const& poly, mesh_index const& mp)
 {
-  /* poly is ignored */
+  // polyは無視される。ptsの表にc0を、裏にc1を適用する。
   darrayst{vertex_attr} arr = pts;
   c0(ctx, arr, mesh_index());
   reverse(arr.range());
@@ -219,6 +223,8 @@ private threaded function void gf_bump_rec_internal(float z, float scale,
   int recurse, bool seq_flag, gf_poly const& c0, gf_poly const& c1,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
+  // polyを垂線方向へzだけ移動した位置にc1を適用し、側面にはc0を適用する。
+  // recurse回再帰的に適用する。seq_flagが真なら中間の床にもc1を適用する。
   if (poly.size() < 3) { return; }
   darrayst{vertex_attr} front = poly;
   const nor = normal_from_poly(poly, true);

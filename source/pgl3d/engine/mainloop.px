@@ -24,6 +24,7 @@ private import pgl3d::sdl::sdlutil -;
 private import opengl::compat -;
 private import pgl3d::ext::process_priority -;
 private import pgl3d::ext::nvapi -;
+private import pgl3d::ext::debug_helper -;
 // private import pgl3d::engine::console -;
 
 public function void mainloop(ptr{pgl3d_application} const& app,
@@ -332,6 +333,9 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     sdl_log("PGL3D main");
     sdl_log("shader config", sconf);
     set_process_priority(2);
+    disable_ghosting();
+      // windowsでfullscreenのときにイベントループを数秒止めると復旧できなく
+      // なる(何故？)。そのためghostingを無効化する。
     // SDL_EventState(SDL_KEYDOWN, 0); // FIXME
     SDL_EventState(SDL_KEYUP, 0);
     SDL_EventState(SDL_TEXTEDITING, 0);
@@ -368,14 +372,17 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     if (fullscreen != 0) {
       saved_window_flags = SDL_GetWindowFlags(sdlc.sdl_window);
       debug_log("window flags", saved_window_flags, SDL_WINDOW_MAXIMIZED);
-      int w;
-      int h;
-      SDL_GetWindowSize(sdlc.sdl_window, address(w), address(h));
-      // 最大化されたウインドウをもとに戻す。最大化されたままフルスクリーンに
-      // するとAlt-Tabで切り替えた時にサイズがおかしくなる。
-      SDL_RestoreWindow(sdlc.sdl_window);
+      int didx = SDL_GetWindowDisplayIndex(sdlc.sdl_window);
+      SDL_DisplayMode dm;
+      SDL_GetCurrentDisplayMode(didx, address(dm));
+      debug_log("display size", dm.w, dm.h);
+      if ((saved_window_flags & SDL_WINDOW_MAXIMIZED) != 0) {
+        // 最大化されたウインドウをもとに戻す。最大化されたままフルスクリーンに
+        // するとAlt-Tabで切り替えた時にサイズがおかしくなる。
+        SDL_RestoreWindow(sdlc.sdl_window);
+      }
       SDL_GetWindowSize(sdlc.sdl_window, address(saved_w), address(saved_h));
-      SDL_SetWindowSize(sdlc.sdl_window, w, h);
+      SDL_SetWindowSize(sdlc.sdl_window, dm.w, dm.h);
     } else {
     }
     SDL_Enum flag = 0;

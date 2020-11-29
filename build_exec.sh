@@ -69,6 +69,7 @@ trap "echo got SIGINT" 2
 trap "echo got SIGTERM" 15
 trap wait_bgpid EXIT
 
+unset TZ # cygwinがTZをセットしてしまうので消す
 echo > var/app.log
 tail -f var/app.log &
 bgpid=$!

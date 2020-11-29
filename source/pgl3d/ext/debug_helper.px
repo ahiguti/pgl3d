@@ -5,6 +5,8 @@ public import meta m;
 public function extern "::pxcrt::dump_modules" void dump_modules();
 public function extern "::pxcrt::dump_backtrace" void dump_backtrace();
 
+public function extern "::pxcrt::disable_ghosting" void disable_ghosting();
+
 private function extern "::pxcrt::init_debug_helper" void init_debug_helper();
 private function extern "::pxcrt::set_unhandled_exception_handler" void
   set_unhandled_exception_handler();
@@ -17,6 +19,7 @@ extern "types" inline
 #ifdef _MSC_VER
 extern "C" {
 #include <windows.h>
+#include <winuser.h>
 #include <stdio.h>
 #include <psapi.h>
 #pragma warning(push)
@@ -143,6 +146,13 @@ void set_unhandled_exception_handler()
   AddVectoredExceptionHandler(1, &vectored_exception_handler);
 #endif
   std::set_terminate(&terminate_handler);
+}
+
+void disable_ghosting()
+{
+#ifdef _MSC_VER
+  DisableProcessWindowsGhosting();
+#endif
 }
 
 };

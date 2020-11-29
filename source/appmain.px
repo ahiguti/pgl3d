@@ -1440,6 +1440,7 @@ private function void build_vertices(app_app mutable& app,
   const tr0_0 = make_varray{string}("vbid_triangles_0_0");
       // ポリゴンをparallax mappingで描画 (stype==0, ssubtype==0)
   const tr1_0 = make_varray{string}("vbid_triangles_1_0");
+      // 直方体をraycastingで描画 (stype==1, ssubtype==0)
   /*
   const tr1_0 = make_varray{string}(
     "vbid_triangles_1_0",
@@ -1493,7 +1494,17 @@ private function void build_vertices(app_app mutable& app,
     .translate(glm::make_vec3(0.0, 0.0, small_box_size * (-1.0f)))
     .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
   debug_log("make box");
+  pgs.make_vertex_set(tr1_0, "box",
+    regular_polygon(1.4142f * box_size, 4,
+      apply(m1,
+	bump_apply(m, true,
+          ctx_tex3d(1, 0, mi, mx),
+          ctx_tex3d(1, 0, mi, mx))),
+      apply(m1,
+	ctx_fill(0))));
+  /*
   pgs.make_vertex_set(tr1_0, "box", cuboid_tex3d(mi, mx, glm::vec3(), 32.0f));
+  */
   /*
   pgs.make_vertex_set(tr1_0, "box",
     regular_polygon(1.4142f * box_size, 4,
