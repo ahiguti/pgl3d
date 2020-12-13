@@ -1494,23 +1494,26 @@ private function void build_vertices(app_app mutable& app,
     .translate(glm::make_vec3(0.0, 0.0, small_box_size * (-1.0f)))
     .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
   debug_log("make box");
-  pgs.make_vertex_set(tr1_0, "box",
+  // 立方体の各面にtex3d貼り付け
+  pgs.make_vertex_set(tr1_0, "boxsurf-tex3d",
     regular_polygon(1.4142f * box_size, 4,
       apply(m1,
 	bump_apply(m, true,
           ctx_tex3d(1, 0, mi, mx),
           ctx_tex3d(1, 0, mi, mx))),
       apply(m1,
-	ctx_fill(0))));
+	ctx_tex3d(1, 0, mi, mx))));
+  /*
+  */
   /*
   pgs.make_vertex_set(tr1_0, "box", cuboid_tex3d(mi, mx, glm::vec3(), 32.0f));
   */
-  /*
   pgs.make_vertex_set(tr1_0, "box",
     regular_polygon(1.4142f * box_size, 4,
       apply(m0, hole()),
       apply(m0,
 	ctx_tex3d(0, 0, mi, mx))));
+  /*
   */
   debug_log("make box_opt1");
   pgs.make_vertex_set(tr1_0, "box_opt1",
@@ -1864,6 +1867,7 @@ private function void build_vertices(app_app mutable& app,
     shapes_add(name, mass, collision_shape_e_voxel);
   }
   shapes_add_voxel("box", -32768.0f);
+  shapes_add_voxel("boxsurf-tex3d", -32768.0f);
   shapes_add_sphere("box_opt1", 32768.0f);
   shapes_add_sphere("smallbox", 1.0f);
   shapes_add_sphere("mstex3d", 1000.0f);
@@ -2109,6 +2113,7 @@ scene_control(node_factory const& nfac,
     // "knight-multi",
     "empty-scene",
     "box",
+    "boxsurf-tex3d",
     "box-multi",
     "box-depth",
     "plane-multi-1",
