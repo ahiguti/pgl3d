@@ -563,7 +563,9 @@ private struct app_app()
       camera_state st = from_string{camera_state}(s);
       player = st.player;
       light = st.light;
+      debug_log("camera_state loaded");
     } else {
+      debug_log("camera_state init");
       // player.position = glm::make_vec3(0.0, 0.0, -40.0);
       // player.angle = glm::make_quat_wxyz(0.70711, 0.70711, 0.0, 0.0);
       player.position = glm::make_vec3(0.0, 0.0, 40.0);

@@ -312,6 +312,14 @@ input_control_target()
   public glm::vec3 pos_delta;
   public bool accel;
   public float accel_ration = 0.1f;
+  public function {tpl} void append_to_string(string mutable& o) const {
+    serialize_sequence{tpl}(position.x, position.y, position.z,
+      angle.x, angle.y, angle.z, angle.w, o);
+  }
+  public function {tpl} void parse_from_string(cstrref mutable& s) {
+    deserialize_sequence{tpl}(s, position.x, position.y, position.z,
+      angle.x, angle.y, angle.z, angle.w);
+  }
 }
 
 public function void input_control_handle_event(input_control mutable& ictl,
