@@ -23,7 +23,7 @@ private metafunction dbg_save{f} no_operation;
 private metafunction dbg_console{f} no_operation;
 private metafunction dbg_gen{f} no_operation;
 private metafunction dbg_scale{f} no_operation;
-private metafunction dbg_rotate{f} no_operation;
+private metafunction dbg_rotate{f} f; // no_operation;
 private metafunction dbg_noderef{f} no_operation;
 
 private metafunction save_dir "/build/saved/";
@@ -188,11 +188,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           cdir.x = -cdir.x;
         } else if (mod_cs) {
           const ssz = ttev->get_cursor_range().second;
-          if (ssz.y == ssz.z) {
-            rotate_range(glm::make_imat3(1, 0, 0, 0, 0, -1, 0, 1, 0));
-          } else {
-            dbg_editmode() { debug_log("ssz.y != ssz.z"); }
-          }
+          rotate_range(glm::make_imat3(1, 0, 0, 0, 0, -1, 0, 1, 0));
         } else if (mod_ctrl) {
           // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
@@ -206,11 +202,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           cdir.x = -cdir.x;
         } else if (mod_cs) {
           const ssz = ttev->get_cursor_range().second;
-          if (ssz.y == ssz.z) {
-            rotate_range(glm::make_imat3(1, 0, 0, 0, 0, 1, 0, -1, 0));
-          } else {
-            dbg_editmode() { debug_log("ssz.y != ssz.z"); }
-          }
+          rotate_range(glm::make_imat3(1, 0, 0, 0, 0, 1, 0, -1, 0));
         } else if (mod_ctrl) {
           // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
@@ -224,11 +216,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           cdir.y = -cdir.y;
         } else if (mod_cs) {
           const ssz = ttev->get_cursor_range().second;
-          if (ssz.z == ssz.x) {
-            rotate_range(glm::make_imat3(0, 0, 1, 0, 1, 0, -1, 0, 0));
-          } else {
-            dbg_editmode() { debug_log("ssz.z != ssz.x"); }
-          }
+          rotate_range(glm::make_imat3(0, 0, 1, 0, 1, 0, -1, 0, 0));
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
         } else if (mod_rshift) {
@@ -241,11 +229,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           cdir.y = -cdir.y;
         } else if (mod_cs) {
           const ssz = ttev->get_cursor_range().second;
-          if (ssz.z == ssz.x) {
-            rotate_range(glm::make_imat3(0, 0, -1, 0, 1, 0, 1, 0, 0));
-          } else {
-            dbg_editmode() { debug_log("ssz.z != ssz.x"); }
-          }
+          rotate_range(glm::make_imat3(0, 0, -1, 0, 1, 0, 1, 0, 0));
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
         } else if (mod_rshift) {
@@ -258,11 +242,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           cdir.z = -cdir.z;
         } else if (mod_cs) {
           const ssz = ttev->get_cursor_range().second;
-          if (ssz.x == ssz.y) {
-            rotate_range(glm::make_imat3(0, -1, 0, 1, 0, 0, 0, 0, 1));
-          } else {
-            dbg_editmode() { debug_log("ssz.x != ssz.y"); }
-          }
+          rotate_range(glm::make_imat3(0, -1, 0, 1, 0, 0, 0, 0, 1));
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
         } else if (mod_rshift) {
@@ -275,11 +255,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
           cdir.z = -cdir.z;
         } else if (mod_cs) {
           const ssz = ttev->get_cursor_range().second;
-          if (ssz.x == ssz.y) {
-            rotate_range(glm::make_imat3(0, 1, 0, -1, 0, 0, 0, 0, 1));
-          } else {
-            dbg_editmode() { debug_log("ssz.x != ssz.y"); }
-          }
+          rotate_range(glm::make_imat3(0, 1, 0, -1, 0, 0, 0, 0, 1));
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
         } else if (mod_rshift) {
@@ -1134,17 +1110,35 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function void rotate_range(imat3 const& m)
   {
-    copy_value();
-    const sz = copy_data.copy_size;
-    const spri = copy_data.tex[0]; // copy
-    const ssec = copy_data.tex[1]; // copy
-    dbg_rotate() {
-      debug_log("tex[0]", copy_data.tex[0]);
-      debug_log("spri", spri);
+    function uvec3 rotate_size(uvec3 sz) {
+      const isz = m * to_ivec3(sz);
+      const asz = map{ivec3, abs{int}}(isz);
+      return to_uvec3(asz);
     }
-    rotate_texture_range(m, spri, ssec, sz, copy_data.tex[0],
+    copy_value();
+    const ssz = copy_data.copy_size;
+    const dsz = rotate_size(ssz);
+    const stex = copy_data.tex; // copy
+    if (ssz != dsz) {
+      debug_log("cursor_offset pre", copy_data.cursor_offset);
+      copy_data.cursor_offset = rotate_size(copy_data.cursor_offset);
+      debug_log("cursor_offset post", copy_data.cursor_offset);
+      copy_data.copy_size = dsz;
+      for (const& i, mutable& tex: copy_data.tex) {
+        tex.clear();
+        tex.set_size_l2_uvec3(rotate_size(tex.get_size_l2_uvec3()));
+      }
+    }
+    dbg_rotate() {
+      debug_log("rotate_range", ssz, dsz);
+      debug_log("tex[0]", copy_data.tex[0]);
+      debug_log("spri", stex[0]);
+    }
+    rotate_texture_range(m, stex[0], stex[1], ssz, copy_data.tex[0],
       copy_data.tex[1]);
     paste_value(0xffu, merge_mode_opaque());
+    glm::vec3 cursor_move_r;
+    move_cursor(0, 0, 0, cursor_move_r);
   }
   private function void set_space()
   {

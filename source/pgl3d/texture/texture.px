@@ -67,6 +67,12 @@ array3_pot_set_size_l2(t mutable& o, uint w_l2, uint h_l2, uint d_l2)
   }
 }
 
+public threaded function {t} void
+array3_pot_set_size_l2_uvec3(t mutable& o, glm::uvec3 sz)
+{
+  array3_pot_set_size_l2(o, sz.x, sz.y, sz.z);
+}
+
 public threaded function {t} glm::uvec3
 array3_pot_get_size_uvec3(t const& o)
 {
@@ -166,6 +172,15 @@ array3_pot_foreach(t mutable& o)
 	f(x, y, z, o.data[o.index(x, y, z)]);
       }
     }
+  }
+}
+
+public threaded function {t} void
+array3_pot_clear(t mutable& o)
+{
+  metafunction mt m::symbol{t, "mapped_type"};
+  o.foreach() function void (size_t x, size_t y, size_t z, mt mutable& v) {
+    v = mt();
   }
 }
 

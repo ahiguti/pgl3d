@@ -193,6 +193,10 @@ public function {t} void
 rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
   uvec3 const& sz, t mutable& dpri, t mutable& dsec)
 {
+  dbg_rotate() {
+    debug_log("rotate_texture_range sz", spri.get_size_uvec3(),
+      dpri.get_size_uvec3());
+  }
   for (const z: 0 .. sz.z) {
     for (const y: 0 .. sz.y) {
       for (const x: 0 .. sz.x) {
@@ -203,10 +207,10 @@ rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
 	  debug_log("rotate_texture_range", x, y, z, p, vp, va);
 	}
 	const up = to_uvec3(p);
-	if (lt_all_uvec3(up, sz)) {
+	// if (lt_all_uvec3(up, sz)) {
 	  dpri.set(ui(p.x), ui(p.y), ui(p.z), vp);
 	  dsec.set(ui(p.x), ui(p.y), ui(p.z), va);
-	}
+	// }
       }
     }
   }
@@ -215,9 +219,10 @@ rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
 public function ivec3
 rotate_offset(imat3 const& m, ivec3 const& v, uvec3 const& sz)
 {
-  const isz = to_ivec3(sz) - glm::make_ivec3(1, 1, 1);
-  const vs = v * 2 - isz;
-  const vm = m * vs + isz;
+  const ssz = to_ivec3(sz) - glm::make_ivec3(1, 1, 1);
+  const dsz = map{ivec3, abs{int}}(m * ssz);
+  const vs = v * 2 - ssz;
+  const vm = m * vs + dsz;
   const r = map{glm::ivec3, operator::div}(vm, glm::make_ivec3(2, 2, 2));
   // debug_log("rotate", sz, v, r);
   return r;
