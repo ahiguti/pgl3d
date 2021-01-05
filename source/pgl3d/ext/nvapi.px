@@ -119,6 +119,12 @@ nvapi_init()
   return -1;
 }
 
+pxcrt::bt_int
+nvapi_get_init_error()
+{
+  return -1;
+}
+
 pxcrt::bt_uint
 nvapi_physical_gpus()
 {

@@ -499,7 +499,7 @@ public threaded function uint get_noderef_scale(uint v)
   uint x = v & 0xffu;
   uint y = (v >> 8u) & 0xffu;
   uint z = (v >> 16u) & 0xffu;
-  return ((x >> 5u) & 1u) | (y >> 4u) & 2u | (z >> 3u) & 4u;
+  return ((x >> 5u) & 1u) | ((y >> 4u) & 2u) | ((z >> 3u) & 4u);
 }
 
 public threaded function noderef_param decode_noderef_param(uint v)
@@ -510,7 +510,7 @@ public threaded function noderef_param decode_noderef_param(uint v)
   noderef_param p;
   p.rot = make_uvec3(x >> 7u, y >> 7u, z >> 7u);
   p.sgn = make_uvec3((x >> 6u) & 1u, (y >> 6u) & 1u, (z >> 6u) & 1u);
-  p.scale = ((x >> 5u) & 1u) | (y >> 4u) & 2u | (z >> 3u) & 4u;
+  p.scale = ((x >> 5u) & 1u) | ((y >> 4u) & 2u) | ((z >> 3u) & 4u);
   p.coord = make_uvec3(x & 31u, y & 31u, z & 31u);
   return p;
 }

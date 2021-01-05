@@ -3,6 +3,8 @@ public import common -;
 public import pgl3d::drawer::base -;
 public import meta m;
 
+private metafunction enable_white_count 0;
+
 private tsvaluetype struct blur_h_vertex_attributes()
 {
   public glm::vec2 vert;
@@ -50,10 +52,13 @@ public struct drawer_blur_h(shader_config const& glc,
     if (!src2_fbname.empty()) {
       src2fbo.some = *respool->framebuffers.equal_range(src2_fbname);
     }
-    white_count.generate();
-    glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, white_count.get());
-    glBufferData(GL_ATOMIC_COUNTER_BUFFER, 4, rawptr{void}(), GL_DYNAMIC_DRAW);
-    debug_log("white_count buf", white_count.get());
+    if (m::ne{enable_white_count, 0}) {
+      white_count.generate();
+      glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, white_count.get());
+      glBufferData(GL_ATOMIC_COUNTER_BUFFER, 4, rawptr{void}(),
+        GL_DYNAMIC_DRAW);
+      debug_log("white_count buf", white_count.get());
+    }
   }
   public function vbid_t get_vbid() const { return vbid_blur_h; }
   public function vbid_t get_instances_vbid() const { return vbid_blur_h; }
@@ -143,21 +148,25 @@ public struct drawer_blur_h(shader_config const& glc,
     opval %= 2;
     glUniform1f(sdr.u_option_value, static_cast{float}(opval));
     if (direction_v) {
-      GLuint wc = 0;
-      glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, white_count.get());
-      glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 4,
-        size_t_to_rawptr{void}(rawptr_to_size_t(address(wc))));
-      glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, white_count.get());
+      if (m::ne{enable_white_count, 0}) {
+        GLuint wc = 0;
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, white_count.get());
+        glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 4,
+          size_t_to_rawptr{void}(rawptr_to_size_t(address(wc))));
+        glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, white_count.get());
+      }
     }
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
     bo.draw(0, sdr);
     if (direction_v) {
-      GLuint wc = 0;
-      glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 4,
-        size_t_to_rawptr{void}(rawptr_to_size_t(address(wc))));
-      *white_count_ptr = wc;
-      // debug_log("wc", wc);
-      glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+      if (m::ne{enable_white_count, 0}) {
+        GLuint wc = 0;
+        glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, 4,
+          size_t_to_rawptr{void}(rawptr_to_size_t(address(wc))));
+        *white_count_ptr = wc;
+        debug_log("wc", wc);
+        glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+      }
     }
   }
   public function option{ptr{edit_mode_i}} get_edit_mode() const
@@ -175,6 +184,7 @@ init_blur_h_shader(shader_config const& g, bool direction_v)
 {
   tree_map{string, string} bnd;
   bnd["blur_direction_v"] = direction_v ? "1" : "0";
+  bnd["enable_white_count"] = m::to_string{enable_white_count};
   const v = load_shader_program(g, bnd, "blur_h.vsh");
   const f = load_shader_program(g, bnd, "blur_h.fsh");
   return make_glshader_ptr{blur_h_uniforms, blur_h_instance_attributes,

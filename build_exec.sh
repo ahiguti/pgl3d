@@ -24,7 +24,7 @@ if [ "$is_cygwin" == "CYGWIN" -o "$is_wsl" != "" ]; then
 else
         platform=unix
 	build_script=./unix/$PXC_BUILD_CONFIG.sh
-	build_target=./source/app.px.exe
+	build_target=./source/appmain.px.exe
 fi
 
 build_script=./$platform/$PXC_BUILD_CONFIG.sh
@@ -43,6 +43,7 @@ if [ -e "$build_target" -a -z "$newer_files" ]; then
         echo "$build_target" is up to date 1>&2
 else
         if ! "$build_script"; then
+                echo "nonzero status: $build_script"
                 exit 1
         fi
 fi

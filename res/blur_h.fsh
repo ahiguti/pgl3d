@@ -7,7 +7,9 @@ uniform vec2 pixel_delta;
 uniform sampler2D sampler_tex;
 uniform sampler2D sampler_tex_2;
 uniform float option_value;
+<%if><%enable_white_count/>
 layout(binding = 0, offset = 0) uniform atomic_uint white_count;
+<%/>
 
 vec3 tex_read(in vec2 delta)
 {
@@ -140,9 +142,11 @@ void main(void)
     float frag_randval = generate_random(vec3(gl_FragCoord.xy, 0.0));
     col += frag_randval * (1.0f / 256.0f); // reduce color banding
     <%if><%blur_direction_v/>
+    <%if><%enable_white_count/>
     if (col.r >= 1.0 && col.g >= 1.0 && col.b >= 1.0) {
       atomicCounterIncrement(white_count);
     }
+    <%/>
     <%/>
     <%fragcolor/> = vec4(col, 1.0);
   }

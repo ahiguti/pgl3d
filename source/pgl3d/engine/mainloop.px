@@ -484,6 +484,8 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     }
     // fr.save_ticks("event");
     // if (!sdlc.joysticks.empty()) {
+/*
+// FIXME: linux
     {
       sdlc.update_joystick_info(); // FIXME? 
       SDL_JoystickUpdate();
@@ -491,6 +493,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
 	joysticks.resize(sdlc.joysticks.size(), joystick_state());
       }
     }
+*/
     for (const i: 0 .. joysticks.size()) {
       const& hnd = *sdlc.joystick_handles[i];
       const& inf = sdlc.joysticks[i];
