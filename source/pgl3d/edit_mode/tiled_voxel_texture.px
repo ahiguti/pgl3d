@@ -33,7 +33,16 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
   cstrref const& fname, cstrref const& fname_v0, uvec3 tmszl2, uvec3 tpszl2,
   bool enable_short_circuit)
 {
-  // ファイルからデシリアライズし、テクスチャをtpszl2, tmszl2にリサイズする。
+  // ファイルからデシリアライズしてvoxにセットする。
+  // 現在の設定のテクスチャサイズとデシリアライズした結果のテクスチャサイズ
+  // が異なるときは、現在の設定に合わせてリサイズする。拡大されると空白で
+  // 埋められ、縮小されると切られた範囲のデータは失われる。
+  // セーブファイルの名前を変更することによって、セーブデータを別サイズの
+  // 設定で読み込むことができる。ただし切られた範囲のデータは失われるため、
+  // とくにtpatを縮小するときは縮小後の範囲にあらかじめ寄せておいてから
+  // セーブしておく必要があることに注意。
+  // また、ロード後に一度dedupして標準配置に修正しないといけない。さもないと
+  // 空白パターン割り当て時に使用中パターンを拾ってしまう可能性がある。
   string buf;
   bool load_v0 = false;
     // trueなら古いバージョンのバイナリデータをデシリアライズする
@@ -46,6 +55,7 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
   }
   if (!buf.empty()) {
     if (load_v0) {
+      // 旧バージョンのフォーマット
       const v0 = from_string_compact_pod{tiled_voxel_texture_v0}(buf);
       vox.voxtile = v0.voxtile;
       const tmsz = (*v0.tmap_pri[0]).get_size_uvec3();
@@ -66,18 +76,25 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
       conv_one(v0.tpat_pri, vox.tpat_edit->data_pri);
       conv_one(v0.tpat_sec, vox.tpat_edit->data_sec);
     } else {
+      // 現行バージョンのフォーマット
       vox = from_string_compact_pod{tiled_voxel_texture}(buf);
     }
+    // 必要ならテクスチャをリサイズする
     if (vox.tmap_edit->data_pri[0].get_size_l2_uvec3() != tmszl2) {
-      debug_log("resize tmap", tmszl2);
-      vox.tmap_edit->resize(tmszl2, enable_short_circuit);
+      debug_log("resize tmap from",
+        vox.tmap_edit->data_pri[0].get_size_l2_uvec3(), "to", tmszl2);
+      vox.tmap_edit->resize_texture(tmszl2, enable_short_circuit);
     }
     if (vox.tpat_edit->data_pri[0].get_size_l2_uvec3() != tpszl2) {
-      debug_log("resize tpat", tpszl2);
-      vox.tpat_edit->resize(tpszl2, enable_short_circuit);
+      debug_log("resize tpat from",
+        vox.tpat_edit->data_pri[0].get_size_l2_uvec3(), "to", tpszl2);
+      vox.tpat_edit->resize_texture(tpszl2, enable_short_circuit);
     }
+    // fillmapは、tmapの各座標に定義されたfillingを保持する。fillmapのサイズは
+    // tmapと同じである必要があるので、異なっていればリサイズする。
     if (vox.fillmap.get_size_l2() != tmszl2) {
-      debug_log("resize filling", tmszl2);
+      debug_log("resize filling from", vox.fillmap.get_size_l2(),
+        "to", tmszl2);
       vox.fillmap.set_size_l2(tmszl2);
     }
   }

@@ -1,0 +1,156 @@
+private threaded namespace pgl3d::edit_mode::generate_filling;
+private import common -;
+private import meta m;
+private import glm -;
+private import pgl3d::texture::voxel -;
+private import pgl3d::texture::texture -;
+private import pgl3d::texture::copy_data -;
+private import pgl3d::engine::util -;
+private import pgl3d::edit_mode::filling -;
+private import pgl3d::edit_mode::vecutil -;
+private import pgl3d::edit_mode::tiled_texture_edit_view -;
+
+private valuetype struct fragment() {
+  public uvec3 offset;
+  public uvec3 size;
+  public copy_data_type data;
+}
+
+private function void
+copy_from_ttev(tiled_texture_edit_view mutable& ttev, uvec3 const& pos,
+  uvec3 const& sz, copy_data_type mutable& cp)
+{
+  cp.copy_size = sz;
+  const sz_l2 = map{uvec3, integral_log2{uint}}(sz);
+  for (const i, mutable& tex: cp.tex) {
+    tex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
+  }
+  ttev.edit_copy_range(pos, sz, cp.tex[0], cp.tex[1], uvec3());
+}
+
+private function void
+copy_range(copy_data_type const& src, uvec3 const& pos, uvec3 const& sz,
+  copy_data_type mutable& dst)
+{
+  dst.copy_size = sz;
+  const sz_l2 = map{uvec3, integral_log2{uint}}(sz);
+  for (const i, const& tex: src.tex) {
+    mutable& dtex = dst.tex[i];
+    dtex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
+    range_foreach(sz) void (uint x, uint y, uint z) {
+      const sp = make_uvec3(pos.x + x, pos.y + y, pos.z + z);
+      if (lt_all_uvec3(sp, src.copy_size)) {
+        const v = tex.get(sp.x, sp.y, sp.z);
+        dtex.set(x, y, z, v);
+      }
+    }
+  }
+}
+
+private function varray{fragment}
+get_fragments(copy_data_type mutable& cp)
+{
+  const tsz = cp.tex[0].get_size_l2_uvec3();
+  const sz = cp.copy_size;
+  texture_data frm; // (x,y)に空白でないボクセルがあるかどうか
+  frm.set_size_l2(tsz.x, tsz.y, 0);
+  for (const y: 0 .. sz.y) {
+    for (const x: 0 .. sz.x) {
+      uint found = 0;
+      for (const z: 0 .. sz.z) {
+        const v = cp.tex[0].get(x, y, z);
+        if (!is_space_voxel(v)) {
+          found = z + 1u;
+        }
+      }
+      frm.set(x, y, 0, found);
+      debug_log(x, y, found);
+    }
+  }
+  texture_data fra = frm; // fraはfrmを含むaabb閉包
+  {
+    while (true) {
+      function uint get_value(int x, int y) {
+        if (x >= 0 && x < static_cast{int}(sz.x) &&
+          y >= 0 && y < static_cast{int}(sz.y)) {
+          return fra.get(static_cast{uint}(x), static_cast{uint}(y), 0u);
+        } else {
+          return 0u;
+        }
+      }
+      bool modified = false;
+      for (const y: 0 .. static_cast{int}(sz.y)) {
+        for (const x: 0 .. static_cast{int}(sz.x)) {
+          if (get_value(x, y) != 0u) {
+            continue;
+          }
+          const pp = min(get_value(x + 1, y), get_value(x, y + 1));
+          const pn = min(get_value(x + 1, y), get_value(x, y - 1));
+          const np = min(get_value(x - 1, y), get_value(x, y + 1));
+          const nn = min(get_value(x - 1, y), get_value(x, y - 1));
+          const v = max(max(pp, pn), max(np, nn));
+          if (v != 0u) {
+            modified = true;
+            fra.set(static_cast{uint}(x), static_cast{uint}(y), 0, v);
+          }
+        }
+      }
+      if (!modified) {
+        break;
+      }
+    }
+  }
+  mutable frs = varray{fragment}();
+  // 各点(x,y)について、その点を始点とする断片を作るかどうか判定する
+  for (const y: 0 .. sz.y) {
+    for (const x: 0 .. sz.x) {
+      if (fra.get(x, y, 0) == 0u) {
+        continue;
+      }
+      // aabbの始点かどうか
+      const is_left = (x == 0u || fra.get(x - 1u, y, 0u) == 0u);
+      const is_bottom = (y == 0u || fra.get(x, y - 1u, 0u) == 0u);
+      if (!is_left || !is_bottom) {
+        continue;
+      }
+      mutable xe = x;
+      for (xe = x; xe < sz.x; ++xe) {
+        if (fra.get(xe, y, 0u) == 0u) {
+          break;
+        }
+      }
+      mutable ye = y;
+      for (ye = y; ye < sz.y; ++ye) {
+        if (fra.get(x, ye, 0u) == 0u) {
+          break;
+        }
+      }
+      const fr_w = xe - x;
+      const fr_h = ye - y;
+      uint vm = 0u;
+      for (const yi: 0 .. fr_h) {
+        for (const xi: 0 .. fr_w) {
+          vm = max(vm, fra.get(x + xi, y + yi, 0u));
+        }
+      }
+      fragment fr;
+      fr.offset = make_uvec3(x, y, 0u);
+      fr.size = make_uvec3(fr_w, fr_h, vm);
+      copy_range(cp, fr.offset, fr.size, fr.data);
+      debug_log("fr", fr);
+      frs.push_back_move(fr);
+    }
+  }
+  return frs;
+}
+
+public function void
+generate_filling(tiled_texture_edit_view mutable& ttev)
+{
+  const cur = ttev.get_cursor_range();
+  debug_log("generate_filling", "pos", cur.first, "sz", cur.second);
+  copy_data_type copy_data; // 選択領域をここにコピーする
+  copy_from_ttev(ttev, cur.first, cur.second, copy_data);
+  // 選択領域から断片を切り出す
+  const frs = get_fragments(copy_data);
+}

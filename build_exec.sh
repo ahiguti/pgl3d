@@ -59,20 +59,20 @@ wait_bgpid() {
         p="$bgpid"
         bgpid=""
         if [ "$p" != "" ]; then
-                kill -9 "$p" > /dev/null 2>&1
+                kill "$p" > /dev/null 2>&1
                 echo waiting $p ...
-                wait "$p" > /dev/null 2>&1
-                echo done
+                wait "$p"
+                echo wait "$p" done
         fi
 }
 
-trap "echo got SIGINT" 2
-trap "echo got SIGTERM" 15
+#trap "echo got SIGINT" 2
+#trap "echo got SIGTERM" 15
 trap wait_bgpid EXIT
 
 unset TZ # cygwinがTZをセットしてしまうので消す
 echo > var/app.log
-tail -f var/app.log &
+tail -F var/app.log &
 bgpid=$!
 "$build_target" $* > /dev/null 2>&1
 

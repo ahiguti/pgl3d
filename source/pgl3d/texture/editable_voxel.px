@@ -106,9 +106,10 @@ texture_edit()
   {
     return modified.get_modified_array(reset_flag);
   }
-  public function void resize(uvec3 szl2, bool enable_short_circuit)
+  public function void resize_texture(uvec3 szl2, bool enable_short_circuit)
   {
-    debug_log("texture_edit resize: ", szl2, data_pri[0].get_size_l2_uvec3());
+    debug_log("texture_edit resize_texture: ", szl2,
+      data_pri[0].get_size_l2_uvec3());
     texture_data_mip pri;
     texture_data_mip sec;
     const nmip = data_pri.size();
@@ -123,15 +124,17 @@ texture_edit()
       if (s.z > 0u) { s.z -= 1u; }
     }
     debug_log("texture_edit resize: copy");
-    mutable& src_0 = data_pri[0];
-    mutable& tgt_0 = pri[0];
-    mutable& src_1 = data_sec[0];
-    mutable& tgt_1 = sec[0];
-    const msz = map{uvec3, min}(src_0.get_size_uvec3(),
-      tgt_0.get_size_uvec3());
-    range_foreach(msz) void (uint x, uint y, uint z) {
-      tgt_0.set(x, y, z, src_0.get(x, y, z));
-      tgt_1.set(x, y, z, src_1.get(x, y, z));
+    {
+      mutable& src_0 = data_pri[0];
+      mutable& tgt_0 = pri[0];
+      mutable& src_1 = data_sec[0];
+      mutable& tgt_1 = sec[0];
+      const msz = map{uvec3, min}(src_0.get_size_uvec3(),
+        tgt_0.get_size_uvec3());
+      range_foreach(msz) void (uint x, uint y, uint z) {
+        tgt_0.set(x, y, z, src_0.get(x, y, z));
+        tgt_1.set(x, y, z, src_1.get(x, y, z));
+      }
     }
     data_pri.swap(pri);
     data_sec.swap(sec);

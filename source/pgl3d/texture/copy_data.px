@@ -12,7 +12,7 @@ public import pgl3d::sdl::sdlutil -;
 public valuetype struct copy_data_type {
   public metafunction num_tex 2;
   public farray{texture_data, num_tex} tex;
-  public uvec3 copy_size; // can be smaller than tex_pri.
+  public uvec3 copy_size; // can be smaller than tex[0].
   public uvec3 cursor_offset;
 }
 

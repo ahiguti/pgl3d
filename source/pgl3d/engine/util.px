@@ -5,6 +5,8 @@ public import meta m;
 public import glm -;
 public import numeric::fpmath -;
 
+private metafunction dbg_intlog2{f} f; // no_operation;
+
 public threaded function {t} t
 power_of_2(t v)
 {
@@ -16,10 +18,26 @@ power_of_2(t v)
 public threaded function {t} t
 integral_log2(t v)
 {
-  t const one = 1;
+  t x = 1;
   t r = 0;
-  while (v > (one << r)) {
+  while (v > x) {
+    const xn = x << 1;
+    if (xn <= x) {
+      break;
+    }
+    x = xn;
     ++r;
+  }
+  dbg_intlog2() {
+    t const one = 1;
+    t rx = 0;
+    while (v > (one << rx)) {
+      ++rx;
+    }
+    debug_log("intlog2", v, r, rx);
+    if (r != rx) {
+      throw runtime_error_template{"intlog2"}("intlog");
+    }
   }
   return r;
 }

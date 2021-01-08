@@ -141,13 +141,15 @@ erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
 
 public function string
 dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
-  bool force_flag)
+  bool force_flag, uvec3 const& tpat_range_l2)
 {
   // 重複するタイルパターンを一つにまとめる。またscale値ごとに特定範囲の
   // オフセットにのみ割り当てられるように正規化する。max_tile_scale_log2
   // より大きいサイズのタイルパターンが見つかったら警告し、空白に置き換える。
+  // tpat_range_l2は既定ではttev.tpat_size_l2だが、それよりも狭い範囲に
+  // 寄せたいときに指定される。
   debug_log("dedup_tpat: mts", max_tile_scale_log2, "assignable",
-    get_num_assignable_tile(ttev, max_tile_scale_log2));
+    get_num_assignable_tile(tpat_range_l2, max_tile_scale_log2));
   if (max_tile_scale_log2 > absmax_tile_scale_log2) {
     debug_log("dedup_tpat: max_tile_scale_log2 too large");
     return "dedup_tpat failed";
@@ -234,7 +236,10 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
       uint const scale_log2 = s + 1u;
       uint const tile_size = 1u << scale_log2;
       uvec3 const tile_size3 = make_uvec3(1u, 1u, 1u) * tile_size;
-      uvec3 const coord_range = ttev.tpat_size / tile_size;
+      uvec3 const tpat_range = map{uvec3, operator::shiftl}(
+        make_uvec3(1u, 1u, 1u), tpat_range_l2);
+        // 既定ではttev.tpat_sizeに一致する。
+      uvec3 const coord_range = tpat_range / tile_size;
       mutable& sc = scales[s];
       debug_log("dedup_tpat: update tpat", s, sc.values.size());
       if (sc.values.size() != 0u) {
@@ -323,11 +328,10 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
 }
 
 public function uint
-get_num_assignable_tile(tiled_texture_edit_view const& ttev,
-  uint max_tile_scale_log2)
+get_num_assignable_tile(uvec3 const& tpat_size, uint max_tile_scale_log2)
 {
   const mxtsz = 1u << max_tile_scale_log2; // 最大タイルの大きさ
-  const tpsz = ttev.tpat_size / mxtsz;
+  const tpsz = tpat_size / mxtsz;
   const v = tpsz.x * tpsz.y * tpsz.z;
   return v * 7 / 8; // 前半1/8の領域は一つ小さいタイル用に使うので7/8倍する
 }

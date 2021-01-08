@@ -16,6 +16,7 @@ private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::filling -;
+private import pgl3d::edit_mode::generate_filling -;
 
 private metafunction dbg_editmode{f} no_operation;
 private metafunction dbg_conv{f} f;
@@ -91,8 +92,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       msg_r = get_console_text();
       return;
     } else if (key == SDL_SCANCODE_F5 || key == SDL_SCANCODE_F12) {
-      // SHIFT+F12ならmipmap更新を省略する
-      if (key == SDL_SCANCODE_F5 || !mod_shift) {
+      // SHIFT無しのF12ならmipmap更新を省略する
+      if (key == SDL_SCANCODE_F5 || mod_shift) {
         emt->vox.update_mipmap();
         sync_gl_mipmap_all(*emt);
       } else {
@@ -100,6 +101,11 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       }
       if (key == SDL_SCANCODE_F12) {
         save_state();
+        if (mod_shift) {
+          message = "edit_mode: saved (full)";
+        } else {
+          message = "edit_mode: saved (without mipmap update)";
+        }
       }
     } else if (key == SDL_SCANCODE_1) {
       if (mod_shift) {
@@ -282,7 +288,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
             }
           }
         }
-      } else if (key == SDL_SCANCODE_Q) {
+      } else if (key == SDL_SCANCODE_D) {
         if (mod_rshift) {
           filling_erase();
         }
@@ -517,7 +523,6 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         to_string_compact_pod(tmsec_cpy));
     }
     */
-    message = "edit_mode: saved";
   }
   private function string get_console_text() const
   {
@@ -550,6 +555,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       return;
     }
     const& cmd = toks[0];
+    debug_log("console_command:", cmd);
     if (cmd == "save" && toks.size() == 2) {
       // コピーバッファをファイルに保存する。
       const fn = save_dir + toks[1];
@@ -612,20 +618,55 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "maxscale" && toks.size() == 1) {
       // 最大タイルサイズを取得する。
       debug_log("maxscale", ttev->get_max_tile_scale_log2());
+      debug_log("tpat_size", ttev->tpat_size);
       const s = ttev->get_max_tile_scale_log2();
-      const n = get_num_assignable_tile(*ttev, s);
-      message = "maxscale " + to_string(s) + " assignable " + to_string(n);
+      const n = get_num_assignable_tile(ttev->tpat_size, s);
+      message = "maxscale " + to_string(s) + " assignable " + to_string(n)
+        + " tpat_size " + to_string(ttev->tpat_size);
     } else if (cmd == "maxscale" && toks.size() == 2) {
       // 最大タイルサイズを変更する。これを変更後dedupすると再配置される。
       uint const absmax_v = absmax_tile_scale_log2;
       const v = from_string{uint}(toks[1]);
       if (v <= absmax_v) {
         debug_log("setting maxscale", v);
+        debug_log("tpat_size", ttev->tpat_size);
         ttev->set_max_tile_scale_log2(v);
       }
       const s = ttev->get_max_tile_scale_log2();
-      const n = get_num_assignable_tile(*ttev, s);
+      const n = get_num_assignable_tile(ttev->tpat_size, s);
       message = "maxscale " + to_string(s) + " assignable " + to_string(n);
+    } else if (cmd == "dedup") {
+      // タイルパターンの重複排除と再配置をおこなう。現在のmaxscale値に
+      // 応じた配置になる。参照されていないパターンは削除される。
+      bool force_flag = false;
+      uvec3 szl2 = ttev->tpat_size_l2;
+      {
+        uint i = 0;
+        if (toks.size() > 1 && toks[1] == "force") {
+          debug_log("dedup: force flag set");
+          force_flag = true;
+          i = 1;
+        }
+        // 引数としてtpatの範囲を取る。既定ではtpat全体。この引数を
+        // 指定すると、そのデータをセーブ後にファイルを改名して縮小後の
+        // tpatサイズのデータとして(tpatの内容を失わずに)読み込めるように
+        // なる。読み込むコードはtiled_voxel_texture_load_file()を参照。
+        farray{uint, 3} szl2a;
+        szl2a[0] = szl2.x;
+        szl2a[1] = szl2.y;
+        szl2a[2] = szl2.z;
+        for (uint j: 0u .. 3u) {
+          if (i + j < static_cast{uint}(toks.size())) {
+            szl2a[j] = from_string{uint}(toks[i + j]);
+          }
+        }
+        szl2 = make_uvec3(szl2a[0], szl2a[1], szl2a[2]);
+        debug_log("dedup tpat tpat_szl2=", ttev->tpat_size_l2,
+          "range_szl2=", szl2);
+      }
+      message = dedup_tpat(*ttev, ttev->get_max_tile_scale_log2(),
+        force_flag, szl2);
+    /*
     } else if (cmd == "dedup" && toks.size() == 1) {
       // タイルパターンの重複排除と再配置をおこなう。現在のmaxscale値に
       // 応じた配置になる。参照されていないパターンは削除される。
@@ -636,6 +677,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       // タイルパターンが失われる。
       debug_log("dedup tpat force");
       message = dedup_tpat(*ttev, ttev->get_max_tile_scale_log2(), true);
+    */
     } else if (cmd == "unused" && toks.size() == 1) {
       // 参照されていないタイルパターンを削除する。
       debug_log("erase_unused_tpat");
@@ -651,6 +693,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         params.push_back(from_string{int}(p));
       }
       procedural_gen(proc, sz, params);
+    } else if (cmd == "genfill") {
+      // 選択領域の部品を使ってfillingを生成する。
+      gen_fill();
     } else if (cmd == "test_noderef" && toks.size() == 1) {
       // 内部テスト。noderef_paramのimat3変換をテストする。
       debug_log("test_noderef");
@@ -658,7 +703,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     } else {
       debug_log("unrecognized command", toks);
       message = "unrecognized command";
+      return;
     }
+    debug_log("console_command done");
   }
   private function void set_mark()
   {
@@ -1451,6 +1498,10 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     (*p)[1].swap(copy_data.tex[1]);
     paste_value(0xff, merge_mode_opaque());
     copied = false;
+  }
+  private function void gen_fill()
+  {
+    generate_filling(*ttev);
   }
   private function void filling_erase()
   {

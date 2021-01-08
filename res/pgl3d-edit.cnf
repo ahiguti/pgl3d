@@ -29,10 +29,24 @@ highdpi=1
 #voxel_map_w=11
 #voxel_map_h=11
 #voxel_map_d=7
+#voxel_pat_w=10
+#voxel_pat_h=9
+#voxel_pat_d=9
 # 9,9,6
 voxel_map_w=9
 voxel_map_h=9
 voxel_map_d=6
+voxel_pat_w=10
+voxel_pat_h=9
+voxel_pat_d=9
+# 8,8,8 8,8,8
+#voxel_map_w=8
+#voxel_map_h=8
+#voxel_map_d=8
+#voxel_pat_w=8
+#voxel_pat_h=8
+#voxel_pat_d=8
+
 
 #framestat_threshold=2.0
 dummy_flip=1
