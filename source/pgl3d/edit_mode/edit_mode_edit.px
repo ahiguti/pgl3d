@@ -440,6 +440,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private string console_text;
   private size_t console_text_cursor;
   private uint cur_tile_scale_log2 = 4;
+  private varray{copy_data_type} fragments; // generate_fillingの種
   init();
   /////////////////////////////////////////////////////////////////////
   private function void init()
@@ -641,11 +642,11 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       bool force_flag = false;
       uvec3 szl2 = ttev->tpat_size_l2;
       {
-        uint i = 0;
+        uint i = 1;
         if (toks.size() > 1 && toks[1] == "force") {
           debug_log("dedup: force flag set");
           force_flag = true;
-          i = 1;
+          i = 2;
         }
         // 引数としてtpatの範囲を取る。既定ではtpat全体。この引数を
         // 指定すると、そのデータをセーブ後にファイルを改名して縮小後の
@@ -693,6 +694,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         params.push_back(from_string{int}(p));
       }
       procedural_gen(proc, sz, params);
+    } else if (cmd == "fragments") {
+      // 選択領域からfragmentsを登録する
+      copy_fragments();
     } else if (cmd == "genfill") {
       // 選択領域の部品を使ってfillingを生成する。
       gen_fill();
@@ -998,8 +1002,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     const patsz = (csz + tilesz - 1u) / tilesz; // タイルパターン数
     // 空きタイルパターンを探す。現在の実装では1タイルを超えるサイズのときは
     // 連続領域で空いているものを探すが、連続でなくてもよいかもしれない。
-    const nv = find_empty_tpat(*ttev, find_empty_cur, cur_tile_scale_log2,
-      ttev->get_max_tile_scale_log2(), patsz);
+    const nv = find_empty_tpat(*ttev, ttev->tpat_size, find_empty_cur,
+      cur_tile_scale_log2, ttev->get_max_tile_scale_log2(), patsz);
     if (!is_node_reference(nv)) {
       debug_log("convert_to_tpat: fialed(nomem)");
       return;
@@ -1499,9 +1503,14 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     paste_value(0xff, merge_mode_opaque());
     copied = false;
   }
+  private function void copy_fragments()
+  {
+    fragments = get_fragments(*ttev);
+    debug_log("copy_fragments", fragments.size());
+  }
   private function void gen_fill()
   {
-    generate_filling(*ttev);
+    generate_filling(*ttev, rndp, fragments, cur_tile_scale_log2);
   }
   private function void filling_erase()
   {

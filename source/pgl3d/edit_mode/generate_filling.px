@@ -5,19 +5,15 @@ private import glm -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::texture -;
 private import pgl3d::texture::copy_data -;
+private import pgl3d::texture::editable_voxel -;
 private import pgl3d::engine::util -;
 private import pgl3d::edit_mode::filling -;
 private import pgl3d::edit_mode::vecutil -;
+private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::tiled_texture_edit_view -;
 
-private valuetype struct fragment() {
-  public uvec3 offset;
-  public uvec3 size;
-  public copy_data_type data;
-}
-
 private function void
-copy_from_ttev(tiled_texture_edit_view mutable& ttev, uvec3 const& pos,
+copy_from_ttev_tmap(tiled_texture_edit_view mutable& ttev, uvec3 const& pos,
   uvec3 const& sz, copy_data_type mutable& cp)
 {
   cp.copy_size = sz;
@@ -25,30 +21,11 @@ copy_from_ttev(tiled_texture_edit_view mutable& ttev, uvec3 const& pos,
   for (const i, mutable& tex: cp.tex) {
     tex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
   }
-  ttev.edit_copy_range(pos, sz, cp.tex[0], cp.tex[1], uvec3());
+  ttev.tmap_edit_copy_range(pos, sz, cp.tex[0], cp.tex[1], uvec3());
 }
 
-private function void
-copy_range(copy_data_type const& src, uvec3 const& pos, uvec3 const& sz,
-  copy_data_type mutable& dst)
-{
-  dst.copy_size = sz;
-  const sz_l2 = map{uvec3, integral_log2{uint}}(sz);
-  for (const i, const& tex: src.tex) {
-    mutable& dtex = dst.tex[i];
-    dtex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
-    range_foreach(sz) void (uint x, uint y, uint z) {
-      const sp = make_uvec3(pos.x + x, pos.y + y, pos.z + z);
-      if (lt_all_uvec3(sp, src.copy_size)) {
-        const v = tex.get(sp.x, sp.y, sp.z);
-        dtex.set(x, y, z, v);
-      }
-    }
-  }
-}
-
-private function varray{fragment}
-get_fragments(copy_data_type mutable& cp)
+private function varray{copy_data_type}
+get_fragments_from_copy_data(copy_data_type mutable& cp)
 {
   const tsz = cp.tex[0].get_size_l2_uvec3();
   const sz = cp.copy_size;
@@ -64,7 +41,7 @@ get_fragments(copy_data_type mutable& cp)
         }
       }
       frm.set(x, y, 0, found);
-      debug_log(x, y, found);
+      // debug_log(x, y, found);
     }
   }
   texture_data fra = frm; // fraはfrmを含むaabb閉包
@@ -100,7 +77,7 @@ get_fragments(copy_data_type mutable& cp)
       }
     }
   }
-  mutable frs = varray{fragment}();
+  mutable frs = varray{copy_data_type}();
   // 各点(x,y)について、その点を始点とする断片を作るかどうか判定する
   for (const y: 0 .. sz.y) {
     for (const x: 0 .. sz.x) {
@@ -113,6 +90,7 @@ get_fragments(copy_data_type mutable& cp)
       if (!is_left || !is_bottom) {
         continue;
       }
+      // aabbの終点を探す
       mutable xe = x;
       for (xe = x; xe < sz.x; ++xe) {
         if (fra.get(xe, y, 0u) == 0u) {
@@ -133,24 +111,101 @@ get_fragments(copy_data_type mutable& cp)
           vm = max(vm, fra.get(x + xi, y + yi, 0u));
         }
       }
-      fragment fr;
-      fr.offset = make_uvec3(x, y, 0u);
-      fr.size = make_uvec3(fr_w, fr_h, vm);
-      copy_range(cp, fr.offset, fr.size, fr.data);
-      debug_log("fr", fr);
+      // fragment fr;
+      // fr.offset = make_uvec3(x, y, 0u);
+      // fr.size = make_uvec3(fr_w, fr_h, vm);
+      mutable fr = make_copy_data_type(make_uvec3(fr_w, fr_h, vm));
+      copy_data_type_copy_range(fr, uvec3(), cp, make_uvec3(x, y, 0u),
+        fr.copy_size);
+      // copy_range(cp, make_uvec3(x, y, 0u), make_uvec3(fr_w, fr_h, vm), fr);
+      // debug_log("fr", fr);
       frs.push_back_move(fr);
     }
   }
   return frs;
 }
 
-public function void
-generate_filling(tiled_texture_edit_view mutable& ttev)
+public function varray{copy_data_type}
+get_fragments(tiled_texture_edit_view mutable& ttev)
 {
   const cur = ttev.get_cursor_range();
-  debug_log("generate_filling", "pos", cur.first, "sz", cur.second);
+  // debug_log("generate_filling", "pos", cur.first, "sz", cur.second);
   copy_data_type copy_data; // 選択領域をここにコピーする
-  copy_from_ttev(ttev, cur.first, cur.second, copy_data);
+  copy_from_ttev_tmap(ttev, cur.first, cur.second, copy_data);
   // 選択領域から断片を切り出す
-  const frs = get_fragments(copy_data);
+  return get_fragments_from_copy_data(copy_data);
 }
+
+private function void
+generate_filling_one(tiled_texture_edit_view mutable& ttev,
+  ptr{rand_generator} const& rndp, varray{copy_data_type} const& frs,
+  uvec3 const& coord, uvec3 const& patsz, uint scale_l2)
+{
+  copy_data_type cpbuf = make_copy_data_type(patsz * (1u << scale_l2));
+  const num_frs = frs.size();
+  uint const cntmax = 10;
+  uint mutable cnt = 0;
+  for (const i: 0 .. cntmax) {
+    const frn = rndp->generate() % static_cast{uint}(num_frs);
+    const& fr = frs[frn];
+    if (!le_all_uvec3(fr.copy_size, cpbuf.copy_size)) {
+      continue;
+    }
+    const osz = cpbuf.copy_size - fr.copy_size;
+    uvec3 offset;
+    offset.x = rndp->generate() % static_cast{uint}(osz.x);
+    offset.y = rndp->generate() % static_cast{uint}(osz.y);
+    offset.z = 0; // rndp->generate() % static_cast{uint}(osz.z);
+    // TODO: frの回転
+    bool is_space = true;
+    range_foreach(fr.copy_size) bool (uint x, uint y, uint z) {
+      const v = cpbuf.tex[0].get(offset.x + x, offset.y + y, offset.z + z);
+      if (!is_space_voxel(v)) {
+        is_space = false;
+        return false;
+      }
+      return true;
+    }
+    if (!is_space) {
+      /*
+      if (++cnt > cntmax) {
+        break;
+      }
+      */
+      continue;
+    }
+    copy_data_type_copy_range(cpbuf, offset, fr, uvec3(), fr.copy_size);
+  }
+  // debug_log("genfill paste", cpbuf);
+  ttev.tpat_edit_paste_range(coord * (1u << scale_l2), cpbuf.copy_size,
+    cpbuf.tex[0], cpbuf.tex[1], uvec3(), 0xffu, merge_mode_opaque());
+}
+
+public function void
+generate_filling(tiled_texture_edit_view mutable& ttev,
+  ptr{rand_generator} const& rndp, varray{copy_data_type} const& frs,
+  uint scale_l2)
+{
+  const cur = ttev.get_cursor_range();
+  const sz = cur.second;
+  uvec3 find_empty_cur;
+  const patsz = make_uvec3(1u, 1u, 1u);
+  range_foreach(sz) bool (uint x, uint y, uint z) {
+    const pos = cur.first + make_uvec3(x, y, z);
+    const nv = find_empty_tpat(ttev, ttev.tpat_size, find_empty_cur,
+      scale_l2, ttev.get_max_tile_scale_log2(), patsz);
+    if (!is_node_reference(nv)) {
+      return false;
+    }
+    const rp = decode_noderef_param(nv);
+    generate_filling_one(ttev, rndp, frs, rp.coord, patsz, scale_l2);
+    mutable p = rp;
+    range_foreach(patsz) void (uint x, uint y, uint z) {
+      p.coord = rp.coord + make_uvec3(x, y, z);
+      const v = encode_noderef_param(p);
+      ttev.tmap_edit_set(pos, texture_value_index_primary, nv);
+    }
+    return true;
+  }
+}
+

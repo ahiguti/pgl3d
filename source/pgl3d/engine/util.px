@@ -5,7 +5,7 @@ public import meta m;
 public import glm -;
 public import numeric::fpmath -;
 
-private metafunction dbg_intlog2{f} f; // no_operation;
+private metafunction dbg_intlog2{f} no_operation;
 
 public threaded function {t} t
 power_of_2(t v)

@@ -148,8 +148,11 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
   // より大きいサイズのタイルパターンが見つかったら警告し、空白に置き換える。
   // tpat_range_l2は既定ではttev.tpat_size_l2だが、それよりも狭い範囲に
   // 寄せたいときに指定される。
-  debug_log("dedup_tpat: mts", max_tile_scale_log2, "assignable",
-    get_num_assignable_tile(tpat_range_l2, max_tile_scale_log2));
+  uvec3 const tpat_range = map{uvec3, operator::shiftl}(
+    make_uvec3(1u, 1u, 1u), tpat_range_l2);
+    // 既定ではttev.tpat_sizeに一致する。
+  debug_log("dedup_tpat: mts", max_tile_scale_log2, "range", tpat_range_l2,
+    "assignable", get_num_assignable_tile(tpat_range, max_tile_scale_log2));
   if (max_tile_scale_log2 > absmax_tile_scale_log2) {
     debug_log("dedup_tpat: max_tile_scale_log2 too large");
     return "dedup_tpat failed";
@@ -236,9 +239,6 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
       uint const scale_log2 = s + 1u;
       uint const tile_size = 1u << scale_log2;
       uvec3 const tile_size3 = make_uvec3(1u, 1u, 1u) * tile_size;
-      uvec3 const tpat_range = map{uvec3, operator::shiftl}(
-        make_uvec3(1u, 1u, 1u), tpat_range_l2);
-        // 既定ではttev.tpat_sizeに一致する。
       uvec3 const coord_range = tpat_range / tile_size;
       mutable& sc = scales[s];
       debug_log("dedup_tpat: update tpat", s, sc.values.size());
@@ -251,8 +251,8 @@ dedup_tpat(tiled_texture_edit_view mutable& ttev, uint max_tile_scale_log2,
         if (e.is_space) {
           // 空白タイルパターン
         } else if (s < max_tile_scale_log2) {
-          nv = find_empty_tpat(tptex[0], find_empty_cur_a[s], scale_log2,
-            max_tile_scale_log2, make_uvec3(1u, 1u, 1u));
+          nv = find_empty_tpat(tptex[0], tpat_range, find_empty_cur_a[s],
+            scale_log2, max_tile_scale_log2, make_uvec3(1u, 1u, 1u));
           if (!is_node_reference(nv)) {
             debug_log("dedup_tpat: WARNING: failed to assign tile pattern");
             if (errmsg.empty()) {
@@ -337,7 +337,7 @@ get_num_assignable_tile(uvec3 const& tpat_size, uint max_tile_scale_log2)
 }
 
 public function {t} texel_value
-find_empty_tpat(t mutable& ttev,
+find_empty_tpat(t mutable& ttev, uvec3 const& tpat_range,
   uvec3 mutable& find_empty_cur, uint cur_tile_scale_log2,
   uint max_tile_scale_log2, uvec3 blksz)
 {
@@ -350,12 +350,14 @@ find_empty_tpat(t mutable& ttev,
   }
   const tsz = 1u << cur_tile_scale_log2; // タイルの大きさ
   const mxtsz = 1u << max_tile_scale_log2; // 最大タイルの大きさ
-  uvec3 tpsz;
+  uvec3 tpsz = tpat_range / mxtsz;
+  /*
   if (m::eq{t, tiled_texture_edit_view}) {
     tpsz = ttev.tpat_size / mxtsz;
   } else {
     tpsz = ttev.get_size_uvec3() / mxtsz; // 単なるテクスチャのとき
   }
+  */
     // tpszはタイル番号の範囲。ttev.tpat_sizeはタイルテクスチャの大きさ。
     // 最大サイズのタイルを保持できる範囲のタイル番号が、最大サイズ以外の
     // タイルについてもタイル番号の範囲になる。各サイズのタイル番号のうち
@@ -457,8 +459,8 @@ convert_from_pattern_save_data(pattern_save_data const& psd,
       cur_tile_scale_log2 = pat.scale + 1u;
       fecur = uvec3();
     }
-    const tv = find_empty_tpat(ttev, fecur, cur_tile_scale_log2,
-      max_tile_scale_log2, make_uvec3(1u, 1u, 1u));
+    const tv = find_empty_tpat(ttev, ttev.tpat_size, fecur,
+      cur_tile_scale_log2, max_tile_scale_log2, make_uvec3(1u, 1u, 1u));
     if (!is_node_reference(tv)) {
       err = true;
       break;
@@ -547,5 +549,30 @@ get_tpat_refs(varray{tpat_data} mutable& tpd, copy_data_type const& cd,
     tpd.push_back_move(v);
   }
   return !err;
+}
+
+public function void
+copy_data_type_copy_range(copy_data_type mutable& dst,
+  uvec3 const& dstpos, copy_data_type const& src, uvec3 const& srcpos,
+  uvec3 const& sz)
+{
+  const dsz = dst.copy_size;
+  const ssz = src.copy_size;
+  const c_dstpos = map{uvec3, min}(dstpos, dsz);
+  const c_srcpos = map{uvec3, min}(srcpos, ssz);
+  const c_dstsz = dsz - c_dstpos;
+  const c_srcsz = ssz - c_srcpos;
+  const c_sz_min = map{uvec3, min}(c_dstsz, c_srcsz);
+  const copy_sz = map{uvec3, min}(c_sz_min, sz);
+  // debug_log("copy_range", copy_sz, "dsz", dsz, "ssz", ssz, "sz", sz, "dp",
+  //   dstpos, "sp", srcpos);
+  for (uint i: 0 .. m::symbol{copy_data_type, "num_tex"}) {
+    mutable& dtex = dst.tex[i];
+    const& stex = src.tex[i];
+    range_foreach(copy_sz) void (uint x, uint y, uint z) {
+      const v = stex.get(srcpos.x + x, srcpos.y + y, srcpos.z + z);
+      dtex.set(dstpos.x + x, dstpos.y + y, dstpos.z + z, v);
+    }
+  }
 }
 

@@ -34,3 +34,15 @@ copy_data_type_compat_deserialize(string const& s)
   }
   return r;
 }
+
+public function copy_data_type
+make_copy_data_type(uvec3 const& sz)
+{
+  copy_data_type r;
+  const sz_l2 = map{uvec3, integral_log2{uint}}(sz);
+  for (uint i: 0 .. m::symbol{copy_data_type, "num_tex"}) {
+    r.tex[i].set_size_l2_uvec3(sz_l2);
+  }
+  r.copy_size = sz;
+  return r;
+}
