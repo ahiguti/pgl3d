@@ -99,8 +99,14 @@ scale [値]
         tpatのスケール値を変更する。1以上8以下、実質6以下。
 maxscale [値]
         最大タイルサイズを変更する。dedupの配置に影響する。6以下。
-dedup [force]
-        tpatの重複パターンを一つにまとめ、再配置をおこなう。
+dedup [force] [width] [height] [depth]
+        tpatの重複パターンを一つにまとめ、再配置をおこなう。whdを指定すると
+        (2^w, 2^h, 2^d)の範囲へ再配置する。
 unused
         参照されていないタイルパターンを削除する。
+fragments
+        選択範囲からgenfill用の断片を登録する。
+genfill
+        fragmentsで登録した断片を使ってtpatを作り、選択範囲へその参照をセット
+        する。
 
