@@ -697,9 +697,16 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "fragments") {
       // 選択領域からfragmentsを登録する
       copy_fragments();
-    } else if (cmd == "genfill") {
+    } else if (cmd == "genfill" && toks.size() <= 3) {
       // 選択領域の部品を使ってfillingを生成する。
-      gen_fill();
+      uvec3 patsz = make_uvec3(1u, 1u, 1u);
+      if (toks.size() >= 2) {
+        patsz.x = from_string{uint}(toks[1]);
+      }
+      if (toks.size() >= 3) {
+        patsz.y = from_string{uint}(toks[2]);
+      }
+      gen_fill(patsz);
     } else if (cmd == "test_noderef" && toks.size() == 1) {
       // 内部テスト。noderef_paramのimat3変換をテストする。
       debug_log("test_noderef");
@@ -1508,9 +1515,10 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     fragments = get_fragments(*ttev);
     debug_log("copy_fragments", fragments.size());
   }
-  private function void gen_fill()
+  private function void gen_fill(uvec3 const& patsz)
   {
-    generate_filling(*ttev, rndp, fragments, cur_tile_scale_log2);
+    generate_filling(*ttev, rndp, fragments, cur_tile_scale_log2,
+      patsz);
   }
   private function void filling_erase()
   {

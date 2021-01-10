@@ -106,7 +106,8 @@ unused
         参照されていないタイルパターンを削除する。
 fragments
         選択範囲からgenfill用の断片を登録する。
-genfill
+genfill [width] [height]
         fragmentsで登録した断片を使ってtpatを作り、選択範囲へその参照をセット
-        する。
+        し、fillingを定義する。現在のスケール値のtpatを作る。width、heightを
+        指定するとその数のtpatを占めるようなfillingを定義する。
 

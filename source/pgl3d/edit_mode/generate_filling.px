@@ -184,13 +184,16 @@ generate_filling_one(tiled_texture_edit_view mutable& ttev,
 public function void
 generate_filling(tiled_texture_edit_view mutable& ttev,
   ptr{rand_generator} const& rndp, varray{copy_data_type} const& frs,
-  uint scale_l2)
+  uint scale_l2, uvec3 const& patsz)
 {
   const cur = ttev.get_cursor_range();
   const sz = cur.second;
   uvec3 find_empty_cur;
-  const patsz = make_uvec3(1u, 1u, 1u);
-  range_foreach(sz) bool (uint x, uint y, uint z) {
+  const bsz = sz / patsz;
+  range_foreach(bsz) bool (uint bx, uint by, uint bz) {
+    const x = bx * patsz.x;
+    const y = by * patsz.y;
+    const z = bz * patsz.z;
     const pos = cur.first + make_uvec3(x, y, z);
     const nv = find_empty_tpat(ttev, ttev.tpat_size, find_empty_cur,
       scale_l2, ttev.get_max_tile_scale_log2(), patsz);

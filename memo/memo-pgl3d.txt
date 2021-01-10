@@ -2,6 +2,10 @@
 ---------------------------------------------------------------------------
 TODO
 
+- generate_fillingsのfillings登録
+
+- copy/pasteでfillingもコピー
+
 - cube表面にraycast貼り付けを試してみる
 
 - 2重までのtpatネストを試してみる
