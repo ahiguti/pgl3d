@@ -365,6 +365,9 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   public function uvec3 get_filling_prev(uvec3 const& p) {
     return emt->vox.fillmap.find_prev(p);
   }
+  public function varray{filling} get_fillings() const {
+    return emt->vox.fillmap.get_all();
+  }
 }
 
 public struct ttev_state() {

@@ -191,16 +191,19 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
   uvec3 find_empty_cur;
   const bsz = sz / patsz;
   range_foreach(bsz) bool (uint bx, uint by, uint bz) {
+    debug_log("genfill", bx, by, bz, patsz);
     const x = bx * patsz.x;
     const y = by * patsz.y;
     const z = bz * patsz.z;
     const pos = cur.first + make_uvec3(x, y, z);
+    // tmapの(x,y,z)にpatszの個のnoderefを作る
     const nv = find_empty_tpat(ttev, ttev.tpat_size, find_empty_cur,
       scale_l2, ttev.get_max_tile_scale_log2(), patsz);
     if (!is_node_reference(nv)) {
       return false;
     }
     const rp = decode_noderef_param(nv);
+    // frsを種にしてtpatにパターンを作る
     generate_filling_one(ttev, rndp, frs, rp.coord, patsz, scale_l2);
     mutable p = rp;
     range_foreach(patsz) void (uint x, uint y, uint z) {
@@ -208,6 +211,13 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
       const v = encode_noderef_param(p);
       ttev.tmap_edit_set(pos, texture_value_index_primary, nv);
     }
+    // fillingに登録する
+    filling fi;
+    fi.offset = pos;
+    fi.sizes[1] = patsz.x;
+    fi.sizes[4] = patsz.y;
+    fi.sizes[7] = patsz.z;
+    ttev.set_filling(fi);
     return true;
   }
 }

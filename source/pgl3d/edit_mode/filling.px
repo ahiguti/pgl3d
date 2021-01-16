@@ -49,6 +49,20 @@ public multithreaded struct filling_map <filling_map_i> public {
   public function ushort get(uvec3 const& p) const {
     return tex.get(p.x, p.y, p.z);
   }
+  public function varray{filling} get_all() const {
+    varray{filling} r;
+    mutable p = uvec3();
+    while (true) {
+      bool wrap_flag = false;
+      p = find_internal{0}(p, wrap_flag);
+      if (wrap_flag) {
+        break;
+      }
+      mutable fi = get_filling(p);
+      r.push_back_move(fi);
+    }
+    return r;
+  }
   public function filling get_filling(uvec3 const& p) const {
     filling r;
     const v = get(p);
@@ -110,13 +124,17 @@ public multithreaded struct filling_map <filling_map_i> public {
     }
     return true;
   }
-  public function uvec3 find_next(uvec3 const& p) {
-    return find_internal{0}(p);
+  public function uvec3 find_next(uvec3 const& p) const {
+    bool wrap_flag = false;
+    return find_internal{0}(p, wrap_flag);
   }
-  public function uvec3 find_prev(uvec3 const& p) {
-    return find_internal{1}(p);
+  public function uvec3 find_prev(uvec3 const& p) const {
+    bool wrap_flag = false;
+    return find_internal{1}(p, wrap_flag);
   }
-  function {revert} uvec3 find_internal(uvec3 const& p) {
+  function {revert} uvec3 find_internal(uvec3 const& p,
+    bool mutable& wrap_flag_r) const {
+    wrap_flag_r = false;
     const texsz = tex.get_size_uvec3();
     uvec3 rpos;
     uint x = p.x;
@@ -130,6 +148,10 @@ public multithreaded struct filling_map <filling_map_i> public {
             y = texsz.y - 1;
             if (z == 0) {
               z = texsz.z - 1;
+              if (wrap_flag_r) {
+                return p;
+              }
+              wrap_flag_r = true;
             } else {
               --z;
             }
@@ -146,6 +168,10 @@ public multithreaded struct filling_map <filling_map_i> public {
             y = 0;
             if (++z >= texsz.z) {
               z = 0;
+              if (wrap_flag_r) {
+                return p;
+              }
+              wrap_flag_r = true;
             }
           }
         }

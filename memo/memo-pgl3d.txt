@@ -6,6 +6,8 @@ TODO
 
 - copy/pasteでfillingもコピー
 
+- fillingを使って範囲を埋める
+
 - cube表面にraycast貼り付けを試してみる
 
 - 2重までのtpatネストを試してみる
