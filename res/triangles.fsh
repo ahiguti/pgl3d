@@ -505,6 +505,7 @@ void main(void)
     // if (hit < 0) { <%fragcolor/> = vec4(1.0, 0.5, 0.5, 1.0); return; }
     if (hit >= 0) { <%fragcolor/> = vec4(0.5, 0.5, 0.5, 1.0); return; }
     */
+    // { <%fragcolor/> = vec4(1.0); return; }
     <%if><%eq><%get_config dbgval/>1<%/>
     if (dbgval.a > 0.0) { <%fragcolor/> = dbgval; return; }
     <%/>

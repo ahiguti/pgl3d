@@ -807,6 +807,9 @@ int raycast_tilemap(
       // value0_rはemissionのrgb値を保持する。filledならprimaryから、それ以外
       // ならsecondaryの色をそのまま使う。
   }
+  // if (hit < 0) {
+  //   dbgval = vec4(1.0, 1.0, 0.0, 1.0);
+  // }
   // if (i > 10) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
   // if (hit == 6) { dbgval = vec4(1.0, 0.0, 0.0, 1.0); }
   return hit;

@@ -139,11 +139,10 @@ get_fragments(tiled_texture_edit_view mutable& ttev)
 private function void
 generate_filling_one(tiled_texture_edit_view mutable& ttev,
   ptr{rand_generator} const& rndp, varray{copy_data_type} const& frs,
-  uvec3 const& coord, uvec3 const& patsz, uint scale_l2)
+  uvec3 const& coord, uvec3 const& patsz, uint scale_l2, uint cntmax)
 {
   copy_data_type cpbuf = make_copy_data_type(patsz * (1u << scale_l2));
   const num_frs = frs.size();
-  uint const cntmax = 10;
   uint mutable cnt = 0;
   for (const i: 0 .. cntmax) {
     const frn = rndp->generate() % static_cast{uint}(num_frs);
@@ -184,7 +183,7 @@ generate_filling_one(tiled_texture_edit_view mutable& ttev,
 public function void
 generate_filling(tiled_texture_edit_view mutable& ttev,
   ptr{rand_generator} const& rndp, varray{copy_data_type} const& frs,
-  uint scale_l2, uvec3 const& patsz)
+  uint scale_l2, uvec3 const& patsz, uint cntmax)
 {
   const cur = ttev.get_cursor_range();
   const sz = cur.second;
@@ -204,7 +203,7 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
     }
     const rp = decode_noderef_param(nv);
     // frsを種にしてtpatにパターンを作る
-    generate_filling_one(ttev, rndp, frs, rp.coord, patsz, scale_l2);
+    generate_filling_one(ttev, rndp, frs, rp.coord, patsz, scale_l2, cntmax);
     mutable p = rp;
     range_foreach(patsz) void (uint x, uint y, uint z) {
       p.coord = rp.coord + make_uvec3(x, y, z);

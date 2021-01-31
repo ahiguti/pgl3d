@@ -256,7 +256,7 @@ make_voxel_shape(cslice{vertex_attr} const& va, cslice{uint} const& e)
     const tconv = glm::make_mat4(
       v.aabb_or_tconv.w, 0.0f, 0.0f, v.aabb_or_tconv.x,
       0.0f, v.aabb_or_tconv.w, 0.0f, v.aabb_or_tconv.y,
-      0.0f, 0.0f, v.aabb_or_tconv.w, v.aabb_or_tconv.y,
+      0.0f, 0.0f, v.aabb_or_tconv.w, v.aabb_or_tconv.z, // FIXME: y->z test
       0.0f, 0.0f, 0.0f, 1.0f); // テクスチャ座標から接線空間への変換
     const tan_to_obj = glm::make_mat4(
       tan.x, tan.y, tan.z, 0.0,
@@ -276,7 +276,7 @@ make_voxel_shape(cslice{vertex_attr} const& va, cslice{uint} const& e)
       + pos_obj.z * pos_obj.z;
     sqmax = max(sqmax, sq);
   }
-  debug_log("make_voxel_shape", obj_triangles.size(), sqmax);
+  debug_log("make_voxel_shape radius=", sqrt(sqmax));
   return make_ptr{voxel_shape}(obj_triangles, obj_triangles, sqrt(sqmax),
     tex_triangles, tex_to_obj.inverse());
 }

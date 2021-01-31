@@ -701,16 +701,23 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "genfill" && toks.size() <= 3) {
       // 選択領域の部品を使ってfillingを生成する。
       uvec3 patsz = make_uvec3(1u, 1u, 1u);
+      uint cntmax = 20;
       if (toks.size() >= 2) {
         patsz.x = from_string{uint}(toks[1]);
       }
       if (toks.size() >= 3) {
         patsz.y = from_string{uint}(toks[2]);
       }
-      gen_fill(patsz);
+      if (toks.size() >= 4) {
+        cntmax = from_string{uint}(toks[3]);
+      }
+      gen_fill(patsz, cntmax);
     } else if (cmd == "fill") {
       // fillingsを選択範囲へ埋める
       fill_space();
+    } else if (cmd == "gentest" && toks.size() == 1) {
+      // 現在のテクスチャの右端にgen_test()でパターン生成する
+      gen_test_large();
     } else if (cmd == "test_noderef" && toks.size() == 1) {
       // 内部テスト。noderef_paramのimat3変換をテストする。
       debug_log("test_noderef");
@@ -1499,6 +1506,22 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     paste_value(0xff, merge_mode_opaque());
     copy_data = cpy_saved;
   }
+  private function void gen_test_large()
+  {
+    debug_log("gen_test_large");
+    set_cursor_tpat(false);
+    const texsz = emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
+    mutable sz = texsz;
+    sz.x = min(sz.x, sz.z * 2u);
+    uvec3 pos;
+    pos.x = texsz.x - sz.x;
+    const saved_cpos = ttev->get_cursor_pos();
+    uvec3 pos_e = texsz - make_uvec3(1u, 1u, 1u);
+    ttev->set_cursor_pos(pos, pos_e);
+    debug_log("gen_test_large cursor", pos, pos_e);
+    gen_test();
+    ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
+  }
   private function void gen_test()
   {
     // テスト中
@@ -1520,10 +1543,10 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     debug_log("copy_fragments", fragments.size());
     message = "fragments " + to_string(fragments.size());
   }
-  private function void gen_fill(uvec3 const& patsz)
+  private function void gen_fill(uvec3 const& patsz, uint cntmax)
   {
     generate_filling(*ttev, rndp, fragments, cur_tile_scale_log2,
-      patsz);
+      patsz, cntmax);
   }
   private function void fill_space()
   {

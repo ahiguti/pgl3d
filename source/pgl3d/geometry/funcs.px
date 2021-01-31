@@ -25,6 +25,10 @@ vertex_attr()
   public vec4 aabb_or_tconv;
   public vec3 aabb_min;
   public vec3 aabb_max;
+  public bool is_tconv;
+    // aabb_or_tconvがtconvをあらわすときtrue。これはvoxel貼り付けのときに
+    // trueにする。このときposには各頂点の座標ではなく、voxel原点の座標が
+    // (全ての頂点について同じ値が)セットされる。
 }
 
 /* implicit conversion from vec3 to vertex_attr */
@@ -538,12 +542,19 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   vec3 const& mi, vec3 const& mx, varray{varray{vec3}} const& surf_quads,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
+  // tex3d(ボクセルデータを貼り付けた直方体)の頂点データを作りfill()を呼ぶ
+  // 引数polyはtex3dの作成位置を決めるために使われるだけ。
+  // surf_quadsには6面の頂点座標が入っている
   const& coord_min = mi;
   const& coord_max = mx;
-  if (poly.size() != 4) { return; }
+  if (poly.size() != 4) {
+    debug_log("WARN gf_ctx_tex3d_surf poly.size() != 4");
+    return;
+  }
+  // debug_log("gf_ctx_tex3d_surf surf_quads=", surf_quads, "poly=", poly);
   const tan = (poly[1].pos - poly[0].pos).normalize();
   const len = glm::length(poly[1].pos - poly[0].pos);
-  const coord_len = coord_max.x - coord_min.x;
+  const coord_len = coord_max.x - coord_min.x; // TODO: これでいいのか？
   const texscale = len / coord_len;
     // テクスチャ座標からローカル座標への倍率
   darrayst{vertex_attr} front = poly;
@@ -557,10 +568,11 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     -coord_min.y * texscale,
     -coord_min.z * texscale,
     texscale);
-    // テクスチャ座標からローカル座標への変換
+    // tconv: テクスチャ座標からローカル座標への変換
   attr0.aabb_min = coord_min;
   attr0.aabb_max = coord_max;
-    // 頂点データのuvw以外の属性はすべての頂点で同じ値(無駄大きい？)
+  attr0.is_tconv = true;
+  // 頂点データのuvw以外の属性はすべての頂点で同じ値(無駄大きい？)
   mutable quad_attr = make_farray{vertex_attr}(attr0, attr0, attr0, attr0);
   for (const i, const q: surf_quads) {
     quad_attr[0].uvw = coord_min + q[0];

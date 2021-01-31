@@ -189,7 +189,7 @@ dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
     // debug_log("vattr", v);
   }
   if (sz == 4 && override_uvw) {
-    float scale = 64.0f;
+    float scale = 64.0f; // FIXME? この値は何？
     const p0 = poly[0].pos * scale;
     const p1 = poly[1].pos * scale;
     const p2 = poly[2].pos * scale;

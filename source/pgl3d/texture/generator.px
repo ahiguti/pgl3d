@@ -14,39 +14,55 @@ metafunction dbg m::cond{enable_dbg, debug_log, no_operation};
 metafunction ui static_cast{uint};
 metafunction si static_cast{int};
 
+// ランダムな形状を生成する。x方向については対称になる。
 public threaded function {t} void
 generate_rand_spline(ptr{rand_generator} const& rndp,
-  t mutable& tex, uvec3 const& texsz, int split, float thr_param)
+  t mutable& tex, uvec3 const& texsz, ivec3 split, bool clear_flag,
+  float thr_param)
 {
-  function ptr{cubic_b_spline} gen_spline(float center, float scale)
+  function double gen_rand_double()
+  {
+    // 0から1まで
+    return static_cast{double}(rndp->generate())
+      / static_cast{double}(0x100000000ul);
+  }
+  function float gen_rand_float()
+  {
+    return static_cast{float}(gen_rand_double());
+  }
+  function ptr{cubic_b_spline} gen_spline(int sp, float center, float p,
+    float co)
   {
     int rnd_rep = 2; // 大きいと正規分布に近づく
     varray{float} points;
-    points.push_back(-3.0f);
-    points.push_back(0.0f);
-    for (int i: 2 .. split - 1) {
+    // points.push_back(-3.0f);
+    // points.push_back(-1.0f);
+    for (int i: 0 .. sp + 1) {
       float v;
       for (int j: 0 .. rnd_rep) {
         v += static_cast{float}(rndp->generate())
           / static_cast{float}(0x80000000u);
       }
       v /= static_cast{float}(rnd_rep);
-      float ia = static_cast{float}(i * 2 - split) / static_cast{float}(split);
-      ia = ia - center;
-      // ia = center + ia;
-      ia = 1.0f - ia * ia;
-      v *= ia * scale;
+      float ia = static_cast{float}(i * 2 - sp) / static_cast{float}(sp);
+      ia = max(fabs(ia - center), 0.0f);
+      float iv = 1.0f - pow(ia, p) * co * 0.3f;
+      v *= iv;
+      // v *= 1.0f - pow(ia, p) * co;
+      // v = max(v, 0.0f);
       points.push_back(v);
+      debug_log("i=", i, "ia=", ia, "v=", v);
     }
-    points.push_back(0.0f);
-    points.push_back(-3.0f);
-    float step = 2.0f / static_cast{float}(split);
+    // points.push_back(-1.0f);
+    // points.push_back(-3.0f);
+    float step = 2.0f / static_cast{float}(sp);
     dbg("gen_spline", points, "step=", step);
     return make_ptr{cubic_b_spline}(points, -1.0f, step);
   }
-  const sx = gen_spline(0.8f, 1.0f);
-  const sy = gen_spline(0.2f, 1.0f);
-  const sz = gen_spline(0.0f, 1.0f);
+  vec3 const center = make_vec3(0.0f, 0.0f, 0.0f);
+  const sx = gen_spline(split.x, center.x, 2.0f, 1.0f);
+  const sy = gen_spline(split.y, center.y, 2.0f, 3.0f);
+  const sz = gen_spline(split.z, center.z, 2.0f, 2.0f);
   // const st = gen_spline(0.3f);
   int xsz = static_cast{int}(texsz.x);
   int ysz = static_cast{int}(texsz.y);
@@ -70,6 +86,56 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
       return 0.0f;
     }
     return buf[static_cast{size_t}((z * ysz + y) * xsz + x)];
+  }
+  function float reshape_x(float x)
+  {
+    const px = 0.6f; // 0 - 1.0
+    const pe = 1.8f;
+    const ax = fabs(x);
+    float wx = 1.0f;
+    if (ax <= px) {
+      return x;
+    } else {
+      const vx = (ax - px) * (1.0f - px);
+      wx = 1.0f + pe * vx;
+    }
+    x = x * wx;
+    if (fabs(x) <= 1.0f) {
+      return x;
+    } else if (x > 0.0f) {
+      return 1.0f;
+    } else {
+      return -1.0f;
+    }
+  }
+  function float reshape_y(float y)
+  {
+    const py1 = -0.6f; // -1.0 .. 1.0
+    const py2 = -0.1f; // -1.0 .. 1.0
+    const pe1 = 0.8f; // 0 .. 1.0
+    const pe2 = 1.5f; // 0 .. 1.0
+    float wy = 1.0f;
+    if (y >= py1 && y <= py2) {
+      return y;
+    } else if (y < py1) {
+      const vy = (py1 - y) * (py1 - 1.0f);
+      wy = 1.0f + pe1 * vy;
+    } else {
+      const vy = (y - py2) * (1.0f - py2);
+      wy = 1.0f + pe2 * vy;
+    }
+    y = y * wy;
+    if (fabs(y) <= 1.0f) {
+      return y;
+    } else if (y > 0.0f) {
+      return 1.0f;
+    } else {
+      return -1.0f;
+    }
+  }
+  function float reshape_z(float z)
+  {
+    return z;
   }
   float mi = +99999.0f;
   float mx = -99999.0f;
@@ -104,8 +170,8 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
     }
   }
   dbg("min", mi, "max", mx);
-  mi = max(mi, 0.0f);
-  dbg("min", mi, "max", mx);
+  // mi = max(mi, 0.0f);
+  // dbg("min", mi, "max", mx);
   /*
   for (int z: 0 .. zsz) {
     for (int y: 0 .. ysz) {
@@ -130,8 +196,10 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
         float zf = zsz == 1 ? 0.0f :
           static_cast{float}(z * 2 - zsz + 1)
           / static_cast{float}(zsz - 1);
+        // xf = reshape_x(xf);
+        // yf = reshape_y(yf);
         float v = get(x, y, z);
-        float rat = 0.5f + thr_coefficient(xf, yf, zf) * 0.5f;
+        float rat = thr_coefficient(xf, yf, zf) * 0.5f;
         // float rat = 1.0f - ((*st)(xf) + (*st)(yf) + (*st)(zf)) * 0.5f;
         rat += thr_param;
         rat = min(max(rat, 0.0), 1.0);
@@ -139,7 +207,7 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
         if (v > th) {
           tex.set(ui(x), ui(y), ui(z), 1u);
           s += "*";
-        } else {
+        } else if (clear_flag) {
           tex.set(ui(x), ui(y), ui(z), 0u);
           s += " ";
         }
@@ -162,9 +230,17 @@ private threaded function float smooth_bump(float x)
 
 private threaded function float thr_coefficient(float x, float y, float z)
 {
+  // return (x * x + y * y) / 2.0f;
+  /*
   float v = max(max(fabs(x), fabs(y)), fabs(z));
   // float v = fabs(x) + fabs(y) + fabs(z);
-  v = min(v, 1.0);
-  return pow(x, 2.0f);
+  */
+  // v = min(v, 1.0);
+  // return pow(x, 2.0f);
+  // return 0.0f;
+  // float v = max(max(fabs(x), fabs(y)), fabs(z));
+  // float v = max(max(x * x, y * y), z * z);
+  float v = 1.5f * x * x + y * y + z * z;
+  return 0.5f + v * 0.75f;
 }
 

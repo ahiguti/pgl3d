@@ -107,7 +107,9 @@ unused
 fragments
         選択範囲からgenfill用の断片を登録する。
 genfill [width] [height]
-        fragmentsで登録した断片を使ってtpatを作り、選択範囲へその参照をセット
-        し、fillingを定義する。現在のスケール値のtpatを作る。width、heightを
-        指定するとその数のtpatを占めるようなfillingを定義する。
+        fragmentsで登録した断片を使ってランダムにtpatを作り、選択範囲へその
+        参照をセットし、fillingを定義する。現在のスケール値のtpatを作る。
+        width、heightを指定するとその数のtpatを占めるようなfillingを定義する。
+fill
+        現在選択範囲の空白にランダムにfillingを埋める。
 

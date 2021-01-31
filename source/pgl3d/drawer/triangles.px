@@ -732,7 +732,8 @@ private threaded function {tattr} void
 dgf_polygon_filler_tattr(ptr{vertices} const& vptr, bool override_uvw,
   bool flat_flag, poly_t const& poly, mesh_index const& mp)
 {
-  dgf_fill_tattr_internal{tattr}(vptr, flat_flag, override_uvw, poly, mp);
+  dgf_fill_tattr_internal{tattr}(vptr, flat_flag, override_uvw,
+    poly, mp);
 }
 
 private threaded function {tattr} dgf_filler

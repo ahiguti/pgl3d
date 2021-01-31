@@ -79,7 +79,6 @@ vertices(size_t num_float_per_vertex0)
   public varray{float} vertex_values; /* for glDrawElements */
   public varray{uint} elements;       /* for glDrawElements */
   public varray{float} positions;     /* used for physics engine */
-    // FIXME:remove
   public varray{vertex_attr} vertex_attrs; /* used for physics engine */
   public varray{node_joint} joints;
   public size_t vertex_values_size_per_copy;
@@ -133,6 +132,7 @@ vertices(size_t num_float_per_vertex0)
   push_polygon_distinct(cslice{vertex_attr} const& vattrs,
     cslice{tattr} const& vals)
   {
+    // debug_log("push_polygon_distinct vattrs", vattrs, "vals", vals);
     /* vattrsは物理エンジンなどが参照するためのデータ、valsはGPUに置くデータ */
     if (vattrs.size() != vals.size()) {
       throw runtime_error_template{"vertices::push_polygon_distinct::vattrs"}(

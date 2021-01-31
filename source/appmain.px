@@ -351,20 +351,34 @@ private multithreaded struct raycast_objects()
     const relpos = cam.view * pos;
     obj.relative_pos = glm::make_vec3(relpos.x, relpos.y, -relpos.z);
     // 視錐台に接するかどうかを大雑把に判定する
-    // 相対位置relposをxy平面上で回転させてy=0に下ろした点Bのxz座標を計算
-    // zを反転させ、手前を負値にする。
+    // 相対位置relposをxy平面上で回転させてy=0, x>=0に下ろした点Bのxz座標を
+    // 計算。zを反転させ、手前を負値にする。
     const relpos_xz = glm::make_vec2(relpos.x, relpos.y);
     const posb_xz = glm::make_vec2(glm::length(relpos_xz), -relpos.z);
-    // 円錐に垂線を下す
+      // 点Bのxz座標
+    // dvは円錐の端(右上向き)の単位ベクトル。duはそれに垂直な右下向きの
+    // 単位ベクトル。点Bの座標のそれら方向の成分を計算。
     const b_dv = glm::dot(posb_xz, dv_xz); // 右上
     const b_du = glm::dot(posb_xz, du_xz); // 右下
-    const dist_b = b_dv > 0.0f ? b_du : glm::length(posb_xz); 
-      // 円錐の正の部分とrelposとの距離
+    // dv方向の半直線と点Bの距離を計算
+    float dist_b = 0.0f;
+    if (b_dv >= 0.0f) {
+      // 右上方向成分が正
+      if (b_du >= 0.0f) {
+        // 右下成分も正。円錐とBの距離は右下成分の大きさ。
+        dist_b = b_du;
+      } else {
+        // 右下成分が負。Bは円錐の内側なので距離は0。
+        dist_b = 0.0f;
+      }
+    } else {
+      // 右下成分が負
+      dist_b = glm::length(posb_xz);
+    }
+    //  debug_log("rel", obj.relative_pos, "dist_b", dist_b, "rad",
+    //  obj.radius, "posb_xz", posb_xz, "dv_xz", dv_xz, "jid", sn.joint_id);
     if (dist_b > obj.radius) {
-      /*
-      debug_log("cull rel", obj.relative_pos, "dist", dist_b, "rad",
-        obj.radius, sn.joint_id);
-      */
+      // 物体に外接する球が視野の円錐に接しないので表示不要
       return false;
     }
     /*
@@ -386,6 +400,7 @@ private multithreaded struct raycast_objects()
       rdi.subdrawer_vbid_max - rdi.subdrawer_vbid_min) + 1;
     function void extend_whole_instances(vbid_t vbid, vsid_t vsid)
     {
+      // while_instancesの大きさを必要に応じてリサイズする
       if (whole_instances.size() <= static_cast{size_t}(vbid)) {
 	whole_instances.resize(static_cast{size_t}(vbid) + 1,
 	  bo_instances_type());
@@ -463,7 +478,7 @@ private function void prepare_vbids(raycast_drawers_info mutable& rdi,
     if (vbid == vbid_invalid()) {
       break;
     }
-    debug_log("prepare_vbids: found", s, vbid);
+    // debug_log("prepare_vbids: found", s, vbid);
     rdi.subdrawer_vbids.push_back(vbid);
     if (i == 0u) {
       rdi.subdrawer_vbid_min = vbid;
@@ -472,8 +487,8 @@ private function void prepare_vbids(raycast_drawers_info mutable& rdi,
       rdi.subdrawer_vbid_min = min(rdi.subdrawer_vbid_min, vbid);
       rdi.subdrawer_vbid_max = max(rdi.subdrawer_vbid_max, vbid);
     }
-    debug_log("subdrawer vbid_min_max", rdi.subdrawer_vbid_min,
-      rdi.subdrawer_vbid_max);
+    // debug_log("subdrawer vbid_min_max", rdi.subdrawer_vbid_min,
+    //   rdi.subdrawer_vbid_max);
   }
   if (static_cast{size_t}(rdi.subdrawer_vbid_max
     - rdi.subdrawer_vbid_min + 1) != rdi.subdrawer_vbids.size()) {
@@ -483,20 +498,27 @@ private function void prepare_vbids(raycast_drawers_info mutable& rdi,
     debug_log("failed to get subdrawer_vbids");
     throw runtime_error_template{"subdrawer_vbids"}("1");
   }
-  debug_log("prepare_vbids: ", rdi.subdrawer_vbids.size());
+  // debug_log("prepare_vbids: ", rdi.subdrawer_vbids.size());
   rdi.name_to_joint_id = pgs.get_name_to_joint_id();
   rdi.vs_radius.clear();
   for (const& name, const& joint_id: rdi.name_to_joint_id) {
     cptr{vertices} const vtxs = pgs.get_nonempty_vertices(name);
-    const& p = vtxs->positions;
-    float radius = 0.0f;
-    for (size_t i : 0 .. p.size() / 3) {
-      const oi = i * 3;
-      const vec = glm::make_vec3(p[oi], p[oi+1], p[oi+2]);
-      radius = max(radius, glm::length(vec));
+    if (!vtxs->vertex_attrs.empty() && vtxs->vertex_attrs[0].is_tconv) {
+      // 半径を計算するために、いったんvoxel_shapeを作る。
+      const voxsh = make_voxel_shape(vtxs->vertex_attrs, vtxs->elements);
+      rdi.vs_radius[joint_id] = voxsh->get_radius();
+    } else {
+      const& p = vtxs->positions;
+      float radius = 0.0f;
+      for (size_t i : 0 .. p.size() / 3) {
+        const oi = i * 3;
+        const vec = glm::make_vec3(p[oi], p[oi+1], p[oi+2]);
+        // debug_log("shape", name, joint_id, "vec", vec);
+        radius = max(radius, glm::length(vec));
+      }
+      // debug_log("shape", name, joint_id, radius);
+      rdi.vs_radius[joint_id] = radius;
     }
-    debug_log("shape", name, joint_id, radius);
-    rdi.vs_radius[joint_id] = radius;
   }
 }
 
@@ -671,6 +693,9 @@ public threaded struct app_scene(node_factory const& nodefac0,
     whole_instances_type mutable& whole_instances,
     pgl3d_scene_shared mutable& ss)
   {
+    // motion thread上でフレーム毎に呼ばれる。物理を1ステップ実行し、
+    // オブジェクトの位置とカメラ位置などから表示オブジェクトのインスタンス
+    // データを作る。インスタンスデータはftableのエントリ関数
     const t0 = get_time(sys);
     mutable& dss = downcast_mutable{app_scene_shared}(ss);
     // const t0 = io::debug_system().gettimeofday_double();
@@ -702,7 +727,6 @@ public threaded struct app_scene(node_factory const& nodefac0,
 	msg[0] = "RELOADING SHADER FAILED";
         msg[1] = "";
       } else {
-      // debug_log("app_status_message", dss.app_status_message); // FIXME
         msg[1] = dss.app_status_message;
       }
       scene_control_set_message(sctl, sctl.node_status_message, msg,
@@ -717,9 +741,11 @@ public threaded struct app_scene(node_factory const& nodefac0,
     robjs.clear_objects();
     scene_control_step(sctl, dss, robjs, pj, frame_speed, ncd, ftable,
       whole_instances);
-      // 物理エンジンを使ったオブジェクトの移動とインスタンス出力。
+      // 物理エンジンを使ったオブジェクトの移動とインスタンス出力。大きな
+      // raycastオブジェクトはここではrobjsに入れておき、後でソートしてから
+      // インスタンス出力する。
     robjs.prepare_instances(ncd, dss.rdi, ftable, whole_instances);
-      // raycastシェーダの重ね合わせを決定してインスタンス出力
+      // 大きなraycastシェーダの重ね合わせを決定してインスタンス出力
     const t2 = get_time(sys);
     prepare_instance_data_ft_rec(ncd, sctl.node_status_message, ftable,
       whole_instances);
@@ -1510,14 +1536,24 @@ private function void build_vertices(app_app mutable& app,
   /*
   pgs.make_vertex_set(tr1_0, "box", cuboid_tex3d(mi, mx, glm::vec3(), 32.0f));
   */
+  // debug_log("box", box_size, mi, mx, m0);
+  // debug_log("main reg box begin", box_size);
+  /*
+  pgs.make_vertex_set(tr0_0, "box",
+    regular_polygon(1.4142f * box_size, 4,
+      apply(m0, hole()),
+      apply(m0,
+	ctx_fill(0))));
+  */
   pgs.make_vertex_set(tr1_0, "box",
     regular_polygon(1.4142f * box_size, 4,
       apply(m0, hole()),
       apply(m0,
 	ctx_tex3d(0, 0, mi, mx))));
+  // debug_log("main reg box end");
   /*
   */
-  debug_log("make box_opt1");
+  // debug_log("make box_opt1");
   pgs.make_vertex_set(tr1_0, "box_opt1",
     regular_polygon(1.4142f * box_size, 4,
       apply(m0, hole()),
@@ -1823,6 +1859,8 @@ private function void build_vertices(app_app mutable& app,
 
   /* save edit_mode transform */
   {
+    // editmodeのときにカーソル移動とカメラ移動を連動させるために
+    // 座標変換行列を保存しておく
     const vp = pgs.get_nonempty_vertices("box");
     const& vattrs = vp->vertex_attrs;
     const& vattr = vattrs[0];

@@ -23,7 +23,11 @@ public threaded struct vertex_set(size_t num_float_per_vertex0)
   public string vs_name;
   public ptr{vertices} vtxs = make_ptr{vertices}(num_float_per_vertex0);
   public size_t vertex_values_offset;
+    // 頂点データを一つのバッファ(vbo)にまとめたときの、この頂点セットがどの
+    // オフセットからの位置に存在するかを保持する。
   public size_t elements_offset;
+    // 要素データを一つのバッファ(vbo)にまとめたときの、この頂点セットがどの
+    // オフセットからの位置に存在するかを保持する。
 }
 
 public metafunction glsync_compat

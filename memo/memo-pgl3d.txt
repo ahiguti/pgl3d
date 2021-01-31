@@ -2,6 +2,8 @@
 ---------------------------------------------------------------------------
 TODO
 
+- make_voxel_shape typo v.aabb_or_tconv.y
+
 - generate_fillingsのfillings登録
 
 - copy/pasteでfillingもコピー
