@@ -112,4 +112,5 @@ genfill [width] [height]
         width、heightを指定するとその数のtpatを占めるようなfillingを定義する。
 fill
         現在選択範囲の空白にランダムにfillingを埋める。
-
+gentest
+        現在のtmapの右端にテストパターンを生成する。
