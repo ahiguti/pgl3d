@@ -7,6 +7,7 @@ private import sdl2::api_functions -;
 private import text::serialize::compact_pod -;
 private import pgl3d::texture::copy_data -;
 private import pgl3d::texture::generator -;
+private import pgl3d::texture::filling -;
 private import pgl3d::edit_mode::procedural -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::texutil -;
@@ -15,7 +16,6 @@ private import pgl3d::edit_mode::tiled_texture_edit_view -;
 private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_util -;
-private import pgl3d::edit_mode::filling -;
 private import pgl3d::edit_mode::generate_filling -;
 private import pgl3d::edit_mode::fill_space -;
 

@@ -6,6 +6,7 @@ public import sdl2::api_types -;
 public import text::serialize::compact_pod -;
 public import pgl3d::texture::texture -;
 public import pgl3d::texture::voxel -;
+public import pgl3d::texture::filling -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
 
@@ -14,6 +15,7 @@ public valuetype struct copy_data_type {
   public farray{texture_data, num_tex} tex;
   public uvec3 copy_size; // can be smaller than tex[0].
   public uvec3 cursor_offset;
+  public filling_texture filling_tex;
 }
 
 public valuetype struct copy_data_type_v1 {
@@ -43,6 +45,8 @@ make_copy_data_type(uvec3 const& sz)
   for (uint i: 0 .. m::symbol{copy_data_type, "num_tex"}) {
     r.tex[i].set_size_l2_uvec3(sz_l2);
   }
+  r.filling_tex.set_size_l2_uvec3(sz_l2);
   r.copy_size = sz;
   return r;
 }
+

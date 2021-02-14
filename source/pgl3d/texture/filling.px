@@ -1,4 +1,4 @@
-private threaded namespace pgl3d::edit_mode::filling;
+private threaded namespace pgl3d::texture::filling;
 private import common -;
 private import meta m;
 private import glm -;
@@ -6,8 +6,9 @@ private import pgl3d::texture::voxel -;
 private import pgl3d::texture::texture -;
 private import pgl3d::engine::util -;
 
-metafunction filling_texture array3_pot{varray{ushort}, 0};
 metafunction dbg_filling{f} f; // no_operation;
+
+public metafunction filling_texture array3_pot{varray{ushort}, 0};
 
 public threaded struct filling {
   public uvec3 offset; // パターンの起点がtmapのどのオフセットにあるか

@@ -6,6 +6,7 @@ public import opengl::compat *;
 public import pgl3d::opengl::gltexture *;
 public import pgl3d::texture::texture *;
 public import pgl3d::texture::voxel *;
+public import pgl3d::texture::filling *;
 public import pgl3d::texture::editable_voxel *;
 public import pgl3d::engine::pglbase *;
 public import pgl3d::engine::util *;
