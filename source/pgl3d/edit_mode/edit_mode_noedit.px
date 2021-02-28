@@ -16,10 +16,17 @@ public struct edit_mode_noedit(ptr{edit_mode_texture} const& emt0)
     // emt->glt_voxtmapなどがptr{gl_texture}
   private tptr{texture_edit} tmap_edit = emt->vox.tmap_edit;
   private tptr{texture_edit} tpat_edit = emt->vox.tpat_edit;
-  private ptr{gl_texture} glt_tmap_pri = emt->glt_voxtmap;
-  private ptr{gl_texture} glt_tmap_sec = emt->glt_voxtmax;
-  private ptr{gl_texture} glt_tpat_pri = emt->glt_voxtpat;
-  private ptr{gl_texture} glt_tpat_sec = emt->glt_voxtpax;
+  private metafunction num_words multiword_num_words;
+  private varray{ptr{gl_texture}} glt_tmap;
+  private varray{ptr{gl_texture}} glt_tpat;
+  init();
+  private function void init()
+  {
+    glt_tmap.push_back(emt->glt_voxtmap);
+    glt_tmap.push_back(emt->glt_voxtmax);
+    glt_tpat.push_back(emt->glt_voxtpat);
+    glt_tpat.push_back(emt->glt_voxtpax);
+  }
   public function void on_textinput(string const& s, string mutable& msg_r)
   {
   }
@@ -43,7 +50,7 @@ public struct edit_mode_noedit(ptr{edit_mode_texture} const& emt0)
   public function void modify_tmap(glm::uvec3 const& pos, uint value)
   {
     // TODO: 範囲を一括して更新する手段を用意
-    tmap_edit->set(pos, texture_value_index_primary, value);
+    tmap_edit->set(pos, 0, value);
     // debug_log("noedit modify_tmap");
   }
   private function void sync_gl()
@@ -56,30 +63,18 @@ public struct edit_mode_noedit(ptr{edit_mode_texture} const& emt0)
       const sz = pos.second - pos.first + make_ivec3(1, 1, 1);
       const s = sz.x * sz.y * sz.z;
       // debug_log("noedit sync pos", pos, s);
-      texture_data_mip_sync_gl(tme.data_pri[0], tme.data_pri,
-        to_uvec3(pos.first), to_uvec3(sz), glt_tmap_pri);
-      texture_data_mip_sync_gl(tme.data_sec[0], tme.data_sec,
-        to_uvec3(pos.first), to_uvec3(sz), glt_tmap_sec);
+      texture_data_mip_sync_gl(tme.data[0][0], tme.data[0],
+        to_uvec3(pos.first), to_uvec3(sz), glt_tmap[0]);
+      texture_data_mip_sync_gl(tme.data[1][0], tme.data[1],
+        to_uvec3(pos.first), to_uvec3(sz), glt_tmap[1]);
     }
-    /*
-    pair{uvec3, uvec3} tmmod = tme.get_modified_merged(true); // (pos, sz)
-    if (tmmod.second.x != 0u) {
-      const sz = tmmod.second;
-      const s = sz.x * sz.y * sz.z;
-      // debug_log("noedit sync tmmod", tmmod, s);
-      texture_data_mip_sync_gl(tme.data_pri[0], tme.data_pri,
-        tmmod.first, tmmod.second, glt_tmap_pri);
-      texture_data_mip_sync_gl(tme.data_sec[0], tme.data_sec,
-        tmmod.first, tmmod.second, glt_tmap_sec);
-    }
-    */
     pair{uvec3, uvec3} tpmod = tpe.get_modified_merged(true);
     if (tpmod.second.x != 0u) {
       // debug_log("noedit sync tpmod", tpmod);
-      texture_data_mip_sync_gl(tpe.data_pri[0], tpe.data_pri,
-        tpmod.first, tpmod.second, glt_tpat_pri);
-      texture_data_mip_sync_gl(tpe.data_sec[0], tpe.data_sec,
-        tpmod.first, tpmod.second, glt_tpat_sec);
+      texture_data_mip_sync_gl(tpe.data[0][0], tpe.data[0],
+        tpmod.first, tpmod.second, glt_tpat[0]);
+      texture_data_mip_sync_gl(tpe.data[1][0], tpe.data[1],
+        tpmod.first, tpmod.second, glt_tpat[1]);
     }
   }
 }

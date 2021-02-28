@@ -63,6 +63,7 @@ I+RSHIFT カーソル位置のfillingパターンを選択する
 D+RSHIFT カーソル位置のfillingパターンを登録削除する
 ,+RSHIFT 次のfillingパターンへ移動
 .+RSHIFT 前のfillingパターンへ移動
+HLJKNP+RSHIFT fillingパターンの繰り返し範囲を変更する
 
 --------------------------------------------------------
 色変更モード

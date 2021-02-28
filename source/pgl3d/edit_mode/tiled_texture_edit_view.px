@@ -16,13 +16,13 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
 {
   private ptr{edit_mode_texture} const emt = emt0;
   public uvec3 const tmap_size_l2 =
-    emt->vox.tmap_edit->data_pri[0].get_size_l2_uvec3();
+    emt->vox.tmap_edit->data[0][0].get_size_l2_uvec3();
   public uvec3 const tmap_size =
-    emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
+    emt->vox.tmap_edit->data[0][0].get_size_uvec3();
   public uvec3 const tpat_size_l2 =
-    emt->vox.tpat_edit->data_pri[0].get_size_l2_uvec3();
+    emt->vox.tpat_edit->data[0][0].get_size_l2_uvec3();
   public uvec3 const tpat_size =
-    emt->vox.tpat_edit->data_pri[0].get_size_uvec3();
+    emt->vox.tpat_edit->data[0][0].get_size_uvec3();
   private texture_edit_view tev_tmap = texture_edit_view(
     emt->vox.tmap_edit);
   private texture_edit_view tev_tpat = texture_edit_view(
@@ -96,12 +96,12 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     return pair{uvec3, uvec3}(mi, mx + make_uvec3(1, 1, 1) - mi);
   }
   public function uint tmap_edit_get(uvec3 const& pos,
-    texture_value_index_e idx, size_t miplevel) const
+    texture_value_index idx, size_t miplevel) const
   {
     return tev_tmap.edit_get(pos, idx, miplevel);
   }
   public function uint tpat_edit_get(uvec3 const& pos,
-    texture_value_index_e idx, size_t miplevel) const
+    texture_value_index idx, size_t miplevel) const
   {
     return tev_tpat.edit_get(pos, idx, miplevel);
   }
@@ -197,94 +197,88 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     }
   }
   public function void tmap_edit_set(uvec3 const& pos,
-    texture_value_index_e idx, uint v)
+    texture_value_index idx, uint v)
   {
     reset_cursor_flick_nosyncgl();
     tev_tmap.edit_set(pos, idx, v);
     cursor_flick();
   }
   public function void tpat_edit_set(uvec3 const& pos,
-    texture_value_index_e idx, uint v)
+    texture_value_index idx, uint v)
   {
     reset_cursor_flick_nosyncgl();
     tev_tpat.edit_set(pos, idx, v);
     cursor_flick();
   }
   public function void edit_fill_range(uvec3 const& dpos, uvec3 const& sz,
-    uint v, uint v_sec)
+    multiword v)
   {
     if (get_cursor_tpat()) {
-      tpat_edit_fill_range(dpos, sz, v, v_sec);
+      tpat_edit_fill_range(dpos, sz, v);
     } else {
-      tmap_edit_fill_range(dpos, sz, v, v_sec);
+      tmap_edit_fill_range(dpos, sz, v);
     }
   }
   public function void tmap_edit_fill_range(uvec3 const& dpos, uvec3 const& sz,
-    uint v, uint v_sec)
+    multiword v)
   {
     reset_cursor_flick_nosyncgl();
-    tev_tmap.edit_fill_range(dpos, sz, v, v_sec);
+    tev_tmap.edit_fill_range(dpos, sz, v);
     cursor_flick();
   }
   public function void tpat_edit_fill_range(uvec3 const& dpos, uvec3 const& sz,
-    uint v, uint v_sec)
+    multiword v)
   {
     reset_cursor_flick_nosyncgl();
-    tev_tpat.edit_fill_range(dpos, sz, v, v_sec);
+    tev_tpat.edit_fill_range(dpos, sz, v);
     cursor_flick();
   }
   public function {t} void edit_copy_range(uvec3 const& spos, uvec3 const& sz,
-    t mutable& dest, t mutable& dest_sec,
-    uvec3 const& dpos)
+    t mutable& dest, uvec3 const& dpos)
   {
     if (get_cursor_tpat()) {
-      tpat_edit_copy_range(spos, sz, dest, dest_sec, dpos);
+      tpat_edit_copy_range(spos, sz, dest, dpos);
     } else {
-      tmap_edit_copy_range(spos, sz, dest, dest_sec, dpos);
+      tmap_edit_copy_range(spos, sz, dest, dpos);
     }
   }
   public function {t} void tmap_edit_copy_range(uvec3 const& spos,
-    uvec3 const& sz, t mutable& dest, t mutable& dest_sec,
-    uvec3 const& dpos)
+    uvec3 const& sz, t mutable& dest, uvec3 const& dpos)
   {
-    tev_tmap.edit_copy_range(spos, sz, dest, dest_sec, dpos);
+    tev_tmap.edit_copy_range(spos, sz, dest, dpos);
   }
   public function {t} void tpat_edit_copy_range(uvec3 const& spos,
-    uvec3 const& sz, t mutable& dest, t mutable& dest_sec,
-    uvec3 const& dpos)
+    uvec3 const& sz, t mutable& dest, uvec3 const& dpos)
   {
-    tev_tpat.edit_copy_range(spos, sz, dest, dest_sec, dpos);
+    tev_tpat.edit_copy_range(spos, sz, dest, dpos);
   }
   public function {t} void edit_paste_range(uvec3 const& dpos,
-    uvec3 const& sz, t const& src,
-    t const& src_sec, uvec3 const& spos, uint index_mask,
+    uvec3 const& sz, t const& src, uvec3 const& spos, uint index_mask,
     merge_mode const& mmod)
   {
     if (m::eq{dbg_paste{1}, 1}) {
       debug_log("edit_paste_range tpat=", get_cursor_tpat());
     }
     if (get_cursor_tpat()) {
-      tpat_edit_paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
+      tpat_edit_paste_range(dpos, sz, src, spos, index_mask, mmod);
     } else {
-      tmap_edit_paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
+      tmap_edit_paste_range(dpos, sz, src, spos, index_mask, mmod);
     }
   }
   public function {t} void tmap_edit_paste_range(uvec3 const& dpos,
-    uvec3 const& sz, t const& src,
-    t const& src_sec, uvec3 const& spos, uint index_mask,
+    uvec3 const& sz, t const& src, uvec3 const& spos, uint index_mask,
     merge_mode const& mmod)
   {
     reset_cursor_flick_nosyncgl();
-    tev_tmap.edit_paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
+    tev_tmap.edit_paste_range(dpos, sz, src, spos, index_mask, mmod);
     cursor_flick();
   }
   public function {t} void tpat_edit_paste_range(uvec3 const& dpos,
-    uvec3 const& sz, t const& src,
-    t const& src_sec, uvec3 const& spos, uint index_mask,
+    uvec3 const& sz, t const& src, uvec3 const& spos, uint index_mask,
     merge_mode const& mmod)
   {
     reset_cursor_flick_nosyncgl();
-    tev_tpat.edit_paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
+    tev_tpat.edit_paste_range(dpos, sz, src, spos, index_mask, mmod);
     cursor_flick();
   }
   public function uint get_max_tile_scale_log2() const
@@ -331,21 +325,21 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     pair{uvec3, uvec3} tmmod = tev_tmap.get_view_modified(true);
     if (tmmod.second.x != 0u) {
       // debug_log("sync tmmod", tmmod);
-      texture_data_mip_sync_gl(tev_tmap.tview_pri,
-        tev_tmap.current_edit->data_pri, tmmod.first,
+      texture_data_mip_sync_gl(tev_tmap.tview[0],
+        tev_tmap.current_edit->data[0], tmmod.first,
         tmmod.second, gl_tmap);
-      texture_data_mip_sync_gl(tev_tmap.tview_sec,
-        tev_tmap.current_edit->data_sec, tmmod.first,
+      texture_data_mip_sync_gl(tev_tmap.tview[1],
+        tev_tmap.current_edit->data[1], tmmod.first,
         tmmod.second, gl_tmap_sec);
     }
     pair{uvec3, uvec3} tpmod = tev_tpat.get_view_modified(true);
     if (tpmod.second.x != 0u) {
       // debug_log("sync tpmod", tmmod);
-      texture_data_mip_sync_gl(tev_tpat.tview_pri,
-        tev_tpat.current_edit->data_pri, tpmod.first,
+      texture_data_mip_sync_gl(tev_tpat.tview[0],
+        tev_tpat.current_edit->data[0], tpmod.first,
         tpmod.second, gl_tpat);
-      texture_data_mip_sync_gl(tev_tpat.tview_sec,
-        tev_tpat.current_edit->data_sec, tpmod.first,
+      texture_data_mip_sync_gl(tev_tpat.tview[1],
+        tev_tpat.current_edit->data[1], tpmod.first,
         tpmod.second, gl_tpat_sec);
     }
   }

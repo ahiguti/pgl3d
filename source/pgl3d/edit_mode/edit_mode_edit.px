@@ -5,7 +5,7 @@ private import pgl3d::edit_mode::common -;
 private import sdl2::api_types -;
 private import sdl2::api_functions -;
 private import text::serialize::compact_pod -;
-private import pgl3d::texture::copy_data -;
+private import pgl3d::texture::subtexture -;
 private import pgl3d::texture::generator -;
 private import pgl3d::texture::filling -;
 private import pgl3d::edit_mode::procedural -;
@@ -337,9 +337,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       }
       size_t mlpat;
       size_t mlmap;
-      const vs = get_cur_value(texture_value_index_secondary, mlv, mlpat,
-        mlmap);
-      const vp = get_cur_value(texture_value_index_primary, mlv, mlpat, mlmap);
+      const vs = get_cur_value(1, mlv, mlpat, mlmap); // secondary
+      const vp = get_cur_value(0, mlv, mlpat, mlmap); // primary
       if (is_space_voxel(vp)) {
         const dv = get_dist_3d(vp);
         message += " space " + to_string(dv) + " mip " + to_string(mlpat)
@@ -405,7 +404,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   public function void modify_tmap(uvec3 const& pos, uint value)
   {
-    ttev->tmap_edit_set(pos, texture_value_index_primary, value);
+    ttev->tmap_edit_set(pos, 0, value);
   }
   public function bool is_textinput_mode() const
   {
@@ -421,7 +420,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private ptr{tiled_texture_edit_view} const ttev =
     make_ptr{tiled_texture_edit_view}(emt0);
   private projection_info prj;
-  private copy_data_type copy_data;
+  private subtexture copy_data;
   private ptr{rand_generator} rndp = make_rand_generator(123u);
   private ptr{rand_generator} rndp_saved = rndp;
   private int gen_test_param = 0;
@@ -441,20 +440,20 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private string console_text;
   private size_t console_text_cursor;
   private uint cur_tile_scale_log2 = 4;
-  private varray{copy_data_type} fragments; // generate_fillingの種
+  private varray{subtexture} fragments; // generate_fillingの種
   init();
   /////////////////////////////////////////////////////////////////////
   private function void init()
   {
     dbg_editmode() {
       debug_log("edit_mode", "voxtmap",
-        emt->vox.tmap_edit->data_pri[0].get_size_uvec3());
+        emt->vox.tmap_edit->data[0][0].get_size_uvec3());
     }
     string buf;
     {
       sdl_load_file("/build/edit_selection.ser", buf);
       if (!buf.empty()) {
-        copy_data = copy_data_type_compat_deserialize(buf);
+        copy_data = subtexture_compat_deserialize(buf);
       }
     }
     {
@@ -480,8 +479,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     est.ttev = ttev->get_state();
     est.cdir = cdir;
     sdl_save_file("/build/edit_state.raw", to_string(est));
-    const msz = emt->vox.tmap_edit->data_pri[0].get_size_l2_uvec3();
-    const psz = emt->vox.tpat_edit->data_pri[0].get_size_l2_uvec3();
+    const msz = emt->vox.tmap_edit->data[0][0].get_size_l2_uvec3();
+    const psz = emt->vox.tpat_edit->data[0][0].get_size_l2_uvec3();
     {
       // "edit_2_9_9_6_10_9_9.raw"のようなファイル名。voxelデータをそのまま
       // 保存する。
@@ -597,7 +596,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       sdl_load_file(fn + ".pat", buf);
       if (!buf.empty()) {
         // パターンデータを読み込む。noderef参照先は含まれない。
-        copy_data = copy_data_type_compat_deserialize(buf);
+        copy_data = subtexture_compat_deserialize(buf);
         mark_set = true;
         copied = true;
         glm::vec3 cursor_move_r;
@@ -935,8 +934,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     for (const i, mutable& tex: copy_data.tex) {
       tex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
     }
-    ttev->edit_copy_range(cur.first, cur.second, copy_data.tex[0],
-      copy_data.tex[1], uvec3());
+    ttev->edit_copy_range(cur.first, cur.second, copy_data.tex, uvec3());
     mark_set = true;
     copied = true;
     message = "edit_mode: copy value " + to_string(copy_data.copy_size);
@@ -993,8 +991,8 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     debug_log("paste_value: cpos,mi_0,mx_0,mi,mx,sz,cd_mi", cpos,
       mi_0, mx_0, mi, mx, sz, cd_mi);
     */
-    ttev->edit_paste_range(to_uvec3(mi), to_uvec3(sz), copy_data.tex[0],
-      copy_data.tex[1], to_uvec3(cd_mi), index_mask, mmod);
+    ttev->edit_paste_range(to_uvec3(mi), to_uvec3(sz), copy_data.tex,
+      to_uvec3(cd_mi), index_mask, mmod);
     // message = "edit_mode: paste value " + to_string(sz);
   }
   private function void convert_to_tmap()
@@ -1010,7 +1008,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       return;
     }
     const cur = ttev->get_cursor_pos().first;
-    const v = ttev->tmap_edit_get(cur, texture_value_index_primary, 0u);
+    const v = ttev->tmap_edit_get(cur, 0, 0u);
     if (is_node_reference(v)) {
       debug_log("convert_to_tpat: failed(noderef)");
       return;
@@ -1037,8 +1035,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       const cur_p = cur + make_uvec3(x, y, z);
       dbg_conv() { debug_log("convert_to_tpat: tmap set",
         cur_p, np); }
-      ttev->tmap_edit_set(cur_p, texture_value_index_primary,
-        encode_noderef_param(np));
+      ttev->tmap_edit_set(cur_p, 0, encode_noderef_param(np));
     }
     // 元データをtpatへ貼り付ける
     set_cursor_tpat(true);
@@ -1076,10 +1073,10 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       // 縮小処理
       copy_value();
       const oszl2 = copy_data.tex[0].get_size_l2_uvec3();
-      texture_data dpri;
-      texture_data daux;
-      dpri.set_size_l2(oszl2.x, oszl2.y, oszl2.z);
-      daux.set_size_l2(oszl2.x, oszl2.y, oszl2.z);
+      farray{texture_data, multiword_num_words} dtex;
+      for (const i, mutable& dtexw: dtex) {
+        dtexw.set_size_l2(oszl2.x, oszl2.y, oszl2.z);
+      }
       const sz = copy_data.copy_size / 2u;
       ivec3 dbase;
       dbase.x = (copy_data.cursor_offset.x == 0) ? 0 : si(sz.x);
@@ -1089,19 +1086,16 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
         for (const y: 0 .. sz.y) {
           for (const x: 0 .. sz.x) {
             const p = make_ivec3(si(x), si(y), si(z));
-            texel_value dpri_v;
-            texel_value dsec_v;
-            shrink_voxel_value(false, copy_data.tex[0], copy_data.tex[1],
-              dpri_v, dsec_v, p);
-            dpri.set(ui(p.x + dbase.x), ui(p.y + dbase.y), ui(p.z + dbase.z),
-              dpri_v);
-            daux.set(ui(p.x + dbase.x), ui(p.y + dbase.y), ui(p.z + dbase.z),
-              dsec_v);
+            farray{texel_value, multiword_num_words} val;
+            shrink_voxel_value(false, copy_data.tex, val, p);
+            for (const i, const& valw: val) {
+              dtex[i].set(ui(p.x + dbase.x), ui(p.y + dbase.y),
+                ui(p.z + dbase.z), valw);
+            }
           }
         }
       }
-      copy_data.tex[0] = dpri;
-      copy_data.tex[1] = daux;
+      copy_data.tex = dtex;
       paste_value(0xffu, merge_mode_opaque());
     }
     {
@@ -1125,14 +1119,14 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       debug_log("scale_range: p1: copy_data:", copy_data,
         ttev->get_cursor_pos());
     }
-    texture_data spri;
-    texture_data saux;
+    farray{texture_data, multiword_num_words} stex;
     const szl2 = copy_data.tex[0].get_size_l2_uvec3() + make_uvec3(1, 1, 1);
-    spri.set_size_l2(szl2.x, szl2.y, szl2.z);
-    saux.set_size_l2(szl2.x, szl2.y, szl2.z);
+    for (const i, mutable& s: stex) {
+      s.set_size_l2(szl2.x, szl2.y, szl2.z);
+    }
     const sz = copy_data.copy_size;
     bool succ = true;
-    function texel_value tpat_get(uvec3 const& p, texture_value_index_e idx,
+    function texel_value tpat_get(uvec3 const& p, texture_value_index idx,
       size_t miplevel)
     {
       return ttev->tpat_edit_get(p, idx, miplevel);
@@ -1140,10 +1134,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     for (const z: 0 .. sz.z) {
       for (const y: 0 .. sz.y) {
         for (const x: 0 .. sz.x) {
-          succ &= scale_voxel_value{texture_reshaped, tpat_get}(
-            copy_data.tex[0].get(x, y, z),
-            copy_data.tex[1].get(x, y, z), spri, saux,
-            si(x * 2), si(y * 2), si(z * 2));
+          farray{uint, multiword_num_words} va;
+          for (const i, mutable& v: va) {
+            v = copy_data.tex[i].get(x, y, z);
+          }
+          succ &= scale_voxel_value{tpat_get}(
+            va, stex, si(x * 2), si(y * 2), si(z * 2));
         }
       }
     }
@@ -1152,8 +1148,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       debug_log("scale_voxel_value failed");
       return;
     }
-    copy_data.tex[0] = spri;
-    copy_data.tex[1] = saux;
+    copy_data.tex = stex; // copy
     copy_data.copy_size *= 2u;
     mutable& o = copy_data.cursor_offset;
     o *= 2u;
@@ -1219,11 +1214,12 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       const mx = map{uvec3, max}(m.first, m.second);
       debug_log("set_space tmap", m);
       const sz = mx - mi + make_uvec3(1, 1, 1);
-      ttev->tmap_edit_fill_range(mi, sz, 0, 0);
+      ttev->tmap_edit_fill_range(mi, sz, make_multiword(make_space_voxel()));
       debug_log("set_space tmap done", m);
     } else {
-      set_cur_value(texture_value_index_primary, 0u);
-      set_cur_value(texture_value_index_secondary, 0u);
+      for (texture_value_index i: 0 .. multiword_num_words) {
+        set_cur_value(i, 0u);
+      }
     }
     // message = "edit_mode: erased";
   }
@@ -1329,7 +1325,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function void fill_range_value(uint v_pri, uint v_sec, bool set_sec)
   {
-    function void ffunc(copy_data_type mutable& data, uint x, uint y, uint z)
+    function void ffunc(subtexture mutable& data, uint x, uint y, uint z)
     {
       if (set_sec) {
         data.tex[1].set(x, y, z, v_sec);
@@ -1347,7 +1343,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void fill_range_color(color_param const& p, bool clear)
   {
     const value = encode_color_param(p);
-    function void ffunc(copy_data_type mutable& data, uint x, uint y, uint z)
+    function void ffunc(subtexture mutable& data, uint x, uint y, uint z)
     {
       const ov = data.tex[0].get(x, y, z);
       if (is_node_reference(ov) || is_space_voxel(ov)) {
@@ -1362,7 +1358,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     const cur = ttev->get_cursor_range();
     const copy_size = cur.second;
     debug_log("fill_range_plane", copy_size);
-    function void ffunc(copy_data_type mutable& data, uint x, uint y, uint z)
+    function void ffunc(subtexture mutable& data, uint x, uint y, uint z)
     {
       const ov = data.tex[0].get(x, y, z);
       if (is_node_reference(ov) || is_sphere_node(ov)) {
@@ -1387,7 +1383,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   {
     const cur = ttev->get_cursor_range();
     const copy_size = cur.second;
-    function void ffunc(copy_data_type mutable& data, uint x, uint y, uint z)
+    function void ffunc(subtexture mutable& data, uint x, uint y, uint z)
     {
       const ov = data.tex[0].get(x, y, z);
       if (is_node_reference(ov)) {
@@ -1409,7 +1405,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   {
     // firstとしてtpmapカーソルにあるnoderefのパターン座標を返す
     // secondとしてnoderefのscale値(1基準)
-    const v = get_cur_tmap(texture_value_index_primary, 0u);
+    const v = get_cur_tmap(0, 0u);
     debug_log("cur_tpat_base:", to_hexstring(v));
     if (!is_node_reference(v)) {
       return pair(glm::uvec3(), 0u);
@@ -1421,7 +1417,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     const psc = p * scale;
     return pair(psc, param.scale + 1u);
   }
-  private function uint get_cur_value(texture_value_index_e idx,
+  private function uint get_cur_value(texture_value_index idx,
     size_t miplevel, size_t mutable& mlpat_r, size_t mutable mlmap_r) const
   {
     mlpat_r = miplevel;
@@ -1429,7 +1425,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     return ttev->get_cursor_tpat() ?
       get_cur_tpat(idx, mlpat_r) : get_cur_tmap(idx, mlmap_r);
   }
-  private function void set_cur_value(texture_value_index_e idx, uint value)
+  private function void set_cur_value(texture_value_index idx, uint value)
   {
     if (ttev->get_cursor_tpat()) {
       set_cur_tpat(idx, value);
@@ -1437,13 +1433,13 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       set_cur_tmap(idx, value);
     }
   }
-  private function uint get_cur_tmap(texture_value_index_e idx,
+  private function uint get_cur_tmap(texture_value_index idx,
     size_t miplevel) const
   {
     const mp = ttev->get_tmap_cursor_pos().first;
     return ttev->tmap_edit_get(mp, idx, miplevel);
   }
-  private function void set_cur_tmap(texture_value_index_e idx, uint value)
+  private function void set_cur_tmap(texture_value_index idx, uint value)
   {
     // 範囲が大きいと超遅いので注意
     const m = ttev->get_tmap_cursor_pos();
@@ -1460,14 +1456,14 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     }
     debug_log("set_cur_tmap done", m);
   }
-  private function uint get_cur_tpat(texture_value_index_e idx,
+  private function uint get_cur_tpat(texture_value_index idx,
     size_t miplevel) const
   {
     return ttev->tpat_edit_get(get_cur_tpat_center(), idx, miplevel);
   }
-  private function void set_cur_tpat(texture_value_index_e idx, uint value)
+  private function void set_cur_tpat(texture_value_index idx, uint value)
   {
-    if (idx == texture_value_index_primary && is_node_reference(value)) {
+    if (idx == 0 && is_node_reference(value)) {
       value = 0u;
     }
     return ttev->tpat_edit_set(get_cur_tpat_center(), idx, value);
@@ -1486,7 +1482,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function bool is_cur_tmap_node_reference() const
   {
-    return is_node_reference(get_cur_tmap(texture_value_index_primary, 0u));
+    return is_node_reference(get_cur_tmap(0, 0u));
   }
   private function uvec3 cur_tpat_index() const
   {
@@ -1510,7 +1506,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   {
     debug_log("gen_test_large");
     set_cursor_tpat(false);
-    const texsz = emt->vox.tmap_edit->data_pri[0].get_size_uvec3();
+    const texsz = emt->vox.tmap_edit->data[0][0].get_size_uvec3();
     mutable sz = texsz;
     sz.x = min(sz.x, sz.z * 2u);
     uvec3 pos;
@@ -1670,17 +1666,17 @@ private enum edit_fill_type_t {
 private function void
 sync_gl_mipmap_all(edit_mode_texture mutable& emt)
 {
-  for (const i: 1 .. emt.vox.tpat_edit->data_pri.size()) {
-    texture_data_sync_gl(emt.vox.tpat_edit->data_pri[i], si(i), uvec3(),
-      emt.vox.tpat_edit->data_pri[i].get_size_uvec3(), emt.glt_voxtpat);
-    texture_data_sync_gl(emt.vox.tpat_edit->data_sec[i], si(i), uvec3(),
-      emt.vox.tpat_edit->data_sec[i].get_size_uvec3(), emt.glt_voxtpax);
+  for (const i: 1 .. emt.vox.tpat_edit->data[0].size()) {
+    for (const j, mutable& dataw: emt.vox.tpat_edit->data) {
+      texture_data_sync_gl(dataw[i], si(i), uvec3(),
+        emt.vox.tpat_edit->data[j][i].get_size_uvec3(), emt.glt_voxtpat);
+    }
   }
-  for (const i: 1 .. emt.vox.tmap_edit->data_pri.size()) {
-    texture_data_sync_gl(emt.vox.tmap_edit->data_pri[i], si(i), uvec3(),
-      emt.vox.tmap_edit->data_pri[i].get_size_uvec3(), emt.glt_voxtmap);
-    texture_data_sync_gl(emt.vox.tmap_edit->data_sec[i], si(i), uvec3(),
-      emt.vox.tmap_edit->data_sec[i].get_size_uvec3(), emt.glt_voxtmax);
+  for (const i: 1 .. emt.vox.tmap_edit->data[0].size()) {
+    for (const j, mutable& dataw: emt.vox.tpat_edit->data) {
+      texture_data_sync_gl(dataw[i], si(i), uvec3(),
+        emt.vox.tmap_edit->data[j][i].get_size_uvec3(), emt.glt_voxtmap);
+    }
   }
 }
 

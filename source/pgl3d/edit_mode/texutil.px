@@ -11,8 +11,8 @@ private metafunction dbg_rotate{f} f; // no_operation;
 private metafunction dbg_scale{f} no_operation;
 
 public function {t} void
-shrink_voxel_value(bool for_mipmap, t const& spri, t const& ssec,
-  texel_value mutable& dpri, texel_value mutable& dsec, ivec3 const& p)
+shrink_voxel_value(bool for_mipmap, t const& stex,
+  farray{texel_value, multiword_num_words} mutable& dval, ivec3 const& p)
 {
   uint count_ref;
   uint count_filled;
@@ -31,8 +31,8 @@ shrink_voxel_value(bool for_mipmap, t const& spri, t const& ssec,
     for (const y: 0 .. 2) {
       for (const x: 0 .. 2) {
         const offset = make_ivec3(x * 2 - 1, y * 2 - 1, z * 2 - 1);
-        const v = spri.get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
-        const vs = ssec.get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
+        const v = stex[0].get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
+        const vs = stex[1].get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
         if (is_space_voxel(v)) {
           continue; // 色決定の分母に含めない
         } else if (is_node_reference(v)) {
@@ -93,6 +93,9 @@ shrink_voxel_value(bool for_mipmap, t const& spri, t const& ssec,
     nv = make_filled_voxel();
   }
   // debug_log("set", x0, y0, z0);
+  for (const i, mutable& dvale: dval) {
+    dvale = 0;
+  }
   if (count_color > 0) {
     cp /= count_color;
     uint nc = encode_color_param(cp);
@@ -107,41 +110,38 @@ shrink_voxel_value(bool for_mipmap, t const& spri, t const& ssec,
       }
       */
     }
-    dpri = nv;
-    dsec = nc;
-  } else {
-    dpri = 0u;
-    dsec = 0u;
+    dval[0] = nv;
+    dval[1] = nc;
   }
 }
 
-public function {t, f} bool
-scale_voxel_value(texel_value v_pri, texel_value v_sec, t mutable& tex_pri,
-  t mutable& tex_sec, int x0, int y0, int z0)
+public function {f, t} bool
+scale_voxel_value(cslice{texel_value} v, t mutable& tex, int x0, int y0,
+  int z0)
 {
   for (const z: 0 .. 2) {
     for (const y: 0 .. 2) {
       for (const x: 0 .. 2) {
-        mutable cv = v_pri;
-        if (is_plane_node(v_pri)) {
-          mutable p = decode_plane_node(v_pri);
+        varray{texel_value} cvarr = v;
+        if (is_plane_node(v[0])) {
+          mutable p = decode_plane_node(v[0]);
           p.dist = p.dist * 2;
-          cv = make_plane_node(p, make_ivec3(
+          cvarr[0] = make_plane_node(p, make_ivec3(
             x * 2 - 1,
             y * 2 - 1,
             z * 2 - 1),
             1);
-        } else if (is_sphere_node(v_pri)) {
-          mutable p = decode_sphere_node(v_pri);
+        } else if (is_sphere_node(v[0])) {
+          mutable p = decode_sphere_node(v[0]);
           p.dist = p.dist * 2;
           p.center = p.center * 2;
-          cv = make_sphere_node(p, make_ivec3(
+          cvarr[0] = make_sphere_node(p, make_ivec3(
             x * 2 - 1,
             y * 2 - 1,
             z * 2 - 1),
             1, 0u);
-        } else if (is_node_reference(v_pri)) {
-          mutable p = decode_noderef_param(v_pri);
+        } else if (is_node_reference(v[0])) {
+          mutable p = decode_noderef_param(v[0]);
           if (p.scale > 0) {
             p.scale -= 1;
             mutable c = to_ivec3(p.coord) * 2;
@@ -153,7 +153,7 @@ scale_voxel_value(texel_value v_pri, texel_value v_sec, t mutable& tex_pri,
             c = (c * 2 + offset + 1) / 2;
             p.coord = to_uvec3(c);
             if (lt_all_uvec3(p.coord, make_uvec3(32, 32, 32))) {
-              cv = encode_noderef_param(p);
+              cvarr[0] = encode_noderef_param(p);
             } else {
               // パターン番号がエンコード可能な範囲を超えている
               return false;
@@ -176,13 +176,16 @@ scale_voxel_value(texel_value v_pri, texel_value v_sec, t mutable& tex_pri,
             dbg_scale() {
               debug_log("offset", offset, "c", c);
             }
-            cv = f(c, texture_value_index_primary, 0u);
-            cv = rotate_voxel_value(m_trans, cv);
-            v_sec = f(c, texture_value_index_secondary, 0u);
+            cvarr[0] = f(c, 0, 0u);
+            cvarr[0] = rotate_voxel_value(m_trans, cvarr[0]);
+            for (texture_value_index i: 1 .. multiword_num_words) {
+              cvarr[i] = f(c, i, 0u);
+            }
           }
         }
-        tex_pri.set(ui(x0 + x), ui(y0 + y), ui(z0 + z), cv);
-        tex_sec.set(ui(x0 + x), ui(y0 + y), ui(z0 + z), v_sec);
+        for (const i, mutable& cve: cvarr) {
+          tex[i].set(ui(x0 + x), ui(y0 + y), ui(z0 + z), cve);
+        }
       }
     }
   }

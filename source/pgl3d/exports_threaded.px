@@ -14,7 +14,7 @@ public import pgl3d::texture::texture *;
 public import pgl3d::texture::voxel_surface *;
 public import pgl3d::texture::voxel *;
 public import pgl3d::texture::editable_voxel *;
-public import pgl3d::texture::copy_data *;
+public import pgl3d::texture::subtexture *;
 public import pgl3d::geometry::funcs *;
 public import pgl3d::geometry::midpoint_displacement *;
 public import pgl3d::drawer::drawer *;

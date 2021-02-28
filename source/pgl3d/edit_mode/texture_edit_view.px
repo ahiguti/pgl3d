@@ -11,15 +11,15 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
    * カーソルより大きなz位置を非表示にする機能を追加したもの
    */
   public tptr{texture_edit} current_edit = edit;
-  public texture_reshaped tview_pri = current_edit->data_pri[0]; // copy
-  public texture_reshaped tview_sec = current_edit->data_sec[0]; // copy
+  public varray{texture_reshaped} tview = copy_miplevel0(current_edit);
+    // miplevel 0 だけをtviewにコピー
   private uint cursor_color_0 = 0xffffffff;
   private uint cursor_color_1 = 0xff00ffff;
   private filling cursor_filling;
-  private uvec3 cursor_0 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
-  private uvec3 cursor_1 = make_uvec3(0, 0, tview_pri.get_depth() - 1);
+  private uvec3 cursor_0 = make_uvec3(0, 0, tview[0].get_depth() - 1);
+  private uvec3 cursor_1 = make_uvec3(0, 0, tview[0].get_depth() - 1);
   private modified_range modified;
-  private uvec3 const tex_sz = tview_pri.get_size_uvec3();
+  private uvec3 const tex_sz = tview[0].get_size_uvec3();
   private function uvec3 get_cursor() const
   {
     return cursor_0;
@@ -60,12 +60,12 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
           to_ivec3(tex_sz - make_uvec3(1, 1, 1)));
         const sz = mx + make_ivec3(1, 1, 1) - mi;
         // debug_log("scc cr", mi, mi, sz);
-        texture_data_copy_range(tview_pri, to_uvec3(mi),
-          current_edit->data_pri[0], to_uvec3(mi), to_uvec3(sz));
+        texture_data_copy_range(tview[0], to_uvec3(mi),
+          current_edit->data[0][0], to_uvec3(mi), to_uvec3(sz));
         modified.set_modified(mi, mx);
       }
       /* auxはカーソルの領域だけを書き戻す */
-      {
+      for (const i: 1 .. tview.size()) {
         const mi = map{ivec3, max}(
           to_ivec3(get_cursor_mi()),
           make_ivec3(0, 0, 0));
@@ -73,22 +73,18 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
           to_ivec3(get_cursor_mx()),
           to_ivec3(tex_sz - make_uvec3(1, 1, 1)));
         const sz = mx + make_ivec3(1, 1, 1) - mi;
-        texture_data_copy_range(tview_sec, to_uvec3(mi),
-          current_edit->data_sec[0], to_uvec3(mi), to_uvec3(sz));
+        texture_data_copy_range(tview[i], to_uvec3(mi),
+          current_edit->data[i][0], to_uvec3(mi), to_uvec3(sz));
       }
-      /*
-      current_view_sec_0->set(cursor_0.x, cursor_0.y, cursor_0.z,
-        get_edit_sec()->get(cursor_0.x, cursor_0.y, cursor_0.z));
-      */
     } else {
       const sz = get_cursor_mx() + make_uvec3(1, 1, 1) - get_cursor_mi();
       // debug_log("rrdq", sz);
       /* 領域にc1色をセットし周囲の距離を更新する */
       const mimx = texture_data_fill_range_recalc_distance_quick(
-        tview_pri, get_cursor_mi(), sz, c1);
+        tview[0], get_cursor_mi(), sz, c1);
       if (fi.size().x == 0) {
         /* secには領域にc1のrgbをセット */
-        texture_data_fill_range(tview_sec, get_cursor_mi(), sz,
+        texture_data_fill_range(tview[1], get_cursor_mi(), sz,
           c1_rgb);
       } else {
         /* filling選択中 */
@@ -110,12 +106,12 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
           } else if (z >= fi.sizes[6]) {
             c ^= 0x200000;
           }
-          tview_sec.set(mi.x + x, mi.y + y, mi.z + z, c);
+          tview[1].set(mi.x + x, mi.y + y, mi.z + z, c);
         }
       }
       /* cursor_0だけはc0色をセット */
-      tview_pri.set(cursor_0.x, cursor_0.y, cursor_0.z, c0);
-      tview_sec.set(cursor_0.x, cursor_0.y, cursor_0.z, c0_rgb);
+      tview[0].set(cursor_0.x, cursor_0.y, cursor_0.z, c0);
+      tview[1].set(cursor_0.x, cursor_0.y, cursor_0.z, c0_rgb);
       modified.set_modified(mimx.first, mimx.second);
     }
     cursor_color_0 = c0;
@@ -153,14 +149,12 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       {
         const rx = prev_blk_base.x;
         const ry = prev_blk_base.y;
-        texture_data_copy_range(tview_pri,
-          make_uvec3(rx, ry, prev_z + 1), current_edit->data_pri[0],
+        for (const i, mutable& tvieww: tview) {
+        texture_data_copy_range(tview[i],
+          make_uvec3(rx, ry, prev_z + 1), current_edit->data[i][0],
           make_uvec3(rx, ry, prev_z + 1),
           make_uvec3(blk_size, blk_size, tex_sz.z - prev_z - 1));
-        texture_data_copy_range(tview_sec,
-          make_uvec3(rx, ry, prev_z + 1), current_edit->data_sec[0],
-          make_uvec3(rx, ry, prev_z + 1),
-          make_uvec3(blk_size, blk_size, tex_sz.z - prev_z - 1));
+        }
         modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z + 1)), 
           make_ivec3(si(rx + blk_size) - 1, si(ry + blk_size) - 1,
             si(tex_sz.z) - 1));
@@ -171,10 +165,10 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
         const ry = next_blk_base.y;
         const zmi = next_z + 1;
         const zmx = tex_sz.z - 1;
-        texture_data_clear_range_recalc_distance_quick(tview_pri,
+        texture_data_clear_range_recalc_distance_quick(tview[0],
           make_uvec3(rx, ry, zmi),
           make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
-        texture_data_fill_range(tview_sec,
+        texture_data_fill_range(tview[1],
           make_uvec3(rx, ry, zmi),
           make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
           0u);
@@ -188,9 +182,9 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
         /* prev_z + 15までの空白領域は距離を更新 */
       const rx = next_blk_base.x;
       const ry = next_blk_base.y;
-      texture_data_clear_range_recalc_distance_quick(tview_pri,
+      texture_data_clear_range_recalc_distance_quick(tview[0],
         make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
-      texture_data_fill_range(tview_sec,
+      texture_data_fill_range(tview[1],
         make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi),
         0u);
       modified.set_modified(make_ivec3(si(rx), si(ry), si(zmi)),
@@ -200,18 +194,16 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
       // debug_log("scp cr", prev_z + 1, prev_z + 1, next_z - prev_z);
       const rx = prev_blk_base.x;
       const ry = prev_blk_base.y;
-      texture_data_copy_range(tview_pri,
-        make_uvec3(rx, ry, prev_z + 1),
-        current_edit->data_pri[0], make_uvec3(rx, ry, prev_z + 1),
-        make_uvec3(blk_size, blk_size, next_z - prev_z));
-      texture_data_copy_range(tview_sec,
-        make_uvec3(rx, ry, prev_z + 1), current_edit->data_sec[0],
-        make_uvec3(rx, ry, prev_z + 1),
-        make_uvec3(blk_size, blk_size, next_z - prev_z));
+      for (const i, mutable& tvieww: tview) {
+        texture_data_copy_range(tvieww,
+          make_uvec3(rx, ry, prev_z + 1), current_edit->data[i][0],
+          make_uvec3(rx, ry, prev_z + 1),
+          make_uvec3(blk_size, blk_size, next_z - prev_z));
+      }
       const zmi = next_z + 1;
       const zmx = min(next_z + 15, tex_sz.z - 1);
         /* next_z + 15までの空白領域は距離を更新 */
-      texture_data_clear_range_recalc_distance_quick(tview_pri,
+      texture_data_clear_range_recalc_distance_quick(tview[0],
         make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
       modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z) + 1), 
         make_ivec3(si(rx + blk_size) - 1, si(ry + blk_size) - 1, si(zmx)));
@@ -223,34 +215,33 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
         saved_cursor_filling);
     }
   }
-  public function uint edit_get(uvec3 const& pos, texture_value_index_e idx,
+  public function uint edit_get(uvec3 const& pos, texture_value_index idx,
     size_t miplevel)
     const
   {
     return current_edit->get_mip(pos, idx, miplevel);
   }
-  public function void edit_set(uvec3 const& pos, texture_value_index_e idx,
+  public function void edit_set(uvec3 const& pos, texture_value_index idx,
     uint v)
   {
     current_edit->set(pos, idx, v);
     merge_edit_view();
   }
   public function void edit_fill_range(uvec3 const& dpos, uvec3 const& sz,
-    uint v, uint v_sec)
+    multiword v)
   {
-    current_edit->fill_range(dpos, sz, v, v_sec);
+    current_edit->fill_range(dpos, sz, v);
     merge_edit_view();
   }
   public function {t} void edit_copy_range(uvec3 const& spos, uvec3 const& sz,
-    t mutable& dest, t mutable& dest_sec, uvec3 const& dpos) const
+    t mutable& dest, uvec3 const& dpos) const
   {
-    current_edit->copy_range(spos, sz, dest, dest_sec, dpos);
+    current_edit->copy_range(spos, sz, dest, dpos);
   }
   public function {t} void edit_paste_range(uvec3 const& dpos, uvec3 const& sz,
-    t const& src, t const& src_sec, uvec3 const& spos, uint index_mask,
-    merge_mode const& mmod)
+    t const& src, uvec3 const& spos, uint index_mask, merge_mode const& mmod)
   {
-    current_edit->paste_range(dpos, sz, src, src_sec, spos, index_mask, mmod);
+    current_edit->paste_range(dpos, sz, src, spos, index_mask, mmod);
     merge_edit_view();
   }
   private function void merge_edit_view()
@@ -265,10 +256,10 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
     const c1 = cursor_1;
     const c0_0 = make_uvec3(c0.x, c0.y, tex_sz.z - 1);
     set_cursor_pos(c0_0, c1);
-    texture_data_copy_range_merge_distance(tview_pri, edit_mod.first,
-      current_edit->data_pri[0], edit_mod.first, edit_mod.second);
-    texture_data_copy_range(tview_sec, edit_mod.first,
-      current_edit->data_sec[0], edit_mod.first, edit_mod.second);
+    for (const i, mutable& tvieww: tview) {
+      texture_data_copy_range_merge_distance(tvieww, edit_mod.first,
+        current_edit->data[i][0], edit_mod.first, edit_mod.second);
+    }
     modified.set_modified(to_ivec3(edit_mod.first),
       to_ivec3(edit_mod.first + edit_mod.second - make_uvec3(1, 1, 1)));
     /* カーソルを元の位置に戻す */
@@ -276,3 +267,13 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
   }
 }
 
+private function varray{texture_reshaped}
+copy_miplevel0(tptr{texture_edit} const& edit)
+{
+  varray{texture_reshaped} r;
+    // miplevel 0 だけをtviewにコピー
+  for (const i, mutable& dataw: edit->data) {
+    r.push_back(dataw[0]);
+  }
+  return r;
+}

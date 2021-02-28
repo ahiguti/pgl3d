@@ -1360,7 +1360,7 @@ private function varray{drawer_cond} init_drawsteps(
 private function void build_vertices(app_app mutable& app,
   make_vertices_i mutable& pgs)
 {
-  const& voxtmap = app.tvt->tmap_edit->data_pri[0];
+  const& voxtmap = app.tvt->tmap_edit->data[0][0];
   const voxtmap_size = map{glm::vec3, static_cast{float, uint}}(
     voxtmap.get_size_uvec3());
   const voxtmap_size_max = fold_list{max}(0.0f, voxtmap_size);

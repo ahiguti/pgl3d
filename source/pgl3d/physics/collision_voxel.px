@@ -36,7 +36,7 @@ collision_voxel_collide(collision_voxel const& cv,
   const tpos = cv.obj_to_tex * glm::make_vec4(pos.x, pos.y, pos.z, 1.0f);
   const tpos3 = glm::make_vec3(tpos.x, tpos.y, tpos.z) / tpos.w;
   uint const miplevel = 0;
-  const& data = tex.data_pri[miplevel];
+  const& data = tex.data[0][miplevel];
   const sz = data.get_size_uvec3();
   const sz_l2 = fold_list{max}(0u, data.get_size_l2_uvec3());
   function uint coord_int(float v) {

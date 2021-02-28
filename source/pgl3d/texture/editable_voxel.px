@@ -18,10 +18,22 @@ public metafunction texture_data_mip varray{texture_reshaped};
 private metafunction dbg_paste{f} no_operation;
 private metafunction dbg_dist{f} no_operation;
 
-public tsvaluetype enum texture_value_index_e
+public metafunction texture_value_index
+  distinct_uint{uint, "texture_value_index"};
+
+public metafunction multiword_num_words 2;
+public metafunction multiword farray{texel_value, multiword_num_words};
+
+public threaded function {tlist} multiword
+make_multiword(expand(meta::vararg::arg_decls_bycref{tlist}))
 {
-  texture_value_index_primary = 0,
-  texture_value_index_secondary = 1,
+  multiword r;
+  uint i;
+  expand (a: meta::vararg::arg_names{meta::size{tlist}}) {
+    r[i] = a;
+    ++i;
+  }
+  return r;
 }
 
 public multithreaded struct modified_range
@@ -93,9 +105,12 @@ texture_edit()
 {
   /* 更新可能なボクセルデータのテクスチャを保持するクラス。更新されたら
    * raycast用の「埋め込み距離」を再計算する。*/
-  public texture_data_mip data_pri;
-  public texture_data_mip data_sec;
+  public metafunction num_words 2;
+  public metafunction tex_mip_words farray{texture_data_mip, num_words};
+  public texture_data_mip data_pri; // 旧データ読み込み用。現行では不使用
+  public texture_data_mip data_sec; // 旧データ読み込み用。現行では不使用
   public texture_data grid_dummy; // もう使っていないはず
+  public tex_mip_words data;
   private modified_range modified;
   public function pair{uvec3, uvec3} get_modified_merged(bool reset_flag)
   {
@@ -109,51 +124,46 @@ texture_edit()
   public function void resize_texture(uvec3 szl2, bool enable_short_circuit)
   {
     debug_log("texture_edit resize_texture: ", szl2,
-      data_pri[0].get_size_l2_uvec3());
-    texture_data_mip pri;
-    texture_data_mip sec;
-    const nmip = data_pri.size();
-    pri.resize(nmip, texture_reshaped());
-    sec.resize(nmip, texture_reshaped());
+      data[0][0].get_size_l2_uvec3());
+    tex_mip_words ttex;
+    const nmip = data[0].size();
+    for (const i, mutable& ttex_w: ttex) {
+      ttex_w.resize(nmip, texture_reshaped());
+    }
     mutable s = szl2;
     for (const i: 0 .. nmip) {
-      pri[i].set_size_l2(s.x, s.y, s.z);
-      sec[i].set_size_l2(s.x, s.y, s.z);
+      for (const j, mutable& ttex_w: ttex) {
+        ttex_w[i].set_size_l2(s.x, s.y, s.z);
+      }
       if (s.x > 0u) { s.x -= 1u; }
       if (s.y > 0u) { s.y -= 1u; }
       if (s.z > 0u) { s.z -= 1u; }
     }
     debug_log("texture_edit resize: copy");
     {
-      mutable& src_0 = data_pri[0];
-      mutable& tgt_0 = pri[0];
-      mutable& src_1 = data_sec[0];
-      mutable& tgt_1 = sec[0];
-      const msz = map{uvec3, min}(src_0.get_size_uvec3(),
-        tgt_0.get_size_uvec3());
+      const msz = map{uvec3, min}(data[0][0].get_size_uvec3(),
+        ttex[0][0].get_size_uvec3());
       range_foreach(msz) void (uint x, uint y, uint z) {
-        tgt_0.set(x, y, z, src_0.get(x, y, z));
-        tgt_1.set(x, y, z, src_1.get(x, y, z));
+        for (const i, mutable& ttex_w: ttex) {
+          ttex_w[0].set(x, y, z, data[i][0].get(x, y, z));
+        }
       }
     }
-    data_pri.swap(pri);
-    data_sec.swap(sec);
-    /*
-    src_0.swap(tgt_0);
-    src_1.swap(tgt_1);
-    */
+    for (const i, mutable& ttex_w: ttex) {
+      data[i].swap(ttex_w);
+    }
     debug_log("texture_edit resize: recalc distance");
     recalc_distance_range(enable_short_circuit, uvec3(),
-      data_pri[0].get_size_uvec3(), false);
+      data[0][0].get_size_uvec3(), false);
   }
-  public function uint get_mip(uvec3 pos, texture_value_index_e idx,
+  public function uint get_mip(uvec3 pos, texture_value_index idx,
     size_t miplevel)
   {
     // debug_log("get_mip", pos, idx, miplevel);
-    if (miplevel >= data_pri.size()) {
-      miplevel = data_pri.size() - 1;
+    if (miplevel >= data[0].size()) {
+      miplevel = data[0].size() - 1;
     }
-    const datasz = data_pri[0].get_size_uvec3();
+    const datasz = data[0][0].get_size_uvec3();
     if (!lt_all_uvec3(pos, datasz)) {
       // debug_log("get_mip range error", pos, datasz);
       return 0u;
@@ -161,20 +171,17 @@ texture_edit()
     pos.x >>= static_cast{uint}(miplevel);
     pos.y >>= static_cast{uint}(miplevel);
     pos.z >>= static_cast{uint}(miplevel);
-    if (idx == texture_value_index_primary) {
-      return data_pri[miplevel].get(pos.x, pos.y, pos.z);
-    } else {
-      return data_sec[miplevel].get(pos.x, pos.y, pos.z);
-    }
+    const i = static_cast{size_t}(idx);
+    return data[i][miplevel].get(pos.x, pos.y, pos.z);
   }
-  public function uint get(uvec3 const& pos, texture_value_index_e idx)
+  public function uint get(uvec3 const& pos, texture_value_index idx)
   {
     return get_mip(pos, idx, 0u);
   }
   private function void set_space_mip(size_t miplevel, uvec3 const& pos)
   {
-    data_pri[miplevel].set(pos.x, pos.y, pos.z, 0u);
-    if (miplevel + 1 >= data_pri.size()) {
+    data[0][miplevel].set(pos.x, pos.y, pos.z, 0u);
+    if (miplevel + 1 >= data[0].size()) {
       return;
     }
     const p2 = make_uvec3((pos.x / 2) * 2, (pos.y / 2) * 2, (pos.z / 2) * 2);
@@ -182,7 +189,7 @@ texture_edit()
     for (const z: 0 .. 2u) {
       for (const y: 0 .. 2u) {
         for (const x: 0 .. 2u) {
-          const v = data_pri[miplevel].get(p2.x + x, p2.y + y, p2.z + z);
+          const v = data[0][miplevel].get(p2.x + x, p2.y + y, p2.z + z);
           is_space &= is_space_voxel(v);
         }
       }
@@ -192,62 +199,68 @@ texture_edit()
       set_space_mip(miplevel + 1, p);
     }
   }
-  public function void set(uvec3 const& pos, texture_value_index_e idx, uint v)
+  public function void set(uvec3 const& pos, texture_value_index idx, uint v)
   {
-    const datasz = data_pri[0].get_size_uvec3();
+    const datasz = data[0][0].get_size_uvec3();
     if (!lt_all_uvec3(pos, datasz)) {
       return;
     }
     // debug_log("texture_edit set", pos);
-    v = (idx == texture_value_index_primary && is_space_voxel(v)) ? 0u : v;
-    if (idx == texture_value_index_primary) {
+    v = (idx == 0 && is_space_voxel(v)) ? 0u : v;
+    if (idx == 0) {
       if (v == 0) {
         // 空白にする。mipmapも必要なら更新する
         set_space_mip(0, pos);
       } else {
-        data_pri[0].set(pos.x, pos.y, pos.z, v);
+        data[0][0].set(pos.x, pos.y, pos.z, v);
       }
     } else {
-      data_sec[0].set(pos.x, pos.y, pos.z, v);
+      data[static_cast{size_t}(idx)][0].set(pos.x, pos.y, pos.z, v);
     }
-    if (idx == texture_value_index_primary) {
+    if (idx == 0) {
       recalc_distance_range(true, pos, make_uvec3(1, 1, 1), v == 0);
     }
   }
   public function void fill_range(uvec3 const& dpos, uvec3 const& sz,
-    uint v_pri, uint v_sec)
+    multiword v)
   {
-    const datasz = data_pri[0].get_size_uvec3();
+    const datasz = data[0][0].get_size_uvec3();
     if (!lt_all_uvec3(dpos, datasz)) {
       return;
     }
-    v_pri = is_space_voxel(v_pri) ? 0u : v_pri;
-    v_sec = is_space_voxel(v_pri) ? 0u : v_sec;
-    texture_data_fill_range(data_pri[0], dpos, sz, v_pri);
-    texture_data_fill_range(data_sec[0], dpos, sz, v_sec);
+    if (is_space_voxel(v[0])) {
+      v = make_multiword(make_space_voxel());
+    }
+    for (const i, mutable& dataw: data) {
+      texture_data_fill_range(dataw[0], dpos, sz, v[i]);
+      
+    }
     dbg_dist() {
       debug_log("fill_range", dpos, sz);
     }
-    recalc_distance_range(true, dpos, sz, v_pri == 0u);
+    recalc_distance_range(true, dpos, sz, is_space_voxel(v[0]));
   }
   public function {t} void copy_range(uvec3 const& spos, uvec3 sz,
-    t mutable& dest, t mutable& dest_aux, uvec3 const& dpos) const
+    t mutable& dest, uvec3 const& dpos) const
   {
-    sz = clamp_size(data_pri[0], spos, sz);
-    sz = clamp_size(dest, dpos, sz);
+    // destはtextureの配列で、各要素がmultiwordの各wordのtexture。
+    sz = clamp_size(data[0][0], spos, sz);
+    sz = clamp_size(dest[0], dpos, sz);
     if (empty_range(sz)) {
       return;
     }
     // debug_log("copy_range", spos, sz, dpos);
-    texture_data_copy_range(dest, dpos, data_pri[0], spos, sz);
-    texture_data_copy_range(dest_aux, dpos, data_sec[0], spos, sz);
+    for (const i, const& dataw: data) {
+      texture_data_copy_range(dest[i], dpos, dataw[0], spos, sz);
+    }
   }
   public function {t} void paste_range(uvec3 const& dpos, uvec3 sz,
-    t const& src, t const& src_aux, uvec3 const& spos, uint index_mask,
+    t const& src, uvec3 const& spos, uint index_mask,
     merge_mode const& mmod)
   {
-    sz = clamp_size(src, spos, sz);
-    sz = clamp_size(data_pri[0], dpos, sz);
+    // srcはtextureの配列で、各要素がmultiwordの各wordのtexture。
+    sz = clamp_size(src[0], spos, sz);
+    sz = clamp_size(data[0][0], dpos, sz);
     if (empty_range(sz)) {
       return;
     }
@@ -255,15 +268,16 @@ texture_edit()
       debug_log("editable_voxel paste_range", spos, sz, dpos, index_mask);
     }
     bool shape_modified = false;
-    if ((index_mask & 1u) != 0) {
-      // pri
-      shape_modified = texture_data_copy_range_check_modified(data_pri[0],
-	dpos, src, spos, sz, mmod);
-    }
-    if ((index_mask & 2u) != 0) {
-      // sec
-      texture_data_copy_range_secondary(data_pri[0], data_sec[0], dpos,
-	src_aux, spos, sz);
+    for (const i, mutable& dataw: data) {
+      if ((index_mask & (1u << i)) != 0) {
+        if (i == 0) {
+          shape_modified = texture_data_copy_range_check_modified(
+            dataw[0], dpos, src[i], spos, sz, mmod);
+        } else {
+          texture_data_copy_range_secondary(data[0][0], dataw[0], dpos,
+            src[i], spos, sz);
+        }
+      }
     }
     if (shape_modified) {
       dbg_paste() {
@@ -290,11 +304,11 @@ texture_edit()
     }
     if (clear_flag) {
       /* 遅すぎるので更新しない。うまい実装があるか? */
-      /* update_distance(enable_short_circuit, data_pri[0], mod_mi, mod_mx,
+      /* update_distance(enable_short_circuit, data[0][0], mod_mi, mod_mx,
        *   clear_flag); */
       modified.set_modified(mod_mi, mod_mx);
     } else {
-      update_distance(enable_short_circuit, data_pri[0], mod_mi, mod_mx,
+      update_distance(enable_short_circuit, data[0][0], mod_mi, mod_mx,
         clear_flag);
       modified.set_modified(mod_mi, mod_mx);
     }

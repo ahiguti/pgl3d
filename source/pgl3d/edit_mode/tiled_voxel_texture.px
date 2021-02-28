@@ -71,23 +71,30 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
           dest.push_back(tr);
         }
       }
-      conv_one(v0.tmap_pri, vox.tmap_edit->data_pri);
-      conv_one(v0.tmap_sec, vox.tmap_edit->data_sec);
-      conv_one(v0.tpat_pri, vox.tpat_edit->data_pri);
-      conv_one(v0.tpat_sec, vox.tpat_edit->data_sec);
+      conv_one(v0.tmap_pri, vox.tmap_edit->data[0]);
+      conv_one(v0.tmap_sec, vox.tmap_edit->data[1]);
+      conv_one(v0.tpat_pri, vox.tpat_edit->data[0]);
+      conv_one(v0.tpat_sec, vox.tpat_edit->data[1]);
     } else {
       // 現行バージョンのフォーマット
       vox = from_string_compact_pod{tiled_voxel_texture}(buf);
+      if (vox.tmap_edit->data_pri.size() > 0) {
+        // 旧形式でシリアライズされたデータを読み込んだ。現行形式に変換
+        vox.tmap_edit->data[0].swap(vox.tmap_edit->data_pri);
+        vox.tmap_edit->data[1].swap(vox.tmap_edit->data_sec);
+        vox.tpat_edit->data[0].swap(vox.tpat_edit->data_pri);
+        vox.tpat_edit->data[1].swap(vox.tpat_edit->data_sec);
+      }
     }
     // 必要ならテクスチャをリサイズする
-    if (vox.tmap_edit->data_pri[0].get_size_l2_uvec3() != tmszl2) {
+    if (vox.tmap_edit->data[0][0].get_size_l2_uvec3() != tmszl2) {
       debug_log("resize tmap from",
-        vox.tmap_edit->data_pri[0].get_size_l2_uvec3(), "to", tmszl2);
+        vox.tmap_edit->data[0][0].get_size_l2_uvec3(), "to", tmszl2);
       vox.tmap_edit->resize_texture(tmszl2, enable_short_circuit);
     }
-    if (vox.tpat_edit->data_pri[0].get_size_l2_uvec3() != tpszl2) {
+    if (vox.tpat_edit->data[0][0].get_size_l2_uvec3() != tpszl2) {
       debug_log("resize tpat from",
-        vox.tpat_edit->data_pri[0].get_size_l2_uvec3(), "to", tpszl2);
+        vox.tpat_edit->data[0][0].get_size_l2_uvec3(), "to", tpszl2);
       vox.tpat_edit->resize_texture(tpszl2, enable_short_circuit);
     }
     // fillmapは、tmapの各座標に定義されたfillingを保持する。fillmapのサイズは
@@ -113,11 +120,11 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
 {
   debug_log("update_mipmap_all begin");
   const bool enable_short_circuit = true; // FIXME?
-  function void update_mipmap_one(texture_reshaped mutable& pri0,
-    texture_reshaped mutable& sec0, texture_reshaped mutable& pri1,
-    texture_reshaped mutable& sec1)
+  function void update_mipmap_one(
+    farray{texture_reshaped, multiword_num_words} mutable& stex,
+    farray{texture_reshaped, multiword_num_words} mutable& dtex)
   {
-    const sz = pri0.get_size_l2_uvec3();
+    const sz = stex[0].get_size_l2_uvec3();
     mutable sz2 = make_uvec3(
       max(sz.x, 1u) - 1u, 
       max(sz.y, 1u) - 1u, 
@@ -128,22 +135,25 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
       debug_log("update_mipmap_one: pri0 sz", sz);
     }
     */
-    pri1.set_size_l2(sz2.x, sz2.y, sz2.z);
-    sec1.set_size_l2(sz2.x, sz2.y, sz2.z);
-    for (const z: 0 .. pri1.get_depth()) {
-      for (const y: 0 .. pri1.get_height()) {
-        for (const x: 0 .. pri1.get_width()) {
+    // dtexは各辺がstexの半分のサイズになるようにする
+    for (const i, mutable& dtexw: dtex) {
+      dtexw.set_size_l2(sz2.x, sz2.y, sz2.z);
+    }
+    const dsz = dtex[0].get_size_uvec3();
+    for (const z: 0 .. dsz.z) {
+      for (const y: 0 .. dsz.y) {
+        for (const x: 0 .. dsz.x) {
           ivec3 p = make_ivec3(si(x), si(y), si(z));
-          texel_value dpri_v;
-          texel_value dsec_v;
-          shrink_voxel_value(true, pri0, sec0, dpri_v, dsec_v, p);
+          farray{texel_value, multiword_num_words} dval;
+          shrink_voxel_value(true, stex, dval, p);
           /*
           if (!is_space_voxel(dpri_v)) {
             dpri_v = make_filled_voxel();
           }
           */
-          pri1.set(ui(p.x), ui(p.y), ui(p.z), dpri_v);
-          sec1.set(ui(p.x), ui(p.y), ui(p.z), dsec_v);
+          for (const i, mutable& dtexw: dtex) {
+            dtexw.set(ui(p.x), ui(p.y), ui(p.z), dval[i]);
+          }
         }
       }
     }
@@ -153,64 +163,90 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     // タイルサイズが16なら16,8,4,2,1の5枚
   const pat_mip_num = 8u + 1u;
     // scale値が0から7まで、最大タイルサイズ256
-  while (vox.tpat_edit->data_pri.size() < pat_mip_num) {
-    vox.tpat_edit->data_pri.push_back(texture_reshaped());
+  for (const i, mutable& dataw: vox.tpat_edit->data) {
+    dataw.resize(pat_mip_num, texture_reshaped());
   }
-  while (vox.tpat_edit->data_sec.size() < pat_mip_num) {
-    vox.tpat_edit->data_sec.push_back(texture_reshaped());
-  }
-  vox.tpat_edit->data_pri.resize(pat_mip_num, texture_reshaped());
-  vox.tpat_edit->data_sec.resize(pat_mip_num, texture_reshaped());
   debug_log("update_mipmap_all set_distance begin");
-  set_distance(enable_short_circuit, vox.tpat_edit->data_pri[0]);
+  set_distance(enable_short_circuit, vox.tpat_edit->data[0][0]);
     // tpatのmip0の距離を計算しなおす。(最適でないかもしれないので)
-  for (const i: 1 .. vox.tpat_edit->data_pri.size()) {
-    mutable& tpri = vox.tpat_edit->data_pri;
-    mutable& tsec = vox.tpat_edit->data_sec;
-    update_mipmap_one(tpri[i - 1], tsec[i - 1], tpri[i], tsec[i]);
-    set_distance(enable_short_circuit, tpri[i]);
+  farray{texture_reshaped, multiword_num_words} stex;
+  farray{texture_reshaped, multiword_num_words} dtex;
+  // tpatのmip1以降を一つ若いmipから作る
+  for (const i: 1 .. vox.tpat_edit->data[0].size()) {
+    {
+      for (size_t j: 0 .. multiword_num_words) {
+        stex[j].swap(vox.tpat_edit->data[j][i - 1]);
+        dtex[j].swap(vox.tpat_edit->data[j][i]);
+      }
+      update_mipmap_one(stex, dtex);
+      for (size_t j: 0 .. multiword_num_words) {
+        stex[j].swap(vox.tpat_edit->data[j][i - 1]);
+        dtex[j].swap(vox.tpat_edit->data[j][i]);
+      }
+    }
+    set_distance(enable_short_circuit, vox.tpat_edit->data[0][i]);
     debug_log("update_mipmap_all tpat", i);
   }
-  // tmapのmiplevel==0の代替となるテクスチャの作成
-  texture_reshaped pri0 = vox.tmap_edit->data_pri[0]; // copy
-  texture_reshaped sec0 = vox.tmap_edit->data_sec[0]; // copy
+  // tmapのmiplevel==0の代替となるテクスチャをstexに作成する
+  for (size_t i: 0 .. multiword_num_words) {
+    stex[i] = vox.tmap_edit->data[i][0]; // copy
+  }
   // node_reference以外の時はtmapのmip0のまま、node_referenceのときは
   // tpatの対応するmiplevelから値を拾ってきて書き込む
-  for (const z: 0 .. pri0.get_depth()) {
-    for (const y: 0 .. pri0.get_height()) {
-      for (const x: 0 .. pri0.get_width()) {
-        mutable vpri = pri0.get(x, y, z);
-        mutable vsec = sec0.get(x, y, z);
-        if (is_node_reference(vpri)) {
-          const p = decode_noderef_param(vpri);
+  const ssz = vox.tmap_edit->data[0][0].get_size_uvec3();
+  for (const z: 0 .. ssz.z) {
+    for (const y: 0 .. ssz.y) {
+      for (const x: 0 .. ssz.z) {
+        farray{texel_value, multiword_num_words} val;
+        for (const i, mutable& valw: val) {
+          valw = stex[i].get(x, y, z);
+        }
+        if (is_node_reference(val[0])) {
+          // noderefなのでtpatから値を拾ってくる
+          const p = decode_noderef_param(val[0]);
           const c = p.coord;
           const sc = p.scale;
           const lv = sc + 1;
           if (lv < pat_mip_num) {
-            vpri = vox.tpat_edit->data_pri[lv].get(c.x, c.y, c.z);
-            vsec = vox.tpat_edit->data_sec[lv].get(c.x, c.y, c.z);
+            for (const i, mutable& valw: val) {
+              valw = vox.tpat_edit->data[i][lv].get(c.x, c.y, c.z);
+            }
           } else {
-            vpri = make_filled_voxel();
-            vsec = 0u;
+            val[0] = make_filled_voxel();
           }
         }
-        pri0.set(x, y, z, vpri);
-        sec0.set(x, y, z, vsec);
+        for (const i, const& valw: val) {
+          stex[i].set(x, y, z, valw);
+        }
       }
     }
   }
-  // tmapのmiplevel==1の更新
-  update_mipmap_one(pri0, sec0, vox.tmap_edit->data_pri[1],
-    vox.tmap_edit->data_sec[1]);
-  set_distance(enable_short_circuit, vox.tmap_edit->data_pri[1]);
+  // tmapのmiplevel==1の更新。stexにはtmap mip0代替のテクスチャがすでに
+  // セットされている。
+  {
+    for (size_t i: 0 .. multiword_num_words) {
+      dtex[i].swap(vox.tmap_edit->data[i][1]);
+    }
+    update_mipmap_one(stex, dtex);
+    for (size_t i: 0 .. multiword_num_words) {
+      dtex[i].swap(vox.tmap_edit->data[i][1]);
+    }
+  }
+  set_distance(enable_short_circuit, vox.tmap_edit->data[0][1]);
   debug_log("update_mipmap_all tmap", 1);
   // tmapのmiplevel==2以降の更新
-  for (const i: 2 .. vox.tmap_edit->data_pri.size()) {
+  for (const i: 2 .. vox.tmap_edit->data[0].size()) {
     debug_log("update_mipmap_all tmap", i);
-    mutable& tpri = vox.tmap_edit->data_pri;
-    mutable& tsec = vox.tmap_edit->data_sec;
-    update_mipmap_one(tpri[i - 1], tsec[i - 1], tpri[i], tsec[i]);
-    set_distance(enable_short_circuit, tpri[i]);
+    for (size_t j: 0 .. multiword_num_words) {
+      stex[j].swap(vox.tmap_edit->data[j][i - 1]);
+      dtex[j].swap(vox.tmap_edit->data[j][i]);
+    }
+    update_mipmap_one(stex, dtex);
+    for (size_t j: 0 .. multiword_num_words) {
+      stex[j].swap(vox.tmap_edit->data[j][i - 1]);
+      dtex[j].swap(vox.tmap_edit->data[j][i]);
+    }
+    set_distance(enable_short_circuit, vox.tmap_edit->data[0][i]);
   }
   debug_log("update_mipmap_all end");
 }
