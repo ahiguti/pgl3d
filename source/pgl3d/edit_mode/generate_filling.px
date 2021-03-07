@@ -128,10 +128,11 @@ get_fragments_from_copy_data(subtexture mutable& cp)
 public function varray{subtexture}
 get_fragments(tiled_texture_edit_view mutable& ttev)
 {
-  const cur = ttev.get_cursor_range();
-  // debug_log("generate_filling", "pos", cur.first, "sz", cur.second);
+  const fi = ttev.get_filling(ttev.get_cursor_pos().first);
+  // const cur = ttev.get_cursor_range();
   subtexture copy_data; // 選択領域をここにコピーする
-  copy_from_ttev_tmap(ttev, cur.first, cur.second, copy_data);
+  debug_log("generate_filling", "pos", fi.offset, "sz", fi.size());
+  copy_from_ttev_tmap(ttev, fi.offset, fi.size(), copy_data);
   // 選択領域から断片を切り出す
   return get_fragments_from_copy_data(copy_data);
 }
@@ -144,36 +145,54 @@ generate_filling_one(tiled_texture_edit_view mutable& ttev,
   subtexture cpbuf = make_subtexture(patsz * (1u << scale_l2));
   const num_frs = frs.size();
   uint mutable cnt = 0;
+  /* 最大cntmax個の断片を配置する */
   for (const i: 0 .. cntmax) {
     const frn = rndp->generate() % static_cast{uint}(num_frs);
     const& fr = frs[frn];
-    if (!le_all_uvec3(fr.copy_size, cpbuf.copy_size)) {
+    if (!lt_all_uvec3(fr.copy_size, cpbuf.copy_size)) {
       continue;
     }
     const osz = cpbuf.copy_size - fr.copy_size;
+debug_log("osz=", osz); // FIXME
     uvec3 offset;
     offset.x = rndp->generate() % static_cast{uint}(osz.x);
     offset.y = rndp->generate() % static_cast{uint}(osz.y);
     offset.z = 0; // rndp->generate() % static_cast{uint}(osz.z);
+    const dir_x = rndp->generate() % 2u;
+    const dir_y = rndp->generate() % 2u;
     // TODO: frの回転
-    bool is_space = true;
-    range_foreach(fr.copy_size) bool (uint x, uint y, uint z) {
-      const v = cpbuf.tex[0].get(offset.x + x, offset.y + y, offset.z + z);
-      if (!is_space_voxel(v)) {
-        is_space = false;
-        return false;
+    uvec2 psz = make_uvec2(osz.x, osz.y);
+    bool found = false;
+    // offsetを移動しながら空白を探す
+    for (const px: 0 .. psz.x) {
+      for (const py: 0 .. psz.y) {
+        // offsetからfrの範囲が空白かどうか見る
+        bool is_space = true;
+        range_foreach(fr.copy_size) bool (uint x, uint y, uint z) {
+          const v = cpbuf.tex[0].get(offset.x + x, offset.y + y, offset.z + z);
+          if (!is_space_voxel(v)) {
+            is_space = false;
+            return false;
+          }
+          return true;
+        }
+        if (is_space) {
+          found = true;
+          break;
+        }
+        offset.y = ((dir_y != 0) ? (offset.y + 1u) : ((offset.y + psz.y)))
+          % psz.y;
       }
-      return true;
-    }
-    if (!is_space) {
-      /*
-      if (++cnt > cntmax) {
+      if (found) {
         break;
       }
-      */
-      continue;
+      offset.x = ((dir_x != 0) ? (offset.x + 1u) : ((offset.x + psz.x)))
+        % psz.x;
     }
-    subtexture_copy_range(cpbuf, offset, fr, uvec3(), fr.copy_size);
+    if (found) {
+      subtexture_copy_range(cpbuf, offset, fr, uvec3(), fr.copy_size);
+      debug_log("fill offset=", offset, "sz=", fr.copy_size);
+    }
   }
   // debug_log("genfill paste", cpbuf);
   ttev.tpat_edit_paste_range(coord * (1u << scale_l2), cpbuf.copy_size,
@@ -185,6 +204,10 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
   ptr{rand_generator} const& rndp, varray{subtexture} const& frs,
   uint scale_l2, uvec3 const& patsz, uint cntmax)
 {
+  if (frs.empty()) {
+    debug_log("genilll frs empty");
+    return;
+  }
   const cur = ttev.get_cursor_range();
   const sz = cur.second;
   uvec3 find_empty_cur;
@@ -208,7 +231,7 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
     range_foreach(patsz) void (uint x, uint y, uint z) {
       p.coord = rp.coord + make_uvec3(x, y, z);
       const v = encode_noderef_param(p);
-      ttev.tmap_edit_set(pos, 0, nv);
+      ttev.tmap_edit_set(pos + make_uvec3(x, y, z), 0, v);
     }
     // fillingに登録する
     filling fi;

@@ -51,6 +51,9 @@ public metafunction tiled_voxel_texture
 public metafunction tiled_voxel_texture_load_file
   pgl3d::edit_mode::tiled_voxel_texture::tiled_voxel_texture_load_file;
 
+public metafunction tiled_voxel_texture_prepare
+  pgl3d::edit_mode::tiled_voxel_texture::tiled_voxel_texture_prepare;
+
 public metafunction tiled_voxel_texture_save_file
   pgl3d::edit_mode::tiled_voxel_texture::tiled_voxel_texture_save_file;
 

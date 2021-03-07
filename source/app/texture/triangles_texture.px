@@ -257,6 +257,9 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
   } else {
     debug_log("loaded from raw");
   }
+  // 形式がおかしかったら正常化する
+  tiled_voxel_texture_prepare(*txs.vox, to_uvec3(txs.voxtmap_size_l2),
+    to_uvec3(txs.voxtpat_size_l2), enable_short_circuit);
 }
 
 function void dump_cnt(texture_reshaped const& t, string msg)

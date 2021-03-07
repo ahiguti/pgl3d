@@ -3,7 +3,10 @@
 cd `dirname $0`
 
 ./clean_all.sh
-if ! env PXC_BUILD_NOEXEC=1 ./build_exec.sh ; then
+export PXC_BUILD_NOEXEC=1
+export PXC_BUILD_PROFILE=release_dist
+export PXC_BUILD_CONFIG=Release
+if ! ./build_exec.sh ; then
         echo "build failed"
         exit 1
 fi

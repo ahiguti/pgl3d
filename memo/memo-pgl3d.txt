@@ -2,16 +2,16 @@
 ---------------------------------------------------------------------------
 TODO
 
-- editmodeでeditデータがロードできなかったときにfillingsが無くて落ちる
-
-- F4でmiplevel変更、正しく動作しているのか？
-
 - fillingを使って範囲を埋める
   - 1x1以外のサイズ
 
-- generate_fillingsのfillings登録(done)
+- copy/pasteでfillingもコピー (done)
 
-- copy/pasteでfillingもコピー
+- editmodeでeditデータがロードできなかったときにfillingsが無くて落ちる(done)
+
+- F4でmiplevel変更、正しく動作しているのか？
+
+- generate_fillingsのfillings登録(done)
 
 - cube表面にraycast貼り付けを試してみる
 

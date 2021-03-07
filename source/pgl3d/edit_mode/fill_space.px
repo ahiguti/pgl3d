@@ -29,12 +29,29 @@ fill_space_range(tiled_texture_edit_view mutable& ttev,
   sz_single[7] = 1;
   for (size_t i, const& fi: fills) {
     if (fi.sizes == sz_single) {
+      // 1x1x1サイズのfillspace種として登録
       single_fills.push_back(fi);
     } else {
-      multi_fills.push_back(fi);
+      const& s = fi.sizes;
+      const sz = fi.size();
+      const large = (sz.x > 10 || sz.y > 10 || sz.z > 10);
+        // 大きい
+      const diag = (s[0] != 0 || s[2] != 0 || s[3] != 0 || s[5] != 0 ||
+        s[6] != 0 || s[8] != 0);
+        // 角ボクセルが0以外の大きさを持っている
+      if (large || !diag) {
+        // このfillingはfilling生成種なので除外する
+      } else {
+        // 1x1x1以外のfillspace種として登録
+        multi_fills.push_back(fi);
+      }
     }
   }
   debug_log("single", single_fills.size(), "multi", multi_fills.size());
+  if (single_fills.empty()) {
+    debug_log("no single fill");
+    return;
+  }
   mutable& tex = cp.tex[0];
   const sz = cp.copy_size - make_uvec3(0, 0, 1);
   range_foreach(sz) void (uint x, uint y, uint z) {

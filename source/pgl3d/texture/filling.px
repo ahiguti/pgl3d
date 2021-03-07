@@ -29,6 +29,7 @@ public multithreaded interface filling_map_i filling_map {
   public function uvec3 get_size_l2() const;
   public function void set_size_l2(uvec3 const& p);
   public function ushort get(uvec3 const& p) const;
+  public function void set(uvec3 const& p, ushort v);
   public function filling get_filling(uvec3 const& p) const;
   public function bool set_filling(filling const& fi);
   public function bool erase_filling(uvec3 const& p);
@@ -49,6 +50,9 @@ public multithreaded struct filling_map <filling_map_i> public {
   }
   public function ushort get(uvec3 const& p) const {
     return tex.get(p.x, p.y, p.z);
+  }
+  public function void set(uvec3 const& p, ushort v) {
+    tex.set(p.x, p.y, p.z, v);
   }
   public function varray{filling} get_all() const {
     varray{filling} r;

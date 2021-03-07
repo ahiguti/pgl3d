@@ -935,6 +935,18 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       tex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
     }
     ttev->edit_copy_range(cur.first, cur.second, copy_data.tex, uvec3());
+    if (!get_cursor_tpat()) {
+      const& pos = cur.first;
+      copy_data.filling_tex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
+      range_foreach(copy_data.copy_size) void (uint x, uint y, uint z) {
+        const p = pos + make_uvec3(x, y, z);
+        const v = emt->vox.fillmap.get(p);
+        copy_data.filling_tex.set(x, y, z, v);
+      }
+    } else {
+      copy_data.filling_tex.set_size_l2(0, 0, 0);
+      copy_data.filling_tex.clear();
+    }
     mark_set = true;
     copied = true;
     message = "edit_mode: copy value " + to_string(copy_data.copy_size);
@@ -993,6 +1005,14 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     */
     ttev->edit_paste_range(to_uvec3(mi), to_uvec3(sz), copy_data.tex,
       to_uvec3(cd_mi), index_mask, mmod);
+    if (!get_cursor_tpat()) {
+      const pos = to_uvec3(mi);
+      range_foreach(to_uvec3(sz)) void (uint x, uint y, uint z) {
+        const p = pos + make_uvec3(x, y, z);
+        const v = copy_data.filling_tex.get(x, y, z);
+        emt->vox.fillmap.set(p, v);
+      }
+    }
     // message = "edit_mode: paste value " + to_string(sz);
   }
   private function void convert_to_tmap()
@@ -1504,6 +1524,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function void gen_test_large()
   {
+    // 現在のテクスチャの右端にgen_test()でパターン生成する
     debug_log("gen_test_large");
     set_cursor_tpat(false);
     const texsz = emt->vox.tmap_edit->data[0][0].get_size_uvec3();
@@ -1516,11 +1537,14 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     ttev->set_cursor_pos(pos, pos_e);
     debug_log("gen_test_large cursor", pos, pos_e);
     gen_test();
+      // パターン生成
+    fill_space_range(*ttev, copy_data, rndp);
+      // 生成した領域にfill_spaceを適用
     ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
   }
   private function void gen_test()
   {
-    // テスト中
+    // テストパターン生成
     dbg_gen() {
       debug_log("gen_test");
     }
@@ -1552,6 +1576,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void filling_erase()
   {
     debug_log("filling_erase");
+    if (get_cursor_tpat()) {
+      return;
+    }
     const c = ttev->get_cursor_pos();
     const succ = ttev->erase_filling(c.first);
     if (succ) {
@@ -1562,6 +1589,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void filling_create(glm::vec3 mutable& cursor_move_r)
   {
     debug_log("filling_create");
+    if (get_cursor_tpat()) {
+      return;
+    }
     const cr = ttev->get_cursor_range();
     filling fi;
     fi.offset = cr.first;
@@ -1577,6 +1607,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void filling_select(glm::vec3 mutable& cursor_move_r)
   {
     debug_log("filling_select");
+    if (get_cursor_tpat()) {
+      return;
+    }
     const fi = ttev->get_filling(ttev->get_cursor_pos().first);
     if (fi.size().x == 0) {
       debug_log("filling_select: not found");
@@ -1586,6 +1619,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function void filling_modify(int x, int y, int z)
   {
+    if (get_cursor_tpat()) {
+      return;
+    }
     const fi0 = ttev->get_filling(ttev->get_cursor_pos().first);
     if (fi0.size().x == 0) {
       debug_log("filling_modify: not found");
@@ -1625,6 +1661,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void filling_next(bool revert,
     glm::vec3 mutable& cursor_move_r)
   {
+    if (get_cursor_tpat()) {
+      return;
+    }
     const p = ttev->get_cursor_pos().first;
     const np = revert ? ttev->get_filling_prev(p) : ttev->get_filling_next(p);
     if (np == p) {
@@ -1639,6 +1678,9 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   private function void filling_set_cursor(filling const& fi,
     glm::vec3 mutable& cursor_move_r)
   {
+    if (get_cursor_tpat()) {
+      return;
+    }
     const p0 = to_ivec3(ttev->get_cursor_pos().first);
     const p1 = to_ivec3(fi.offset);
     const d = p1 - p0;

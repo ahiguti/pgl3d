@@ -94,17 +94,17 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
           if (x >= fi.sizes[0] + fi.sizes[1]) {
             c ^= 0x40;
           } else if (x >= fi.sizes[0]) {
-            c ^= 0x20;
+            c ^= 0x80;
           }
           if (y >= fi.sizes[3] + fi.sizes[4]) {
             c ^= 0x4000;
           } else if (y >= fi.sizes[3]) {
-            c ^= 0x2000;
+            c ^= 0x8000;
           }
           if (z >= fi.sizes[6] + fi.sizes[7]) {
             c ^= 0x400000;
           } else if (z >= fi.sizes[6]) {
-            c ^= 0x200000;
+            c ^= 0x800000;
           }
           tview[1].set(mi.x + x, mi.y + y, mi.z + z, c);
         }
@@ -257,8 +257,13 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
     const c0_0 = make_uvec3(c0.x, c0.y, tex_sz.z - 1);
     set_cursor_pos(c0_0, c1);
     for (const i, mutable& tvieww: tview) {
-      texture_data_copy_range_merge_distance(tvieww, edit_mod.first,
-        current_edit->data[i][0], edit_mod.first, edit_mod.second);
+      if (i == 0) {
+        texture_data_copy_range_merge_distance(tvieww, edit_mod.first,
+          current_edit->data[i][0], edit_mod.first, edit_mod.second);
+      } else {
+        texture_data_copy_range(tvieww, edit_mod.first,
+          current_edit->data[i][0], edit_mod.first, edit_mod.second);
+      }
     }
     modified.set_modified(to_ivec3(edit_mod.first),
       to_ivec3(edit_mod.first + edit_mod.second - make_uvec3(1, 1, 1)));

@@ -86,6 +86,10 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
         vox.tpat_edit->data[1].swap(vox.tpat_edit->data_sec);
       }
     }
+  }
+  /*
+  // ロードされたどうかにかかわらず、期待される形式になるように変換する
+  {
     // 必要ならテクスチャをリサイズする
     if (vox.tmap_edit->data[0][0].get_size_l2_uvec3() != tmszl2) {
       debug_log("resize tmap from",
@@ -104,6 +108,33 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
         "to", tmszl2);
       vox.fillmap.set_size_l2(tmszl2);
     }
+  }
+  */
+  //tiled_voxel_texture_parepare(vox, tmszl2, tpszl2, enable_short_circuit);
+}
+
+public function void
+tiled_voxel_texture_prepare(tiled_voxel_texture mutable& vox,
+  uvec3 tmszl2, uvec3 tpszl2, bool enable_short_circuit)
+{
+  // tiled_voxel_textureが期待される形式になるように変換する
+  // 必要ならテクスチャをリサイズする
+  if (vox.tmap_edit->data[0][0].get_size_l2_uvec3() != tmszl2) {
+    debug_log("resize tmap from",
+      vox.tmap_edit->data[0][0].get_size_l2_uvec3(), "to", tmszl2);
+    vox.tmap_edit->resize_texture(tmszl2, enable_short_circuit);
+  }
+  if (vox.tpat_edit->data[0][0].get_size_l2_uvec3() != tpszl2) {
+    debug_log("resize tpat from",
+      vox.tpat_edit->data[0][0].get_size_l2_uvec3(), "to", tpszl2);
+    vox.tpat_edit->resize_texture(tpszl2, enable_short_circuit);
+  }
+  // fillmapは、tmapの各座標に定義されたfillingを保持する。fillmapのサイズは
+  // tmapと同じである必要があるので、異なっていればリサイズする。
+  if (vox.fillmap.get_size_l2() != tmszl2) {
+    debug_log("resize filling from", vox.fillmap.get_size_l2(),
+      "to", tmszl2);
+    vox.fillmap.set_size_l2(tmszl2);
   }
 }
 
