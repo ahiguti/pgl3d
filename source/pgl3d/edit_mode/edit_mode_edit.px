@@ -697,7 +697,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "fragments") {
       // 選択領域からfragmentsを登録する
       copy_fragments();
-    } else if (cmd == "genfill" && toks.size() <= 3) {
+    } else if (cmd == "genfill" && toks.size() <= 4) {
       // 選択領域の部品を使ってfillingを生成する。
       uvec3 patsz = make_uvec3(1u, 1u, 1u);
       uint cntmax = 20;
@@ -1006,11 +1006,14 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     ttev->edit_paste_range(to_uvec3(mi), to_uvec3(sz), copy_data.tex,
       to_uvec3(cd_mi), index_mask, mmod);
     if (!get_cursor_tpat()) {
-      const pos = to_uvec3(mi);
-      range_foreach(to_uvec3(sz)) void (uint x, uint y, uint z) {
-        const p = pos + make_uvec3(x, y, z);
-        const v = copy_data.filling_tex.get(x, y, z);
-        emt->vox.fillmap.set(p, v);
+      debug_log("paste fillingtex", copy_data.filling_tex.size());
+      if (copy_data.filling_tex.size() > 1) {
+        const pos = to_uvec3(mi);
+        range_foreach(to_uvec3(sz)) void (uint x, uint y, uint z) {
+          const p = pos + make_uvec3(x, y, z);
+          const v = copy_data.filling_tex.get(x, y, z);
+          emt->vox.fillmap.set(p, v);
+        }
       }
     }
     // message = "edit_mode: paste value " + to_string(sz);
@@ -1538,8 +1541,10 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     debug_log("gen_test_large cursor", pos, pos_e);
     gen_test();
       // パターン生成
+    copy_value();
     fill_space_range(*ttev, copy_data, rndp);
       // 生成した領域にfill_spaceを適用
+    paste_value(0xff, merge_mode_opaque());
     ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
   }
   private function void gen_test()

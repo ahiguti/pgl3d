@@ -34,6 +34,7 @@ subtexture_compat_deserialize(string const& s)
     r.tex[0].swap(rv1.tex_pri);
     r.tex[1].swap(rv1.tex_sec);
   }
+  r.filling_tex.set_size_l2_uvec3(r.tex[0].get_size_l2_uvec3());
   return r;
 }
 

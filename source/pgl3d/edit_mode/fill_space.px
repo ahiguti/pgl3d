@@ -12,6 +12,32 @@ private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::tiled_texture_edit_view -;
 
+private function {t} bool
+has_floor(t const& tex, uvec3 const& pos, uvec3 const& sz)
+{
+  bool r = true;
+  range_foreach(sz) void (uint x, uint y, uint z) {
+    const v = tex.get(pos.x + x, pos.y + y, pos.z + z);
+    if (!is_filled(v)) {
+      r = false;
+    }
+  }
+  return r;
+}
+
+private function {t} bool
+has_space(t const& tex, uvec3 const& pos, uvec3 const& sz)
+{
+  bool r = true;
+  range_foreach(sz) void (uint x, uint y, uint z) {
+    const v = tex.get(pos.x + x, pos.y + y, pos.z + z);
+    if (!is_space_voxel(v)) {
+      r = false;
+    }
+  }
+  return r;
+}
+
 public function void
 fill_space_range(tiled_texture_edit_view mutable& ttev,
   subtexture mutable& cp, ptr{rand_generator} const& rndp)
@@ -54,22 +80,112 @@ fill_space_range(tiled_texture_edit_view mutable& ttev,
   }
   mutable& tex = cp.tex[0];
   const sz = cp.copy_size - make_uvec3(0, 0, 1);
-  range_foreach(sz) void (uint x, uint y, uint z) {
-    const bv = tex.get(x, y, z);
-    const v = tex.get(x, y, z + 1u);
-    if (is_filled(bv) && is_space_voxel(v)) {
-      const i = rndp->generate() % static_cast{uint}(single_fills.size());
-      debug_log("fill", i, x, y, z);
-      const& fi = single_fills[i];
-      const& ofs = fi.offset; // tmapのどこにあるか
-      const fival = ttev.tmap_edit_get(ofs, 0, 0);
-      if (is_node_reference(fival)) {
-        cp.tex[0].set(x, y, z + 1u, fival);
-        for (size_t i: 1u .. m::symbol{subtexture, "num_tex"}) {
-          cp.tex[1].set(x, y, z + 1u, 0u);
+    // テクスチャのサイズからzだけ1を引いたもの
+  if (!multi_fills.empty()) {
+    size_t num_multi = 10000;
+    fill_multi(multi_fills, 10000, make_uvec3(5, 5, 3));
+  }
+  if (!single_fills.empty()) {
+    fill_multi(single_fills, 10000, make_uvec3(5, 10, 1));
+  }
+  function void fill_multi(varray{filling} const& fills, size_t num,
+    uvec3 const& maxmul) {
+    for (const iter: 0 .. num) {
+      const i = rndp->generate() % static_cast{uint}(fills.size());
+      const& fi = fills[i];
+      const& fofs = fi.offset; // tmapのどこにあるか
+      const min_fsz = fi.size();
+        // 書き込む最小サイズ
+      const mu = make_uvec3(
+        rndp->generate() % maxmul.x,
+        rndp->generate() % maxmul.y, 
+        rndp->generate() % maxmul.z);
+        // 中間部分の繰り返し回数-1
+      const& s = fi.sizes;
+      const fsz = min_fsz + mu * make_uvec3(s[1], s[4], s[7]);
+        // 書き込む範囲の大きさ
+      if (!lt_all_uvec3(fsz, sz)) {
+        continue;
+      }
+      const rndsz = sz - fsz; // 各成分は1以上
+      mutable pos = make_uvec3(
+        rndp->generate() % rndsz.x,
+        rndp->generate() % rndsz.y,
+        rndp->generate() % rndsz.z + 1u);
+        // 書き込む位置の始点。床のぶんzに+1する。
+      bool found = false;
+      // zを変化させながら書き込める位置を探す
+      for (const k: 0 .. rndsz.z) {
+        const floor_pos = pos - make_uvec3(0, 0, 1);
+        if (!has_floor(cp.tex[0], floor_pos, make_uvec3(fsz.x, fsz.y, 1u))
+          || !has_space(cp.tex[0], pos, fsz)) {
+          // 直下が床でないか、範囲が空白ではない
+          pos.z += 1u;
+          if (pos.z == rndsz.z + 1u) {
+            pos.z = 1u;
+          }
+          continue;
         }
-      } else {
-        debug_log("warning: not a node reference", fi);
+        found = true;
+        break;
+      }
+      if (!found) {
+        // 書き込める場所が見つからなかった
+        continue;
+      }
+      function uint rd_offset(uint x, uint fszx, uint s0, uint s1, uint s2) {
+        // 0 <= x < s[0]ならwx=x
+        // fsz.x - s[2] <= x ならwx=s[0]+s[1]+x-(fsz.x-s[2])
+        // それ以外なら wx = s0 + (x - s0) % s1
+        uint r = 0;
+        if (x < s0) {
+          // 左
+          r = x;
+        } else if (fszx - s2 <= x) {
+          // 右
+          r = s0 + s1 + x - (fszx - s2);
+        } else {
+          // 中央
+          r = s0 + (x - s0) % s1;
+        }
+        //debug_log("rd_offset x=", x, "fszx=", fszx, "s=", s0, s1, s2,
+        //  "r=", r);
+        return r;
+      }
+      //debug_log("fill multi fsz=", fsz, "minsz=", min_fsz);
+      range_foreach(fsz) void (uint x, uint y, uint z) {
+        // x,y,zは書き込み先オフセット。それからコピー元オフセットを計算
+        uint rx = rd_offset(x, fsz.x, s[0], s[1], s[2]);
+        uint ry = rd_offset(y, fsz.y, s[3], s[4], s[5]);
+        uint rz = rd_offset(z, fsz.z, s[6], s[7], s[8]);
+        for (size_t i: 0u .. m::symbol{subtexture, "num_tex"}) {
+          // const v = cp.tex[i].get(fofs.x + x, fofs.y + y, fofs.z + z);
+          const tvi = static_cast{texture_value_index}(i);
+          const v = ttev.tmap_edit_get(fofs + make_uvec3(rx, ry, rz), tvi, 0);
+          const wpos = pos + make_uvec3(x, y, z);
+          cp.tex[i].set(wpos.x, wpos.y, wpos.z, v);
+        }
+      }
+    }
+  }
+  if (!single_fills.empty()) {
+    range_foreach(sz) void (uint x, uint y, uint z) {
+      const bv = tex.get(x, y, z);
+      const v = tex.get(x, y, z + 1u);
+      if (is_filled(bv) && is_space_voxel(v)) {
+        const i = rndp->generate() % static_cast{uint}(single_fills.size());
+        // debug_log("fill", i, x, y, z);
+        const& fi = single_fills[i];
+        const& fofs = fi.offset; // tmapのどこにあるか
+        const fival = ttev.tmap_edit_get(fofs, 0, 0);
+        if (is_node_reference(fival)) {
+          cp.tex[0].set(x, y, z + 1u, fival);
+          for (size_t i: 1u .. m::symbol{subtexture, "num_tex"}) {
+            cp.tex[1].set(x, y, z + 1u, 0u);
+          }
+        } else {
+          debug_log("warning: not a node reference", fi);
+        }
       }
     }
   }
