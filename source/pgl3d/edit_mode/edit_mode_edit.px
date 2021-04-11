@@ -1008,11 +1008,17 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     if (!get_cursor_tpat()) {
       debug_log("paste fillingtex", copy_data.filling_tex.size());
       if (copy_data.filling_tex.size() > 1) {
+        const ftsz = copy_data.filling_tex.get_size_uvec3();
         const pos = to_uvec3(mi);
         range_foreach(to_uvec3(sz)) void (uint x, uint y, uint z) {
-          const p = pos + make_uvec3(x, y, z);
-          const v = copy_data.filling_tex.get(x, y, z);
-          emt->vox.fillmap.set(p, v);
+          const spos = make_uvec3(x, y, z);
+          const p = pos + spos;
+          // 拡大処理などではcopy_dataのfilling_texの大きさがtexのサイズと
+          // 一致していないことがあるので範囲チェックする
+          if (lt_all_uvec3(spos, ftsz)) {
+            const v = copy_data.filling_tex.get(x, y, z);
+            emt->vox.fillmap.set(p, v);
+          }
         }
       }
     }

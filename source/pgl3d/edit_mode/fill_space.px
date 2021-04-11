@@ -86,7 +86,7 @@ fill_space_range(tiled_texture_edit_view mutable& ttev,
     fill_multi(multi_fills, 10000, make_uvec3(5, 5, 3));
   }
   if (!single_fills.empty()) {
-    fill_multi(single_fills, 10000, make_uvec3(5, 10, 1));
+    fill_multi(single_fills, 10000, make_uvec3(2, 2, 5));
   }
   function void fill_multi(varray{filling} const& fills, size_t num,
     uvec3 const& maxmul) {
