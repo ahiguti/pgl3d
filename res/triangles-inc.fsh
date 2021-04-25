@@ -802,10 +802,15 @@ int raycast_tilemap(
       value1_r.a = 0;
       value0_r = value1_r;
     }
+    /*
     int hit_node_type = int(round_255(hit_value.a));
     value0_r = hit_node_type == 255 ? hit_value : value1_r;
       // value0_rはemissionのrgb値を保持する。filledならprimaryから、それ以外
       // ならsecondaryの色をそのまま使う。
+    */
+    // ^^ どういう意味があるのか忘れた。とりあえず常にsecondaryの色をemission
+    // の色にそのまま使う。
+    value0_r = value1_r;
   }
   // if (hit < 0) {
   //   dbgval = vec4(1.0, 1.0, 0.0, 1.0);
