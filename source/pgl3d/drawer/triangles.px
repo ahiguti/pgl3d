@@ -2,8 +2,8 @@ private threaded namespace pgl3d::drawer::triangles "export-unsafe";
 public import common -;
 public import meta m;
 public import pgl3d::drawer::base -;
-public import pgl3d::edit_mode::edit_mode_edit -;
-public import pgl3d::edit_mode::edit_mode_noedit -;
+public import pgl3d::edit_mode::edit_control -;
+public import pgl3d::edit_mode::noedit_control -;
 
 private tsvaluetype struct triangles_uniforms()
 {
@@ -184,7 +184,7 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
     return main_drawer->draw_sub_step(ssubtype, step, sm_index, ddata,
       get_vertices_vbid(), get_instances_vbid());
   }
-  public function option{ptr{edit_mode_i}} get_edit_mode() const
+  public function option{ptr{edit_control_i}} get_edit_mode() const
   {
     return main_drawer->get_edit_mode();
   }
@@ -222,7 +222,7 @@ public struct drawer_triangles(shader_config const& glc0,
   ptr{gl_texture} texture_voxsurf = make_ptr{gl_texture}();
   ptr{gl_texture} texture_env = make_ptr{gl_texture}();
   ptr{gl_texture} texture_depth_rd = make_ptr{gl_texture}();
-  option{ptr{edit_mode_i}} edit_mode_ptr;
+  option{ptr{edit_control_i}} edit_mode_ptr;
   bool const raycast_cull_front =
     (glc.conf.get("raycast_cull_front", 1, 0, 1) != 0);
   bool const update_frag_depth =
@@ -293,11 +293,11 @@ public struct drawer_triangles(shader_config const& glc0,
 	}
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
-        edit_mode_ptr.some = make_ptr{edit_mode_edit}(emt);
-        debug_log("create edit_mode_edit instance");
+        edit_mode_ptr.some = make_ptr{edit_control}(emt);
+        debug_log("create edit_control instance");
       } else {
-        edit_mode_ptr.some = make_ptr{edit_mode_noedit}(emt);
-        debug_log("create edit_mode_noedit instance");
+        edit_mode_ptr.some = make_ptr{noedit_control}(emt);
+        debug_log("create noedit_control instance");
       }
     }
     debug_log("drawer_triangles init ", stype, "done", vbid_triangles,
@@ -715,7 +715,7 @@ public struct drawer_triangles(shader_config const& glc0,
       }
     }
   }
-  public function option{ptr{edit_mode_i}} get_edit_mode() const
+  public function option{ptr{edit_control_i}} get_edit_mode() const
   {
     return edit_mode_ptr;
   }

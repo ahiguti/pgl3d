@@ -1,14 +1,14 @@
-private threaded namespace pgl3d::edit_mode::edit_mode_noedit "use-unsafe";
+private threaded namespace pgl3d::edit_mode::noedit_control "use-unsafe";
 private import common -;
 private import meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
 
-public struct edit_mode_noedit(ptr{edit_mode_texture} const& emt0)
-<edit_mode_i>
+public struct noedit_control(ptr{edit_mode_texture} const& emt0)
+<edit_control_i>
 {
-  // edit_modeが無効のときのedit_mode_i実装。view無しでeditを直接glの
+  // edit_modeが無効のときのedit_control_i実装。view無しでeditを直接glの
   // テクスチャに反映させる。
   private ptr{edit_mode_texture} emt = emt0;
     // emt->voxがtiled_voxel_texture

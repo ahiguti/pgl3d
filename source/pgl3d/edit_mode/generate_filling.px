@@ -128,7 +128,12 @@ get_fragments_from_copy_data(subtexture mutable& cp)
 public function varray{subtexture}
 get_fragments(tiled_texture_edit_view mutable& ttev)
 {
+  // カーソルがseeds
   const fi = ttev.get_filling(ttev.get_cursor_pos().first);
+  if (!fi.is_seed_filling()) {
+    debug_log("get_fragments: not seed_filling");
+    return varray{subtexture}();
+  }
   // const cur = ttev.get_cursor_range();
   subtexture copy_data; // 選択領域をここにコピーする
   debug_log("generate_filling", "pos", fi.offset, "sz", fi.size());
@@ -200,16 +205,21 @@ debug_log("osz=", osz); // FIXME
 }
 
 public function void
-generate_filling(tiled_texture_edit_view mutable& ttev,
+generate_filling_from_fragments(tiled_texture_edit_view mutable& ttev,
   ptr{rand_generator} const& rndp, varray{subtexture} const& frs,
-  uint scale_l2, uvec3 const& patsz, uint cntmax)
+  uint scale_l2, uvec3 const& patsz, uint cntmax, uvec3 const& wrpos,
+  uvec3 const& sz)
 {
+  debug_log("generate_filling", wrpos, sz);
   if (frs.empty()) {
     debug_log("genilll frs empty");
     return;
   }
+  /*
   const cur = ttev.get_cursor_range();
+  const wrpos = cur.first;
   const sz = cur.second;
+  */
   uvec3 find_empty_cur;
   const bsz = sz / patsz;
   range_foreach(bsz) bool (uint bx, uint by, uint bz) {
@@ -217,7 +227,7 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
     const x = bx * patsz.x;
     const y = by * patsz.y;
     const z = bz * patsz.z;
-    const pos = cur.first + make_uvec3(x, y, z);
+    const pos = wrpos + make_uvec3(x, y, z);
     // tmapの(x,y,z)にpatszの個のnoderefを作る
     const nv = find_empty_tpat(ttev, ttev.tpat_size, find_empty_cur,
       scale_l2, ttev.get_max_tile_scale_log2(), patsz);
@@ -240,6 +250,7 @@ generate_filling(tiled_texture_edit_view mutable& ttev,
     fi.sizes[4] = patsz.y;
     fi.sizes[7] = patsz.z;
     ttev.set_filling(fi);
+    debug_log("genfill register", fi);
     return true;
   }
 }

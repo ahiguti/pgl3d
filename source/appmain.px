@@ -560,7 +560,7 @@ private struct app_app()
   public string_map app_commands;
   public string app_status_message;
   // public varray{bool} prev_joy_buttons;
-  public option{ptr{edit_mode_i}} edit_mode;
+  public option{ptr{edit_control_i}} edit_mode;
   public bool raycast_cull_front = false;
   public int raycast_layer = 0;
   public bool enable_dbgui = false;

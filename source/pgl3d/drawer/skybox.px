@@ -110,9 +110,9 @@ public struct drawer_skybox(shader_config const& glc,
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
     bo.draw(0, sdr);
   }
-  public function option{ptr{edit_mode_i}} get_edit_mode() const
+  public function option{ptr{edit_control_i}} get_edit_mode() const
   {
-    return option{ptr{edit_mode_i}}();
+    return option{ptr{edit_control_i}}();
   }
 }
 

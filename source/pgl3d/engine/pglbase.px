@@ -141,10 +141,10 @@ public threaded struct node_common_data()
 }
 
 public interface pgldrawer_export_i {
-  public function option{ptr{edit_mode_i}} get_edit_mode() const;
+  public function option{ptr{edit_control_i}} get_edit_mode() const;
 }
 
-public interface edit_mode_i {
+public interface edit_control_i {
   public function void on_key_pressed(int scancode, uint modmask,
     glm::vec3 mutable& cursor_move_r, string mutable& msg_r);
   public function void on_textinput(string const& str, string mutable& msg_r);

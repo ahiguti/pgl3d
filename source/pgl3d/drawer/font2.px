@@ -118,9 +118,9 @@ public struct drawer_font2(shader_config const& glc,
     glUniform2fv(sdr.u_screen_size_px, 1, screen_size_px.to_crawptr());
     ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
   }
-  public function option{ptr{edit_mode_i}} get_edit_mode() const
+  public function option{ptr{edit_control_i}} get_edit_mode() const
   {
-    return option{ptr{edit_mode_i}}();
+    return option{ptr{edit_control_i}}();
   }
 }
 

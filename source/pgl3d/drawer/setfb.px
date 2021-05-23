@@ -203,9 +203,9 @@ public struct drawer_setfb(shader_config const& glc,
     glViewport(0, 0, static_cast{GLsizei}(viewport.x),
       static_cast{GLsizei}(viewport.y));
   }
-  public function option{ptr{edit_mode_i}} get_edit_mode() const
+  public function option{ptr{edit_control_i}} get_edit_mode() const
   {
-    return option{ptr{edit_mode_i}}();
+    return option{ptr{edit_control_i}}();
   }
 }
 

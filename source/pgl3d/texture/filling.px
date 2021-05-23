@@ -25,6 +25,24 @@ public threaded struct filling {
   }
 }
 
+public threaded function bool filling_is_seed_filling(filling const& fi) {
+  // filling生成種を格納するためのfillingであるかどうかを返す。filling生成種
+  // はそれらを複数配置して1x1からnxmサイズのfillingを自動生成するときの種と
+  // なるもの。
+  const& s = fi.sizes;
+  const sz = fi.size();
+  const large = (sz.x > 10 || sz.y > 10 || sz.z > 10);
+    // 大きい
+  const diag = (s[0] != 0 || s[2] != 0 || s[3] != 0 || s[5] != 0 ||
+    s[6] != 0 || s[8] != 0);
+    // 角ボクセルが0以外の大きさを持っている
+  if (large || !diag) {
+    // このfillingはfilling生成種を格納するためのもの。
+    return true;
+  }
+  return false;
+}
+
 public multithreaded interface filling_map_i filling_map {
   public function uvec3 get_size_l2() const;
   public function void set_size_l2(uvec3 const& p);

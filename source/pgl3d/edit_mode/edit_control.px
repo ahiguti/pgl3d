@@ -1,4 +1,4 @@
-private threaded namespace pgl3d::edit_mode::edit_mode_edit "use-unsafe";
+private threaded namespace pgl3d::edit_mode::edit_control "use-unsafe";
 private import common -;
 private import meta m;
 private import pgl3d::edit_mode::common -;
@@ -30,8 +30,8 @@ private metafunction dbg_noderef{f} no_operation;
 
 private metafunction save_dir "/build/saved/";
 
-public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
-<edit_mode_i>
+public struct edit_control(ptr{edit_mode_texture} const& emt0)
+<edit_control_i>
 {
   public function void on_key_pressed(int scancode, uint modmask,
     glm::vec3 mutable& cursor_move_r, string mutable& msg_r)
@@ -699,6 +699,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       copy_fragments();
     } else if (cmd == "genfill" && toks.size() <= 4) {
       // 選択領域の部品を使ってfillingを生成する。
+      // "fragments"で同等の処理をするようにしたのでこのコマンドは不要
       uvec3 patsz = make_uvec3(1u, 1u, 1u);
       uint cntmax = 20;
       if (toks.size() >= 2) {
@@ -710,7 +711,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
       if (toks.size() >= 4) {
         cntmax = from_string{uint}(toks[3]);
       }
-      gen_fill(patsz, cntmax);
+      gen_fill_from_fragments(patsz, cntmax);
     } else if (cmd == "fill") {
       // fillingsを選択範囲へ埋める
       fill_space();
@@ -1570,14 +1571,27 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
   }
   private function void copy_fragments()
   {
-    fragments = get_fragments(*ttev);
-    debug_log("copy_fragments", fragments.size());
-    message = "fragments " + to_string(fragments.size());
+    const fr = get_fragments(*ttev);
+    if (!fr.empty()) {
+      fragments = fr;
+      debug_log("copy_fragments", fragments.size());
+      message = "fragments " + to_string(fragments.size());
+      const fi = ttev->get_filling(ttev->get_cursor_pos().first);
+      uvec3 const patsz = make_uvec3(1u, 1u, 1u);
+      uint const cntmax = 20;
+      const pos = fi.offset + fi.size().z;
+      const num = make_uvec3(4, 4, 1);
+      generate_filling_from_fragments(*ttev, rndp, fragments,
+        cur_tile_scale_log2, patsz, cntmax, pos, patsz * num);
+    }
   }
-  private function void gen_fill(uvec3 const& patsz, uint cntmax)
+  private function void gen_fill_from_fragments(uvec3 const& patsz,
+    uint cntmax)
   {
-    generate_filling(*ttev, rndp, fragments, cur_tile_scale_log2,
-      patsz, cntmax);
+    // "fragments"で同等の処理をするようにしたのでこの関数は不要
+    const cur = ttev->get_cursor_range();
+    generate_filling_from_fragments(*ttev, rndp, fragments,
+      cur_tile_scale_log2, patsz, cntmax, cur.first, cur.second);
   }
   private function void fill_space()
   {
@@ -1684,6 +1698,7 @@ public struct edit_mode_edit(ptr{edit_mode_texture} const& emt0)
     const fi = ttev->get_filling(np);
     const d = to_ivec3(np) - to_ivec3(p);
     move_cursor(d.x, d.y, d.z, cursor_move_r);
+    debug_log("set cursor filling", fi);
     ttev->set_cursor_filling(fi);
   }
   private function void filling_set_cursor(filling const& fi,

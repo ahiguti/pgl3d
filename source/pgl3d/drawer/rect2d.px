@@ -69,9 +69,9 @@ public struct drawer_rect2d(shader_config const& glc,
     glUseProgram(sdr.program);
     ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
   }
-  public function option{ptr{edit_mode_i}} get_edit_mode() const
+  public function option{ptr{edit_control_i}} get_edit_mode() const
   {
-    return option{ptr{edit_mode_i}}();
+    return option{ptr{edit_control_i}}();
   }
 }
 
