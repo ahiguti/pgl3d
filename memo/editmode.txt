@@ -106,10 +106,11 @@ dedup [force] [width] [height] [depth]
 unused
         参照されていないタイルパターンを削除する。
 fragments
-        選択中のfillingからgenfill用の断片を登録する。それまでに登録されて
-        いた断片は消される。(TODO: 現在RSHIFT-Cしないといけないがcopyするだけ
-        でよいのでは)
+        カーソル位置のfillingからgenfill用の断片を登録する。それまでに登録
+        されていた断片は消される。現在位置おfillingの上に断片から生成された
+        fillingを定義する。
 genfill [width] [height]
+        (現バージョンでは不要)
         fragmentsで登録した断片を使ってランダムにtpatを作り、選択範囲へその
         参照をセットし、fillingを定義する。現在のスケール値のtpatを作る。
         width、heightを指定するとその数のtpatを占めるようなfillingを定義する。
@@ -135,8 +136,7 @@ gentest
 gentest手順
 
 1. 断片パターンをfillingにセットし、"fragments"で断片を登録
-2. "genfill"で断片からfillingを生成
+2. (不要になった) "genfill"で断片からfillingを生成
 3. "gentest"でテストパターン生成・filling適用
-
 
 

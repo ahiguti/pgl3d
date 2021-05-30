@@ -8,6 +8,10 @@ private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_texture -;
 
+public metafunction absmax_tile_scale_log2 6;
+  // max_tile_scale_log2に指定できる値の最大値。シェーダの計算精度の
+  // 限界から6程度。6なら64x64x64タイルが最大となる。
+
 private metafunction dbg_cursor{f} no_operation;
 private metafunction dbg_paste{f} no_operation;
 
@@ -373,6 +377,6 @@ public struct ttev_state() {
   public uvec3 cursor_tpat_1;
   public uvec3 cursor_tmap_0;
   public uvec3 cursor_tmap_1;
-  public uint max_tile_scale_log2 = 4;
+  public uint max_tile_scale_log2 = absmax_tile_scale_log2;
 }
 

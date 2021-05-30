@@ -605,6 +605,8 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
         return;
       }
       debug_log("failed to load", fn);
+    } else if (cmd == "scale" && toks.size() == 1) {
+      message = "current scale=" + to_string(cur_tile_scale_log2);
     } else if (cmd == "scale" && toks.size() == 2) {
       // 現在のタイルサイズを変更する。新規タイル割り当ての際にこの
       // 値が影響する。
@@ -615,6 +617,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
         debug_log("tile scale:", tsc);
         cur_tile_scale_log2 = tsc;
         find_empty_cur = uvec3();
+        message = "setting scale=" + to_string(cur_tile_scale_log2);
       }
     } else if (cmd == "maxscale" && toks.size() == 1) {
       // 最大タイルサイズを取得する。
@@ -639,6 +642,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "dedup") {
       // タイルパターンの重複排除と再配置をおこなう。現在のmaxscale値に
       // 応じた配置になる。参照されていないパターンは削除される。
+      // maxscale値より大きいパターンも削除されるので注意。
       bool force_flag = false;
       uvec3 szl2 = ttev->tpat_size_l2;
       {
@@ -665,7 +669,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
         debug_log("dedup tpat tpat_szl2=", ttev->tpat_size_l2,
           "range_szl2=", szl2);
       }
-      message = dedup_tpat(*ttev, ttev->get_max_tile_scale_log2(),
+      message = dedup_normalize_tpat(*ttev, ttev->get_max_tile_scale_log2(),
         force_flag, szl2);
     /*
     } else if (cmd == "dedup" && toks.size() == 1) {
@@ -682,7 +686,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
     } else if (cmd == "unused" && toks.size() == 1) {
       // 参照されていないタイルパターンを削除する。
       debug_log("erase_unused_tpat");
-      erase_unused_tpat(*ttev);
+      message = erase_unused_tpat(*ttev);
     } else if (cmd == "gen" && toks.size() >= 5) {
       int proc = from_string{int}(toks[1]);
       uvec3 sz;
@@ -1577,12 +1581,15 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
       debug_log("copy_fragments", fragments.size());
       message = "fragments " + to_string(fragments.size());
       const fi = ttev->get_filling(ttev->get_cursor_pos().first);
-      uvec3 const patsz = make_uvec3(1u, 1u, 1u);
-      uint const cntmax = 20;
-      const pos = fi.offset + fi.size().z;
-      const num = make_uvec3(4, 4, 1);
-      generate_filling_from_fragments(*ttev, rndp, fragments,
-        cur_tile_scale_log2, patsz, cntmax, pos, patsz * num);
+      mutable pos = fi.offset + fi.size().z;
+      for (uint s: 3u .. 7u) {
+        uvec3 const patsz = make_uvec3(1u, 1u, 1u);
+        uint const cntmax = 1u << (s * 2);
+        const num = make_uvec3(4, 4, 1);
+        generate_filling_from_fragments(*ttev, rndp, fragments,
+          s, patsz, cntmax, pos, patsz * num);
+        pos.z += 1u;
+      }
     }
   }
   private function void gen_fill_from_fragments(uvec3 const& patsz,
@@ -1604,12 +1611,21 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
     if (get_cursor_tpat()) {
       return;
     }
+    const cur = ttev->get_cursor_range();
+    bool succ = true;
+    range_foreach(cur.second) void (uvec3 const& v) {
+      debug_log("cur", cur, "v", v);
+      succ |= ttev->erase_filling(cur.first + v);
+    }
+    /*
     const c = ttev->get_cursor_pos();
     const succ = ttev->erase_filling(c.first);
+    */
     if (succ) {
+      const c = ttev->get_cursor_pos();
       ttev->set_cursor_pos(c.first, c.second); // cursor fillingが解除される
     }
-    debug_log("filling_erase", c.first, succ);
+    debug_log("filling_erase", cur, succ);
   }
   private function void filling_create(glm::vec3 mutable& cursor_move_r)
   {

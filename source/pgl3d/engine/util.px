@@ -206,7 +206,11 @@ range_foreach(uvec3 const& sz)
     for (const z: 0 .. sz.z) {
       for (const y: 0 .. sz.y) {
         for (const x: 0 .. sz.x) {
-          c = f(x, y, z);
+          if (m::eq{m::size{m::args{f}}, 3}) {
+            c = f(x, y, z);
+          } else {
+            c = f(make_uvec3(x, y, z));
+          }
           if (!c) { break; }
         }
         if (!c) { break; }
@@ -217,7 +221,11 @@ range_foreach(uvec3 const& sz)
     for (const z: 0 .. sz.z) {
       for (const y: 0 .. sz.y) {
         for (const x: 0 .. sz.x) {
-          f(x, y, z);
+          if (m::eq{m::size{m::args{f}}, 3}) {
+            f(x, y, z);
+          } else {
+            f(make_uvec3(x, y, z));
+          }
         }
       }
     }
