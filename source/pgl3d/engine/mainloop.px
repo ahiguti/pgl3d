@@ -369,6 +369,10 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   }
   private function void update_fullscreen()
   {
+    /*
+    // この処理は無効かしておく。
+    // windowsで拡大率を100%以外にするとおかしくなる。
+    // 複数ディスプレイを持つときおかしくなる。
     if (fullscreen != 0) {
       saved_window_flags = SDL_GetWindowFlags(sdlc.sdl_window);
       debug_log("window flags", saved_window_flags, SDL_WINDOW_MAXIMIZED);
@@ -385,6 +389,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       SDL_SetWindowSize(sdlc.sdl_window, dm.w, dm.h);
     } else {
     }
+    */
     SDL_Enum flag = 0;
     if (m::ne{is_macos, 0}) {
       flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
