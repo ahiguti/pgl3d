@@ -265,41 +265,6 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   return node_type;
 }
 
-int tilemap_fetch_debug(in vec3 pos, int tmap_mip, int tpat_mip)
-{
-  // float distance_unit = distance_unit_tmap_mip;
-  vec3 curpos_f = pos * virt3_size + vec3(0.5);
-  vec3 curpos_i = div_rem(curpos_f, 1.0);
-  vec3 curpos_t = floor(curpos_i / tile3_size);
-  vec3 curpos_tr = curpos_i - curpos_t * tile3_size; // 0から15の整数
-  <%if><%is_gl3_or_gles3/>
-  ivec3 icp = ivec3(curpos_t);
-  vec4 value = texelFetch(sampler_voxtmap, icp, 0);
-  <%else/>
-  vec4 value = <%texture3d/>(sampler_voxtmap, curpos_t / map3_size);
-  <%/>
-  int node_type = int(round_255(value.a));
-/*
-  bool is_pat = (node_type == 1);
-  if (is_pat) {
-    vec3 curpos_tp = round_255(value.rgb) * tile3_size;
-      // 16刻み4096迄
-    // distance_unit = distance_unit_tpat_mip;
-    <%if><%is_gl3_or_gles3/>
-    value = texelFetch(sampler_voxtpat,
-      ivec3(curpos_tp + curpos_tr) >> tpat_mip, tpat_mip);
-    <%else/>
-    value = <%texture3d/>(sampler_voxtpat,
-      (curpos_tp + curpos_tr) / pattex3_size);
-    <%/>
-    // value = vec4(1.0, 1.0, 1.0, 1.0);
-    // value.xyz = vec3(0.0);
-    node_type = int(round_255(value.a));
-  }
-*/
-  return node_type;
-}
-
 int raycast_waffle(inout vec3 pos, in vec3 fragpos, in vec3 ray,
   in vec3 mi, in vec3 mx, in int miplevel)
 {
@@ -458,9 +423,10 @@ int raycast_tilemap(
   inout vec3 hit_nor,
   in float selfshadow_para, inout float lstr_para, inout int miplevel,
   in bool enable_variable_miplevel)
+{
   // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
   // 重くなるのでメリット薄い。
-{
+  // enable_variable_miplevel = false;
   /*
   { // FIXME
     float vx = maptex3_size_log2.x == 10 ? 1.0 : 0.0;
@@ -473,7 +439,8 @@ int raycast_tilemap(
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
-    // 0を超えるとtpatをmip、tile3_size_log2を超えるとtmapもmip
+    // カメラからの距離が大きいとmiplevelに大きい値が指定される。
+    // 0を超えるとtpatをmip、tile3_size_log2を超えるとtmapもmip。
   bool mip_detail = false; // 詳細モードかどうか
   if (enable_variable_miplevel && max_vec3(aabb_max - aabb_min) > 0.125f) {
     // 長距離空白のイテレートを速くするために大きいmiplevelから開始する。
@@ -495,16 +462,18 @@ int raycast_tilemap(
     // posはテクスチャ座標(0,1)。curpos_iはテクスチャ内位置の整数部分、
     // curpos_fは小数部分。raycast処理のあいだ、小数部分が0.0と1.0ちょうど
     // で境界を表すので、整数部分と小数部分を分離して保持する必要がある。
+    // curposは仮想テクスチャの最小ボクセルを1.0とする。
   value0_r = vec4(0.0, 0.0, 0.0, 1.0);
   value1_r = vec4(0.0, 0.0, 0.0, 1.0);
   int hit = -1;
+  bool hit_ground = false;
   bool hit_tpat;
   int tpat_coord_mip;
   int hit_tpat_coord_mip;
   vec3 hit_coord;
   vec3 hit_coord_small;
     // 衝突したときのテクスチャ座礁のボクセル内オフセット
-  vec4 hit_value = vec4(0.0);
+  vec4 hit_value = vec4(0.0); // FIXME 使ってない？
   int node_type = 0;
   int i;
   int imax = <%raycast_iter/>;
@@ -514,6 +483,7 @@ int raycast_tilemap(
   if (debug_scale) {
     imax = 512;
   }
+  // raycastループ
   for (i = 0; i < imax; ++i) {
     if (mip_detail && hit < 0) {
       // 詳細モードであればカメラからの距離に応じたmiplevelでテクスチャを引く
@@ -544,9 +514,10 @@ int raycast_tilemap(
       continue;
     }
     bool is_pat = (node_type == 1);
+      // 現在見ているボクセルがタイルパターン参照であるかどうか
     float distance_unit = distance_unit_tmap_mip;
       // 現在見ているボクセルの大きさ。パターン参照のmip0なら1, マップ即値の
-      // mip0なら16になる。
+      // mip0なら16(64でないか?)になる。
     vec3 tpat_rot = vec3(0.0);
       // tpat参照時に適用する軸入れ替え。tpat参照しないときは入れ替えない。
     vec3 tpat_sgn = vec3(1.0);
@@ -602,9 +573,10 @@ int raycast_tilemap(
       lim_dist_p = vec3(ivec3(tilesz - 1.0 - tile_coord_sc)
         >> tpat_coord_mip);
     }
+    // ここまでは現在座標が curpos_i + curpos_f になっていたが、ここで
     // curpos_iとcurpos_fを、今いるボクセルの大きさ(distance_unit)を単位と
     // したもの再計算する。curpos_iはdistance_unit刻み、curpos_fは
-    // 1.0以下の値になる。本来の現在座標(curpos)は
+    // 1.0以下の値になる。再計算以降、現在座標(curpos)は
     // curpos_i + curpos_f * distance_unit で求まる。
     {
       vec3 curpos_i_du = floor(curpos_i / distance_unit);
@@ -613,7 +585,7 @@ int raycast_tilemap(
       curpos_f = clamp(curpos_f, 0.0, 1.0); // FIXME: 必要？
         // curpos_fは(0, 1)範囲の値をとる。
       curpos_i = curpos_i_du * distance_unit;
-        // curpos_iはdistance_unit刻みの値をとる。
+        // curpos_iはdistance_unit刻みの整数値をとる。
     }
     // 衝突判定。spminとspmaxは今回のステップで移動可能な範囲のaabb。
     // 空白以外のボクセルでは(0,1)範囲だが、空白のときは埋め込み空白値
@@ -626,6 +598,8 @@ int raycast_tilemap(
     // valuerotを上位下位にわける
     vec3 valuerot_h = floor(valuerot / 16.0);
     vec3 valuerot_l = valuerot - valuerot_h * 16.0;
+    bool hit_flag = false;
+    bool hit_wall = false;
     if (node_type == 0) { // 空白
       vec3 dist_p;
       vec3 dist_n;
@@ -640,13 +614,13 @@ int raycast_tilemap(
         spmax = vec3(1.0) + dist_p;
       }
     } else {
-      bool hit_flag = true;
-      bool hit_wall = false;
+      hit_flag = true;
+      hit_wall = false;
       if (node_type == 255) {
         // 壁(filled)ボクセル
         hit_wall = true;
       } else {
-        // 平面または二次曲面で切断
+        // 平面または二次曲面で切断されたボクセル
         vec3 sp_nor;
         float length_ae;
         if (node_type >= 160) {
@@ -690,64 +664,64 @@ int raycast_tilemap(
           curpos_f = tp;
         }
       }
-      // miplevelが0でないときは初期miplevelでのraycastのめり込み対策
-      // のためi == hit + 1のときは影にしない(TODO: テストケース)
-      // is_tpatのときはその処理はしない(slit1のmiplevel2でテスト)
-      // -> FIXME: (11,11,7)でmiplevel autoのときそのようにすると平面切断
-      // tpatの影が欠けるので元に戻す。条件詳細に調べる必要あり。
-      // if (hit_flag &&
-      //   (!is_pat || i != hit + 1 || hit < 0 || miplevel == 0)) {
-      if (hit_flag) {
-        // 接触した
-        if (hit >= 0) {
-          // lightが衝突したので影にする
+    }
+    // miplevelが0でないときは初期miplevelでのraycastのめり込み対策
+    // のためi == hit + 1のときは影にしない(TODO: テストケース)
+    // is_tpatのときはその処理はしない(slit1のmiplevel2でテスト)
+    // -> FIXME: (11,11,7)でmiplevel autoのときそのようにすると平面切断
+    // tpatの影が欠けるので元に戻す。条件詳細に調べる必要あり。
+    // if (hit_flag &&
+    //   (!is_pat || i != hit + 1 || hit < 0 || miplevel == 0)) {
+    if (hit_flag) {
+      // ボクセル内で接触した
+      if (hit >= 0) {
+        // lightが衝突したので影にする
+        lstr_para = lstr_para * selfshadow_para;
+        break;
+      }
+      hit_nor = -dir;
+      hit = i;
+      hit_tpat = is_pat;
+      hit_tpat_coord_mip = tpat_coord_mip;
+      hit_coord = is_pat ? tpat_coord : tmap_coord;
+      hit_coord_small = curpos_f;
+      hit_value = value;
+      pos = (curpos_i + curpos_f * distance_unit) / virt3_size;
+        // eyeが衝突した位置
+      // 法線と光が逆向きのときは必ず影(陰)
+      float cos_light_dir = dot(light, hit_nor);
+      lstr_para = clamp(cos_light_dir * 64.0 - 1.0, 0.0, 1.0);
+      if (lstr_para <= 0.0) {
+        break;
+      }
+      if (i == 0 && hit_wall) {
+        // raycast始点がすでに石の中にいるのでセルフシャドウは差さない
+        break;
+      }
+      // 影判定開始
+      ray = light;
+      spmin = vec3(0.0); // TODO: -dir方向へ一回移動するか
+      spmax = vec3(1.0);
+      // 裏返し球のときは影判定開始ボクセル内で衝突する可能性があるので、
+      // ここで判定する。それ以外の形状についてはその可能性はない。
+      if (node_type >= 2 + 64 && node_type < 160) {
+        bool ura = true;
+        bool light_hit_wall = false;
+        vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
+        vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
+        sp_scale = sphere_scale(sp_scale);
+        sp_center = sp_center * tpat_sgn; // tpat sgnを適用
+        float sp_radius = float(node_type - 64 - 1) * 1.0;
+        vec3 sp_nor = vec3(0.0);
+        float length_ae;
+        curpos_f = curpos_f + light * 0.01;
+        length_ae = voxel_collision_sphere(ray, curpos_f - 0.5,
+          sp_center, sp_scale, sp_radius * sp_radius, ura, light_hit_wall,
+          sp_nor);
+        vec3 tp = curpos_f + ray * length_ae;
+        if (length_ae >= 0.0 && pos3_inside(tp, 0.0, 1.0)) {
           lstr_para = lstr_para * selfshadow_para;
           break;
-        }
-        hit_nor = -dir;
-        hit = i;
-        hit_tpat = is_pat;
-        hit_tpat_coord_mip = tpat_coord_mip;
-        hit_coord = is_pat ? tpat_coord : tmap_coord;
-        hit_coord_small = curpos_f;
-        hit_value = value;
-        pos = (curpos_i + curpos_f * distance_unit) / virt3_size;
-          // eyeが衝突した位置
-        // 法線と光が逆向きのときは必ず影(陰)
-        float cos_light_dir = dot(light, hit_nor);
-        lstr_para = clamp(cos_light_dir * 64.0 - 1.0, 0.0, 1.0);
-        if (lstr_para <= 0.0) {
-          break;
-        }
-        if (i == 0 && hit_wall) {
-          // raycast始点がすでに石の中にいるのでセルフシャドウは差さない
-          break;
-        }
-        // 影判定開始
-        ray = light;
-        spmin = vec3(0.0); // TODO: -dir方向へ一回移動するか
-        spmax = vec3(1.0);
-        // 裏返し球のときは影判定開始ボクセル内で衝突する可能性があるので、
-        // ここで判定する。それ以外の形状についてはその可能性はない。
-        if (node_type >= 2 + 64 && node_type < 160) {
-          bool ura = true;
-          bool light_hit_wall = false;
-          vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
-          vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
-          sp_scale = sphere_scale(sp_scale);
-          sp_center = sp_center * tpat_sgn; // tpat sgnを適用
-          float sp_radius = float(node_type - 64 - 1) * 1.0;
-          vec3 sp_nor = vec3(0.0);
-          float length_ae;
-          curpos_f = curpos_f + light * 0.01;
-          length_ae = voxel_collision_sphere(ray, curpos_f - 0.5,
-            sp_center, sp_scale, sp_radius * sp_radius, ura, light_hit_wall,
-            sp_nor);
-          vec3 tp = curpos_f + ray * length_ae;
-          if (length_ae >= 0.0 && pos3_inside(tp, 0.0, 1.0)) {
-            lstr_para = lstr_para * selfshadow_para;
-            break;
-          }
         }
       }
     }
@@ -759,13 +733,68 @@ int raycast_tilemap(
     vec3 npos_i = min(floor(npos), spmax * distance_unit - 1.0);
     npos_i += dir; // 壁を突破
     npos = npos - npos_i; // 0, 1の範囲に収まっているはず
-    curpos_i += npos_i; // ここでdistance_unit無関係の1きざみの値になる。
-    curpos_f = npos; // ここでdistance_unit無関係の(0,1)範囲の値になる。
-    // もしraycast範囲aabbの外に出たならばループを抜ける。
-    bool is_inside_aabb = pos3_inside_3(curpos_i /* + curpos_f */,
+    // curpos_iとcurpos_fを、distance_unitに無関係のものに再計算する。
+    // 再計算以降はふたたび、現在位置は curpos_i + curpos_f で求まる
+    // ようになる。
+    curpos_i += npos_i; // distance_unit無関係の1きざみの値になる。
+    curpos_f = npos; // distance_unit無関係の(0,1)範囲の値になる。
+    bool is_inside_aabb = pos3_inside_3(curpos_i + curpos_f,
       aabb_min * virt3_size, aabb_max * virt3_size);
     if (!is_inside_aabb) {
-      break;
+      vec3 c = curpos_i + curpos_f;
+      bool hitgr = false; // 地面に衝突しているかどうか
+      if (c.z <= aabb_min.z * virt3_size) {
+        float dz = c.z - aabb_min.z * virt3_size;
+        c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
+        if (pos2_inside_2(c.xy, aabb_min.xy * virt3_size,
+          aabb_max.xy * virt3_size)) {
+          hitgr = true;
+        }
+      }
+      if (hitgr) {
+        // 地面に衝突した
+        if (hit < 0) {
+          // eyeが地面に衝突した
+          float dz = c.z - aabb_min.z * virt3_size;
+          c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
+          //dbgval = vec4(1.0, 0.0, 0.0, 1.0);
+          if (c.z < -1.1) {
+          //dbgval = vec4(1.0, 1.0, 0.0, 1.0);
+          }
+          //return hit;
+          // curposを計算しなおす
+          curpos_f = c + vec3(0.0, 0.0, 0.0);
+          curpos_i = div_rem(curpos_f, 1.0);
+          hit_nor = vec3(0.0, 0.0, 1.0);
+          dir = -hit_nor; // 必要なのか？
+          pos = (curpos_i + curpos_f) / virt3_size;
+            // eyeが衝突した位置 // 必要なのか？
+          hit = i;
+          hit_ground = true;
+          // 影判定開始
+          ray = light;
+          spmin = vec3(0.0); // TODO: -dir方向へ一回移動するか
+          spmax = vec3(1.0);
+          float cos_light_dir = dot(light, hit_nor);
+          lstr_para = clamp(cos_light_dir * 64.0 - 1.0, 0.0, 1.0);
+          if (lstr_para <= 0.0) {
+            break;
+          }
+          mip_detail = true;
+          miplevel = 0;
+          tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
+          tpat_mip = min(miplevel, tile3_size_log2);
+          distance_unit_tmap_mip = float(<%lshift>tile3_size<%>tmap_mip<%/>);
+          distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
+        } else {
+          // lightが地面に衝突した
+          lstr_para = lstr_para * selfshadow_para;
+          break;
+        }
+      } else {
+        // raycast範囲aabbの外に出たのでループを抜ける。
+        break;
+      }
     }
   } // for
   if (i == imax) {
@@ -774,7 +803,9 @@ int raycast_tilemap(
     // hit = i; // なんでこの行有効だったのか？
   }
   if (hit >= 0) {
-    if (!hit_tpat) {
+    if (hit_ground) {
+      value1_r = vec4(0.5, 0.5, 0.8, 0.2);
+    } else if (!hit_tpat) {
       <%if><%is_gl3_or_gles3/>
       value1_r = texelFetch(sampler_voxtmax, ivec3(hit_coord) >> tmap_mip, 
         tmap_mip);
@@ -817,201 +848,6 @@ int raycast_tilemap(
   // }
   // if (i > 10) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
   // if (hit == 6) { dbgval = vec4(1.0, 0.0, 0.0, 1.0); }
-  return hit;
-}
-
-// 旧バージョン
-int raycast_tilemap_em(
-  inout vec3 pos, in vec3 campos, in float dist_rand,
-  in vec3 eye, in vec3 light,
-  in vec3 aabb_min, in vec3 aabb_max, out vec4 value_r, inout vec3 hit_nor,
-  in float selfshadow_para, inout float lstr_para, inout int miplevel,
-  in bool enable_variable_miplevel)
-{
-  // 引数の座標はすべてテクスチャ座標
-  // eyeはカメラから物体への向き、lightは物体から光源への向き
-  int tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
-  int tpat_mip = min(miplevel, tile3_size_log2);
-  float distance_unit_tmap_mip = float(<%lshift>16<%>tmap_mip<%/>);
-  float distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
-  vec3 ray = eye;
-  vec3 dir = -hit_nor;
-  vec3 curpos_f = pos * virt3_size;
-  vec3 curpos_i = div_rem(curpos_f, 1.0);
-  value_r = vec4(0.0, 0.0, 0.0, 1.0);
-  int hit = -1;
-  bool hit_tpat;
-  vec3 hit_coord;
-  int i;
-  const int imax = 256;
-  for (i = 0; i < imax; ++i) {
-    vec3 curpos_t = floor(curpos_i / tile3_size);
-    vec3 curpos_tr = curpos_i - curpos_t * tile3_size; // 0から15の整数
-    vec3 tmap_coord = curpos_t;
-    <%if><%is_gl3_or_gles3/>
-    vec4 value = texelFetch(sampler_voxtmap, ivec3(tmap_coord) >> tmap_mip, 
-      tmap_mip);
-    <%else/>
-    vec4 value = <%texture3d/>(sampler_voxtmap, tmap_coord / map3_size);
-    <%/>
-    int node_type = int(round_255(value.a));
-    bool is_pat = (node_type == 1);
-    float distance_unit = distance_unit_tmap_mip;
-    vec3 tpat_coord;
-    if (is_pat) {
-      distance_unit = 1.0;
-      vec3 curpos_tp = round3_255(value.rgb) * tile3_size;
-        // 16刻み4096迄
-      distance_unit = distance_unit_tpat_mip;
-      tpat_coord = curpos_tp + curpos_tr;
-      <%if><%is_gl3_or_gles3/>
-      value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_mip,
-        tpat_mip);
-      <%else/>
-      value = <%texture3d/>(sampler_voxtpat, (tpat_coord) / pattex3_size);
-      <%/>
-      node_type = int(round_255(value.a));
-    }
-    // ボクセルの大きさを掛ける。タイルの移動なら16倍
-    curpos_t = floor(curpos_i / distance_unit);
-    curpos_tr = curpos_i - curpos_t * distance_unit;
-    curpos_f = (curpos_tr + curpos_f) / distance_unit;
-    curpos_f = clamp(curpos_f, 0.0, 1.0); // FIXME: 必要？
-    curpos_i = curpos_t * distance_unit;
-      // curpos_iだけはdistance_unit単位にはしない
-      // 現在座標は curpos_i + curpos_f * distance_unit で求まる
-    // 衝突判定
-    vec3 spmin = vec3(0.0);
-    vec3 spmax = vec3(1.0);
-    vec3 valuerot = round3_255(value.xyz);
-    vec3 dist_p = floor(valuerot / 16.0);
-    vec3 dist_n = valuerot - dist_p * 16.0;
-    if (node_type == 0) { // 空白
-      spmin = vec3(0.0) - dist_n;
-      spmax = vec3(1.0) + dist_p;
-    } else {
-      bool hit_flag = true;
-      bool hit_wall = false;
-      if (node_type == 255) { // 壁
-        hit_wall = true;
-      } else { // 平面または二次曲面で切断
-        // node_type = 208 + 0; 
-        // dist_p = vec3(9.0,9.0,9.0);
-        vec3 sp_nor;
-        float length_ae;
-        if (node_type >= 160) {
-          // 平面
-          float param_d = float(node_type - 208); // -48, +46
-          vec3 param_abc = dist_p - 8.0; // dist_nは未使用
-          vec3 coord = (curpos_f - 0.5) * 2.0;
-          float dot_abc_p = dot(param_abc, coord);
-          float pl = dot_abc_p - param_d; // 正なら現在位置では空白
-          hit_wall = pl > 0.0;
-          length_ae = (-pl) * 0.5 / dot(param_abc, ray);
-          sp_nor = -normalize(param_abc);
-        } else {
-          // 楕円体
-          vec3 sp_scale = floor(valuerot / 64.0); // 上位2bit
-          vec3 sp_center = valuerot - sp_scale * 64.0 - 32.0; // 下位6bit
-          // vec3 sp_scale = dist_p; // 拡大率
-          // vec3 sp_center = dist_n - 8.0; // 球の中心の相対位置
-          float sp_radius = float(node_type - 1) * 1.0;
-          sp_nor = vec3(0.0);
-          // ura未対応
-          length_ae = voxel_collision_sphere(ray, curpos_f - 0.5,
-            sp_center, sp_scale, sp_radius * sp_radius, false, hit_wall,
-            sp_nor);
-        }
-        vec3 tp = curpos_f + ray * length_ae;
-        if (hit_wall) {
-        } else if (!pos3_inside(tp, 0.0 - epsilon, 1.0 + epsilon)) {
-          // 断面と境界平面の境目の誤差を見えなくするためにepsilonだけ広げる
-          hit_flag = false;
-        } else {
-          // ボクセル内で断面に接触
-          dir = -sp_nor;
-          curpos_f = tp;
-        }
-      }
-      if (hit_flag) {
-        // 接触した
-        if (hit >= 0) {
-          // lightが衝突したので影にする
-          lstr_para = lstr_para * selfshadow_para;
-          break;
-        }
-        hit_nor = -dir;
-        hit = i;
-        hit_tpat = is_pat;
-        hit_coord = is_pat ? tpat_coord : tmap_coord;
-        pos = (curpos_i + curpos_f * distance_unit) / virt3_size;
-          // eyeが衝突した位置
-        // 法線と光が逆向きのときは必ず影(陰)
-        float cos_light_dir = dot(light, hit_nor);
-        lstr_para = clamp(cos_light_dir * 64.0 - 1.0, 0.0, 1.0);
-        if (lstr_para <= 0.0) {
-          break;
-        }
-        if (i == 0 && hit_wall) {
-          // raycast始点がすでに石の中にいるのでセルフシャドウは差さない
-          break;
-        }
-        // 影判定開始
-        ray = light;
-        spmin = vec3(0.0); // TODO: -dir方向へ一回移動するか
-        spmax = vec3(1.0);
-      }
-    }
-    vec3 npos;
-    dir = voxel_get_next(curpos_f, spmin, spmax, ray, npos);
-    // if (dot(dir, ray) <= 0.0) { dbgval=vec4(1,1,1,1); return -1; }
-    // npos = clamp(npos, spmin, spmax); // FIXME: ???
-    npos *= distance_unit;
-    vec3 npos_i = min(floor(npos), spmax * distance_unit - 1.0);
-    // vec3 npos_i;
-    // if (is_pat) {
-    //   npos_i = min(floor(npos), spmax - 1.0); // ギリギリボクセル整数部分
-    // } else {
-    //   npos *= 16.0;
-    //   npos_i = min(floor(npos), spmax * 16.0 - 1.0);
-    // }
-    npos_i += dir; // 壁を突破
-    npos = npos - npos_i; // 0, 1の範囲に収まっているはず
-    // if (length(npos_i) < 0.1) {
-      // dbgval=vec4(0.0,1.0,1.0,1.0);  return -1;
-    // }
-    curpos_i += npos_i;
-    curpos_f = npos;
-    bool is_inside_aabb = pos3_inside_3(curpos_i, // + curpos_f
-      aabb_min * virt3_size, aabb_max * virt3_size);
-    if (!is_inside_aabb) {
-      break;
-    }
-  } // for
-  if (i == imax) {
-    lstr_para = 0.0;
-    // hit = i;
-      // なんでこの行有効だったのか？ 新バージョンに合わせて無効化しておく。
-  }
-  if (hit >= 0) {
-    if (!hit_tpat) {
-      <%if><%is_gl3_or_gles3/>
-      value_r = texelFetch(sampler_voxtmax, ivec3(hit_coord) >> tmap_mip, 
-        tmap_mip);
-      <%else/>
-      value_r = <%texture3d/>(sampler_voxtmax, hit_coord / map3_size);
-      <%/>
-    } else {
-      <%if><%is_gl3_or_gles3/>
-      value_r = texelFetch(sampler_voxtpax, ivec3(hit_coord) >> tpat_mip,
-        tpat_mip);
-      <%else/>
-      value_r = <%texture3d/>(sampler_voxtpax, (hit_coord) / pattex3_size);
-      <%/>
-    }
-  }
-  // if (i > 35) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
-  // if (hit > 32) { dbgval = vec4(1.0, 0.0, 0.0, 1.0); } // FIXME
   return hit;
 }
 

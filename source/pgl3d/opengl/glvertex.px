@@ -136,14 +136,14 @@ vertices(size_t num_float_per_vertex0)
     /* vattrsは物理エンジンなどが参照するためのデータ、valsはGPUに置くデータ */
     if (vattrs.size() != vals.size()) {
       throw runtime_error_template{"vertices::push_polygon_distinct::vattrs"}(
-	  string_join{" "}(vattrs.size(), vals.size()));
+	string_join{" "}(vattrs.size(), vals.size()));
     }
     vertex_attrs.append(vattrs);
     /* tattr must have 'public glm::vec3 position' */
     if (num_float_per_vertex != num_float_struct{tattr}) {
       throw runtime_error_template{"vertices::push_polygon_distinct::tattr"}(
-	  string_join{" "}(m::to_string{tattr}, num_float_struct{tattr},
-	    num_float_per_vertex));
+	string_join{" "}(m::to_string{tattr}, num_float_struct{tattr},
+	  num_float_per_vertex));
     }
     /* no dedup */
     const first_id = vertex_values.size() / num_float_struct{tattr};

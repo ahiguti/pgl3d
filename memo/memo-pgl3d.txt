@@ -2,15 +2,16 @@
 ---------------------------------------------------------------------------
 TODO
 
-- windowsでディスプレイの拡大率150%の設定のときフルスクリーン切り替えが
-  おかしい
-- voxelシェーダに底面凸ポリゴンを指定できるようにする？
-  - まず指定した4直線に囲まれた範囲を底面とするようにシェーダに処理追加
+- voxelシェーダに底面凸ポリゴンを指定できるようにする
+  - 底面を塗るようにシェーダに処理追加(done)
   - 頂点データに4頂点(8 floats)を追加
     - drawer_trianglesのraycastingのときのみ底面データを頂点データとして
       追加する
     - ポリゴン表面にvoxel貼り付ける処理の際に4頂点の座標を計算
+  - 指定した4直線に囲まれた範囲を底面とするようにシェーダに処理追加
 
+- windowsでディスプレイの拡大率150%の設定のときフルスクリーン切り替えが
+  おかしい
 - fragmentsからのパターン生成、noderefが空パターンを指すときは空白に。
 
 - fragments登録、パターン生成、gentestまでを一つのコマンドで。(done)
@@ -4543,4 +4544,57 @@ fillingつかいみち方針
    参照したfillingを定義する。
 2. tpat種から作ったtmap種と手動で作ったtmap種を使って指定範囲の空白等を置き
    換える。
+
+
+---------------------------------------------------------------------------
+driver
+
+3080ti 471.96にすると60fpsでvsync有効時のstutterが酷い
+そのかわりvsync無効時にGPU使用率が上がりfpsも上がる
+flip queueが短いのか？
+
+462.65 問題なし
+  vsync on GPU40% 60fps
+  vsync off GPU71% 258fps
+471.96 ダメ
+  vsync on GPU40% 60fps
+  vsync off GPU77% 294fps
+471.11 ダメ
+466.77 ダメ
+
+---------------------------------------------------------------------------
+tex3d底面描画
+
+pglshaderはvbidからdrawstepを引くmapを持っている。
+
+function void pglshader::make_vertex_set(cslice{string} const& dr_names,
+  cstrref const& shape_name, gf_poly const& expr)
+    dr_names: vbid名のリスト。i番目はexprの中でfill()の第二引数にiが指定
+      されたときのvbid名(の名前で登録されたfiller)になる。
+    shape_name: 頂点データに付ける名前。
+    expr: 関数オブジェクト。この式がmake_vertex_setの中で評価されてその
+      中からfill()が呼ばれると頂点データが登録される。
+fillerはdrawerが登録する。
+
+pgl3d::opengl::glvertex::verticesは頂点データのリストを保持する。構築
+引数に頂点あたりに何個のfloatを保持するかを指定する。このデータはGPUにも
+転送される。
+
+pgl3d::geometry::funcs::gf_ctx_tex3d_surf(size_t ntex,
+  vec3 const& mi, vec3 const& mx, varray{varray{vec3}} const& surf_quads,
+  build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
+tex3d(ボクセルデータを貼り付けた直方体)の頂点データを作りfill()を呼ぶ
+引数polyはtex3dの作成位置を決めるために使われるだけ。
+surf_quadsには6面の頂点座標が入っている。
+TODO:
+(1) vertex_attrに底面ポリゴンの座標を保持するfield(6頂点まで?)を追加
+(2) gf_ctx_tex3d_surfの中で底面ポリゴンの座標をテクスチャ座標に変換し、
+    追加したfieldにそれをセット
+(3) vertex_attrをglvertex::verticesに変換している箇所(どこ?)を変更
+(4) coord_min, coord_max の指定, coord_lenの計算について、任意の大きさ
+    のテクスチャと範囲を指定できるようにする。
+(5) 個々のtex3dについて対応するボクセルデータを生成する処理
+
+
+
 
