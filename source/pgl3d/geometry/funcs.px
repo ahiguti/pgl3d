@@ -15,6 +15,9 @@ public threaded interface build_context_i
     string const& joint_name, poly_t const& poly, mesh_index const& mp) const;
 }
 
+/* vertex_attr構造体はdrawerのfillerへ渡す頂点データを保持する。個々の
+ * drawerのfillerはこのデータから一部を切り出してGPUに渡す頂点データを
+ * 作る。*/
 public tsvaluetype struct
 vertex_attr()
 {
@@ -25,6 +28,8 @@ vertex_attr()
   public vec4 aabb_or_tconv;
   public vec3 aabb_min;
   public vec3 aabb_max;
+  public farray{vec2, 4} boundary;
+    // trianglesの底面のテクスチャ座標
   public bool is_tconv;
     // aabb_or_tconvがtconvをあらわすときtrue。これはvoxel貼り付けのときに
     // trueにする。このときposには各頂点の座標ではなく、voxel原点の座標が

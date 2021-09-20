@@ -40,8 +40,16 @@ private tsvaluetype struct triangles_vertex_attributes()
   public glm::vec4 aabb_or_tconv;
   public glm::vec3 aabb_min;
   public glm::vec3 aabb_max;
+  public glm::vec2 boundary0;
+  public glm::vec2 boundary1;
+  public glm::vec2 boundary2;
+  public glm::vec2 boundary3;
 }
 
+private metafunction zprepass_vertex_attributes triangles_vertex_attributes;
+private metafunction shadowmap_vertex_attributes triangles_vertex_attributes;
+
+/*
 private tsvaluetype struct zprepass_vertex_attributes()
 {
   public glm::vec3 position;
@@ -63,6 +71,7 @@ private tsvaluetype struct shadowmap_vertex_attributes()
   public glm::vec3 aabb_min;
   public glm::vec3 aabb_max;
 }
+*/
 
 private tsvaluetype struct triangles_instance_attributes()
 {

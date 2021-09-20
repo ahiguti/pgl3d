@@ -2,6 +2,11 @@
 ---------------------------------------------------------------------------
 TODO
 
+- windows -> 設定 -> 検索 exploit protection
+  - 設定 -> 更新とセキュリティ -> Windowsセキュリティ
+    -> Open Windows Security -> App & browser control -> Exploit protection
+    -> Exploit protection settings -> Program settings
+
 - voxelシェーダに底面凸ポリゴンを指定できるようにする
   - 底面を塗るようにシェーダに処理追加(done)
   - 頂点データに4頂点(8 floats)を追加
@@ -4586,6 +4591,23 @@ pgl3d::geometry::funcs::gf_ctx_tex3d_surf(size_t ntex,
 tex3d(ボクセルデータを貼り付けた直方体)の頂点データを作りfill()を呼ぶ
 引数polyはtex3dの作成位置を決めるために使われるだけ。
 surf_quadsには6面の頂点座標が入っている。
+
+(pgl3d::drawer)
+public threaded function {tattr} void
+dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
+  bool override_uvw, poly_t const& poly, mesh_index const& mp)
+型引数tattrが頂点データを保持するデータ型。中ではtattr配列(GPU側に持た
+せる頂点データ)を作り以下を呼ぶ。
+vptr->push_polygon_distinct{tattr, 1}(poly, vtxs);
+
+(pgl3d::opengl::glvertex::vertices)
+vertices型はdrawerの種類ごとに一個作られ、コンストラクタ引数に頂点
+データの大きさ(floatの数)を取る。
+フィールドvarray{float} vertex_valuesがGPU用のfloat配列、
+フィールドvarray{vertex_attr} vertex_attrsが物理エンジン用頂点データ。
+vertices::push_polygon_distinct()は頂点データにポリゴン一枚を登録
+する。中でpush_floatが構造体tattrからfloat配列へ変換する。
+
 TODO:
 (1) vertex_attrに底面ポリゴンの座標を保持するfield(6頂点まで?)を追加
 (2) gf_ctx_tex3d_surfの中で底面ポリゴンの座標をテクスチャ座標に変換し、
@@ -4594,7 +4616,5 @@ TODO:
 (4) coord_min, coord_max の指定, coord_lenの計算について、任意の大きさ
     のテクスチャと範囲を指定できるようにする。
 (5) 個々のtex3dについて対応するボクセルデータを生成する処理
-
-
 
 

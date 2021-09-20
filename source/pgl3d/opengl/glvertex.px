@@ -11,35 +11,7 @@ public import pgl3d::engine::platform -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
 public import pgl3d::geometry::funcs -;
-
-public metafunction num_float_struct{t}
-  m::fold{m::map{m::field_types{t}, num_float_fld}, m::add, 0};
-
-public metafunction num_float_fld{t}
-  m::cond{
-    m::eq{t, float}, 1,
-    m::eq{t, int}, 1,
-    m::eq{t, unit}, 0,
-    m::eq{t, glm::vec2}, 2,
-    m::eq{t, glm::vec3}, 3,
-    m::eq{t, glm::vec4}, 4,
-    m::eq{t, glm::mat2}, 4,
-    m::eq{t, glm::mat3}, 9,
-    m::eq{t, glm::mat4}, 16,
-    m::error{"invalid type"}};
-
-public metafunction num_attrib_fld{t}
-  m::cond{
-    m::eq{t, float}, 1,
-    m::eq{t, int}, 1,
-    m::eq{t, unit}, 0,
-    m::eq{t, glm::vec2}, 1,
-    m::eq{t, glm::vec3}, 1,
-    m::eq{t, glm::vec4}, 1,
-    m::eq{t, glm::mat2}, 2,
-    m::eq{t, glm::mat3}, 3,
-    m::eq{t, glm::mat4}, 4,
-    m::error{"invalid type"}};
+private import pgl3d::opengl::glresource -;
 
 public multithreaded struct node_joint()
 {
@@ -148,6 +120,7 @@ vertices(size_t num_float_per_vertex0)
     /* no dedup */
     const first_id = vertex_values.size() / num_float_struct{tattr};
     for (const i, const& val: vals) {
+      /* push_float()でtattr型の構造体をGPU用にfloatの配列に変換する */
       push_float{tattr}(vertex_values, val);
       if (m::symbol_exists{tattr, "position"}) {
 	positions.append(val.position.to_cslice());

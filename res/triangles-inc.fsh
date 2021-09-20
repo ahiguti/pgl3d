@@ -422,7 +422,7 @@ int raycast_tilemap(
   in vec3 aabb_min, in vec3 aabb_max, out vec4 value0_r, out vec4 value1_r,
   inout vec3 hit_nor,
   in float selfshadow_para, inout float lstr_para, inout int miplevel,
-  in bool enable_variable_miplevel)
+  in bool enable_variable_miplevel, in vec2 boundary[4])
 {
   // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
   // 重くなるのでメリット薄い。
@@ -804,7 +804,9 @@ int raycast_tilemap(
   }
   if (hit >= 0) {
     if (hit_ground) {
-      value1_r = vec4(0.5, 0.5, 0.8, 0.2);
+      // value1_r = vec4(0.5, 0.5, 0.8, 0.2);
+      value1_r = vec4(boundary[3], 0.8, 0.2);
+        // FIXME: 値が渡ってきていることをテストしている
     } else if (!hit_tpat) {
       <%if><%is_gl3_or_gles3/>
       value1_r = texelFetch(sampler_voxtmax, ivec3(hit_coord) >> tmap_mip, 

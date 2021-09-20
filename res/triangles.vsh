@@ -17,6 +17,10 @@ uniform mat4 shadowmap_vp[<%smsz/>];
   <%vert_in/> vec3 aabb_min; // テクスチャ座標の範囲aabb
   <%vert_in/> vec3 aabb_max; // テクスチャ座標の範囲aabb
 <%/>
+<%vert_in/> vec2 boundary0;
+<%vert_in/> vec2 boundary1;
+<%vert_in/> vec2 boundary2;
+<%vert_in/> vec2 boundary3;
 <%vert_out/> vec3 vary_position; // ワールドの頂点座標
 <%vert_out/> vec3 vary_normal;   // ワールドでの法線
 <%vert_out/> vec3 vary_tangent;  // ワールドでの接線
@@ -28,6 +32,10 @@ uniform mat4 shadowmap_vp[<%smsz/>];
   <%flat/> <%vert_out/> mat4 vary_model_matrix; // 接線空間からワールドへの変換
   <%vert_out/> vec3 vary_position_local; // 接線空間での頂点座標
   <%flat/> <%vert_out/> vec3 vary_camerapos_local; // 接線空間でのカメラ座標
+  <%flat/> <%vert_out/> vec2 vary_boundary0;
+  <%flat/> <%vert_out/> vec2 vary_boundary1;
+  <%flat/> <%vert_out/> vec2 vary_boundary2;
+  <%flat/> <%vert_out/> vec2 vary_boundary3;
 <%else/>
   <%vert_out/> vec3 vary_uvw;      // 頂点のテクスチャ座標
   <%vert_out/> vec4 vary_aabb_or_tconv; // aabb_or_tconvと同じ
@@ -88,6 +96,10 @@ void main(void)
     vary_aabb_or_tconv = aabb_or_tconv;
     vary_aabb_min = aabb_min;
     vary_aabb_max = aabb_max;
+    vary_boundary0 = boundary0;
+    vary_boundary1 = boundary1;
+    vary_boundary2 = boundary2;
+    vary_boundary3 = boundary3;
   <%/>
   <%if><%and><%ne><%stype/>1<%/><%enable_shadowmapping/><%/>
     vec3 ndelta = mat3(shadowmap_vp[0]) * vary_normal * ndelta_scale; // 0.02

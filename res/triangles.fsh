@@ -55,6 +55,10 @@ uniform float random_seed;
   <%flat/> <%frag_in/> mat4 vary_model_matrix;
   <%frag_in/> vec3 vary_position_local;
   <%flat/> <%frag_in/> vec3 vary_camerapos_local;
+  <%flat/> <%frag_in/> vec2 vary_boundary0;
+  <%flat/> <%frag_in/> vec2 vary_boundary1;
+  <%flat/> <%frag_in/> vec2 vary_boundary2;
+  <%flat/> <%frag_in/> vec2 vary_boundary3;
 <%else/>
   <%frag_in/> vec3 vary_uvw;
   <%frag_in/> vec4 vary_aabb_or_tconv;
@@ -67,6 +71,11 @@ const float shadowmap_max_distance = <%shadowmap_max_distance/>;
   <%if><%ne><%stype/>1<%/>
     <%frag_in/> vec3 vary_smposa[<%smsz/>];
   <%/>
+<%/>
+
+<%if><%eq><%stype/>1<%/>
+const vec2 boundary[4] =
+  { vary_boundary0, vary_boundary1, vary_boundary2, vary_boundary3 };
 <%/>
 
 /*
@@ -490,7 +499,7 @@ void main(void)
       // raycastで視線が衝突する位置と影を計算する
       hit = raycast_tilemap(pos, campos, dist_rnd, camera_local, light_local,
 	aabb_min, aabb_max, tex_val0, tex_val1, nor, selfshadow_para, lstr_para,
-	miplevel, option_value2 < 0.0);
+	miplevel, option_value2 < 0.0, boundary);
       /*
       */
     //} else {

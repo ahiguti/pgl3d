@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::opengl::glshader "export-unsafe";
 public import common -;
-public import pointer::raw -;
-public import pointer::raw_unsafe -;
+private import pointer::raw -;
+private import pointer::raw_unsafe -;
 public import numeric::fpmath -;
 public import glm;
 public import opengl::compat -;
@@ -9,35 +9,6 @@ public import meta m;
 public import exception -;
 public import pgl3d::opengl::glresource -;
 public import pgl3d::sdl::sdlutil -;
-
-public metafunction num_float_struct{t}
-  m::fold{m::map{m::field_types{t}, num_float_fld}, m::add, 0};
-
-public metafunction num_float_fld{t}
-  m::cond{
-    m::eq{t, float}, 1,
-    m::eq{t, int}, 1,
-    m::eq{t, unit}, 0,
-    m::eq{t, glm::vec2}, 2,
-    m::eq{t, glm::vec3}, 3,
-    m::eq{t, glm::vec4}, 4,
-    m::eq{t, glm::mat2}, 4,
-    m::eq{t, glm::mat3}, 9,
-    m::eq{t, glm::mat4}, 16,
-    m::error{"invalid type"}};
-
-public metafunction num_attrib_fld{t}
-  m::cond{
-    m::eq{t, float}, 1,
-    m::eq{t, int}, 1,
-    m::eq{t, unit}, 0,
-    m::eq{t, glm::vec2}, 1,
-    m::eq{t, glm::vec3}, 1,
-    m::eq{t, glm::vec4}, 1,
-    m::eq{t, glm::mat2}, 2,
-    m::eq{t, glm::mat3}, 3,
-    m::eq{t, glm::mat4}, 4,
-    m::error{"invalid type"}};
 
 public interface glshader_i {
   public function void enable_vertex_attrib_array(size_t num_float_per_vertex);
@@ -48,7 +19,6 @@ public interface glshader_i {
   public function void instance_attrib_set_uniform(cslice{float} const& value,
     size_t offset, size_t cnt);
 }
-
 
 public function {tuni, tinst, tvert} ptr{glshader{tuni, tinst, tvert}}
 make_glshader_ptr(cstrref const& prog_v, cstrref const& prog_f,

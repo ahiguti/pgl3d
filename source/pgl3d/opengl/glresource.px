@@ -84,3 +84,34 @@ auto_handle()
   }
 }
 
+public metafunction num_float_struct{t}
+  m::fold{m::map{m::field_types{t}, num_float_fld}, m::add, 0};
+
+public metafunction num_float_fld{t}
+  m::cond{
+    m::eq{t, float}, 1,
+    m::eq{t, int}, 1,
+    m::eq{t, unit}, 0,
+    m::eq{t, glm::vec2}, 2,
+    m::eq{t, glm::vec3}, 3,
+    m::eq{t, glm::vec4}, 4,
+    m::eq{t, glm::mat2}, 4,
+    m::eq{t, glm::mat3}, 9,
+    m::eq{t, glm::mat4}, 16,
+    m::eq{m::family{t}, "farray"},
+      m::mul{num_float_fld{m::at0{t}}, m::at1{t}},
+    m::error{"invalid type"}};
+
+public metafunction num_attrib_fld{t}
+  m::cond{
+    m::eq{t, float}, 1,
+    m::eq{t, int}, 1,
+    m::eq{t, unit}, 0,
+    m::eq{t, glm::vec2}, 1,
+    m::eq{t, glm::vec3}, 1,
+    m::eq{t, glm::vec4}, 1,
+    m::eq{t, glm::mat2}, 2,
+    m::eq{t, glm::mat3}, 3,
+    m::eq{t, glm::mat4}, 4,
+    m::error{"invalid type"}};
+
