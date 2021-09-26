@@ -394,7 +394,9 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     if (m::ne{is_macos, 0}) {
       flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
     } else {
+      // windowsではFULLSCREEN_DESKTOPよりFULLSCREENのほうが少し速い
       flag = SDL_WINDOW_FULLSCREEN;
+      //flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
     }
     SDL_SetWindowFullscreen(sdlc.sdl_window, fullscreen != 0 ? flag : 0);
     if (fullscreen == 0) {

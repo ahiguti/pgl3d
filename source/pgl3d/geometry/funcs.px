@@ -11,8 +11,11 @@ public import pgl3d::engine::util -;
 
 public threaded interface build_context_i
 {
+  // 実装はpgl3d::engine::pglshader::build_context_impl
   public function void fill(bool flat_flat, bool polyjoint, size_t n,
     string const& joint_name, poly_t const& poly, mesh_index const& mp) const;
+    // 引数nはdgf_fillersのn番を使用して描画することを指定する。
+    // joint_nameが空文字列でないときはその名前のjointをその位置に作成する。
 }
 
 /* vertex_attr構造体はdrawerのfillerへ渡す頂点データを保持する。個々の
@@ -472,6 +475,9 @@ private threaded function void gf_ctx_tex3d(size_t nbase,
   size_t ntex, vec3 const& mi, vec3 const& mx, build_context_i const& ctx,
   poly_t const& poly, mesh_index const& mp)
 {
+  // polyで指定されたポリゴンの表面にraycast 3dテクスチャを貼り付ける。
+  // int_quadsとsurf_quadsに空を指定してctx_tex3d_int_surfを呼ぶ。
+  // miとmxは貼り付けるテクスチャ内の範囲。
   varray{varray{vec3}} e;
   gf_ctx_tex3d_int_surf(nbase, ntex, mi, mx, false, e, e, ctx, poly, mp);
 }
@@ -485,6 +491,8 @@ private threaded function void gf_ctx_tex3d_int_surf(size_t nbase,
   const sz = mx - mi;
   varray{varray{vec3}} quads = surf_quads;
   if (quads.empty()) {
+    // surf_quadsが指定されていないとき、テクスチャ座標の(mx-mi)の大きさの
+    // 直方体の6面の座標をquadsにセットする。
     const front = make_varray{vec3}(
       make_vec3(0.0f, 0.0f, sz.z),
       make_vec3(sz.x, 0.0f, sz.z),
@@ -516,6 +524,8 @@ private threaded function void gf_ctx_tex3d_int_surf(size_t nbase,
     gf_ctx_fill(nbase, ctx, poly, mp);
   }
   if (!surf_quads.empty()) {
+    // 引数surf_quadsとint_quadsの両方が指定された場合のみ。
+    // 使っていない？
     const len = glm::length(poly[1].pos - poly[0].pos);
     const tan = (poly[1].pos - poly[0].pos).normalize();
     const nor = normal_from_poly(poly, false);
@@ -547,9 +557,13 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   vec3 const& mi, vec3 const& mx, varray{varray{vec3}} const& surf_quads,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
+  const fill_floor = true;
+    // FIXME: 実装中
+    // FIXME: 貼り付けるテクスチャの範囲はこの関数の中で割り当て、あとで
+    // そこにボクセルデータを生成する。
   // tex3d(ボクセルデータを貼り付けた直方体)の頂点データを作りfill()を呼ぶ
   // 引数polyはtex3dの作成位置を決めるために使われるだけ。
-  // surf_quadsには6面の頂点座標が入っている
+  // surf_quadsには(mx-mi)の大きさの6面の頂点座標が入っている
   const& coord_min = mi;
   const& coord_max = mx;
   if (poly.size() != 4) {
@@ -558,14 +572,42 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   }
   // debug_log("gf_ctx_tex3d_surf surf_quads=", surf_quads, "poly=", poly);
   const tan = (poly[1].pos - poly[0].pos).normalize();
-  const len = glm::length(poly[1].pos - poly[0].pos);
-  const coord_len = coord_max.x - coord_min.x; // TODO: これでいいのか？
+  const nor = normal_from_poly(poly, false);
+  mutable len = glm::length(poly[1].pos - poly[0].pos);
+  mutable darrayst{vec2} bnd = darrayst{vec2}(poly.size(), vec2());
+  vec3 base_pos = poly[0].pos;
+  if (fill_floor) {
+    const bno = cross(nor, tan);
+    mutable darrayst{vec2} base = darrayst{vec2}(poly.size(), vec2());
+    vec2 base_min;
+    vec2 base_max;
+    for (const i, const& p: poly) {
+      base[i].x = dot(p.pos, tan);
+      base[i].y = dot(p.pos, bno);
+      if (i == 0) {
+        base_min = base[i];
+        base_max = base[i];
+      } else {
+        base_min.x = min(base_min.x, base[i].x);
+        base_max.x = max(base_max.x, base[i].x);
+        base_min.y = min(base_min.y, base[i].y);
+        base_max.y = max(base_max.y, base[i].y);
+      }
+    }
+    const base_sz = base_max - base_min;
+    for (const i, const& b: base) {
+      bnd[i] = b - base_min;
+    }
+    len = base_sz.x;
+    debug_log("tan=", tan, "bno=", bno, "poly01=", poly[1].pos - poly[0].pos,
+      "poly12=", poly[2].pos - poly[1].pos);
+  }
+  const coord_len = coord_max.x - coord_min.x;
   const texscale = len / coord_len;
-    // テクスチャ座標からローカル座標への倍率
+    // テクスチャ座標からオブジェクト座標への倍率
   darrayst{vertex_attr} front = poly;
-  mutable nor = normal_from_poly(poly, false);
   mutable attr0 = poly[0];
-    // posはpoly[0]の値をそのままコピーする。接線空間原点のグローバル座標。
+  attr0.pos = base_pos; // 接線空間原点のオブジェクト座標。
   attr0.nor = nor; // 基準平面の法線ベクトル
   attr0.tan = tan;
   attr0.aabb_or_tconv = glm::make_vec4(
@@ -573,12 +615,23 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     -coord_min.y * texscale,
     -coord_min.z * texscale,
     texscale);
-    // tconv: テクスチャ座標からローカル座標への変換
+    // tconv: テクスチャ座標からオブジェクト座標への変換scaleと位置。
+    // pos, nor, tan
   attr0.aabb_min = coord_min;
   attr0.aabb_max = coord_max;
   attr0.is_tconv = true;
-  // 頂点データのuvw以外の属性はすべての頂点で同じ値(無駄大きい？)
+  if (fill_floor) {
+    const texscale_inv = coord_len / len;
+      // オブジェクト座標からテクスチャ座標への倍率
+    const coord_min_xy = glm::make_vec2(coord_min.x, coord_min.y);
+    for (const i, const b: bnd) {
+      // 底面ポリゴンの位置
+      attr0.boundary[i] = coord_min_xy + bnd[i] * texscale_inv;
+    }
+  }
+  // quad_attrとしてsurf_quadsの各面の各頂点の頂点データを作る。
   mutable quad_attr = make_farray{vertex_attr}(attr0, attr0, attr0, attr0);
+  // 頂点データのuvw以外の属性はすべての頂点で同じ値(無駄大きい？)。
   for (const i, const q: surf_quads) {
     quad_attr[0].uvw = coord_min + q[0];
     quad_attr[1].uvw = coord_min + q[1];
@@ -586,6 +639,19 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     quad_attr[3].uvw = coord_min + q[3];
     gf_ctx_fill_smooth(ntex, ctx, quad_attr, mesh_index());
   }
+  // triangles.vshに渡る頂点データは以下の通り
+  // pos(vec3 position): オブジェクト座標系での接線空間の原点
+  // nor(vec3 normal): オブジェクト座標系での法線(接線空間のz軸)
+  // tan(vec3 tangent): オブジェクト座標系での接線(接線空間のx軸)
+  // uvw(vec3 uvw): 各頂点のテクスチャ座標
+  // aabb_or_tconv(vec4 aabb_or_tconv): テクスチャ座標からオブジェクト座標
+  //   への変換
+  // aabb_min(vec3 aabb_min): テクスチャ座標系での描画範囲aabb最小
+  // aabb_max(vec3 aabb_max): テクスチャ座標系での描画範囲aabb最大
+  // boundary(vec2 boundary0から3): テクスチャ座標系での底面多角形
+  // 各頂点の位置はuvw値からわかる。オブジェクト座標系への変換は
+  // pos, nor, tan とaabb_or_tconvで計算できる。
+  //
 }
 
 private threaded function void gf_hole(build_context_i const& ctx,

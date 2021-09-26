@@ -14,10 +14,10 @@ uniform mat4 shadowmap_vp[<%smsz/>];
   // stype==0のときテクスチャ座標の範囲aabb
   // stype==1のときテクスチャ座標から接線空間への変換
 <%if><%eq><%stype/>1<%/>
-  <%vert_in/> vec3 aabb_min; // テクスチャ座標の範囲aabb
-  <%vert_in/> vec3 aabb_max; // テクスチャ座標の範囲aabb
+  <%vert_in/> vec3 aabb_min; // テクスチャ座標での範囲aabb
+  <%vert_in/> vec3 aabb_max; // テクスチャ座標での範囲aabb
 <%/>
-<%vert_in/> vec2 boundary0;
+<%vert_in/> vec2 boundary0; // テクスチャ座標での底面多角形
 <%vert_in/> vec2 boundary1;
 <%vert_in/> vec2 boundary2;
 <%vert_in/> vec2 boundary3;
