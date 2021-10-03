@@ -598,11 +598,12 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     for (const i, const& b: base) {
       bnd[i] = b - base_min;
     }
-    len = base_sz.x;
+    len = max(base_sz.x, base_sz.y);
     debug_log("tan=", tan, "bno=", bno, "poly01=", poly[1].pos - poly[0].pos,
       "poly12=", poly[2].pos - poly[1].pos);
   }
-  const coord_len = coord_max.x - coord_min.x;
+  const coord_sz = coord_max - coord_min;
+  const coord_len = foldl{max}(coord_sz.x, coord_sz.y, coord_sz.z);
   const texscale = len / coord_len;
     // テクスチャ座標からオブジェクト座標への倍率
   darrayst{vertex_attr} front = poly;

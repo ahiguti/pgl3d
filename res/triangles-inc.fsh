@@ -742,6 +742,25 @@ int raycast_tilemap(
       aabb_min * virt3_size, aabb_max * virt3_size);
     if (!is_inside_aabb) {
       vec3 c = curpos_i + curpos_f;
+      bool hitgr = false;
+      if (c.z <= aabb_min.z * virt3_size) {
+        float dz = c.z - aabb_min.z * virt3_size;
+        c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
+        const int boundary_len = 4;
+        // boundaryの内側かどうかを判定する
+        hitgr = true;
+        for (int i = 0; i < boundary_len; ++i) {
+          const vec2 p0 = boundary[i];
+          const vec2 p1 = (i + 1 == boundary_len)
+            ? boundary[0] : boundary[i + 1];
+          const vec2 p01 = p1 - p0;
+          const vec2 pnor = vec2(-p01.y, p01.x);
+          if (dot(pnor, c.xy - p0 * virt3_size) < 0.0) {
+            hitgr = false; // boundaryの外側
+          }
+        }
+      }
+      /*
       bool hitgr = false; // 地面に衝突しているかどうか
       if (c.z <= aabb_min.z * virt3_size) {
         float dz = c.z - aabb_min.z * virt3_size;
@@ -751,6 +770,7 @@ int raycast_tilemap(
           hitgr = true;
         }
       }
+      */
       if (hitgr) {
         // 地面に衝突した
         if (hit < 0) {
@@ -804,9 +824,7 @@ int raycast_tilemap(
   }
   if (hit >= 0) {
     if (hit_ground) {
-      // value1_r = vec4(0.5, 0.5, 0.8, 0.2);
-      value1_r = vec4(boundary[3], 0.8, 0.2);
-        // FIXME: 値が渡ってきていることをテストしている
+      value1_r = vec4(0.5, 0.5, 0.8, 0.2); // FIXME: どうやって渡すか？
     } else if (!hit_tpat) {
       <%if><%is_gl3_or_gles3/>
       value1_r = texelFetch(sampler_voxtmax, ivec3(hit_coord) >> tmap_mip, 
