@@ -695,9 +695,10 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     if (glfinish) {
       // debug_log("glfinish");
       // glFlush();
-      glFinish();
+      // glFinish();
       // vsync有効のときglFinishを入れたほうが60fpsぎりぎり間に合うばあいに
       // フレームが乱れなくなる
+      // glFinishを入れると3080tiで新しめのドライバでvsync有効時にかくつく
     }
     pgs.frame_end();
     fr.save_ticks("framend");

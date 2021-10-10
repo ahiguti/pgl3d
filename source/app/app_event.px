@@ -1,0 +1,392 @@
+public namespace app::app_event;
+public import common -;
+public import exception -;
+public import numeric::fpmath -;
+public import pointer::raw -;
+public import text::positional -;
+public import io::time -;
+public import fundamental::mainloop -;
+public import io::environ;
+public import pgl3d::ext::debug_helper -;
+public import pgl3d::exports -;
+public import meta m;
+public import glm;
+public import app::app_data -;
+public import app::app_scene -;
+
+function void save_state(app_data const& app)
+{
+  camera_state st;
+  st.player = app.player;
+  st.light = app.light;
+  const s = to_string(st);
+  debug_log("save", s);
+  sdl_save_file("/build/camera_state.raw", s);
+}
+
+function bool update_window_geometry(app_data mutable& app,
+  glm::uvec2 const& drsz, glm::uvec2 const& wsz)
+{
+  const& glc = *app.sconf.some;
+  mutable& cam = *app.proj_df;
+  if (
+    cam.display_width == static_cast{int}(drsz.x) &&
+    cam.display_height == static_cast{int}(drsz.y) &&
+    cam.window_width == static_cast{int}(wsz.x) &&
+    cam.window_height == static_cast{int}(wsz.y))
+  {
+    return false;
+  }
+  sdl_log("display geometry changed");
+  const virt_width = static_cast{int}(static_cast{float}(drsz.x)
+    / app.virt_scale);
+  const virt_height = static_cast{int}(static_cast{float}(drsz.y)
+    / app.virt_scale);
+  const sm_size = glc.shadowmap_resolution;
+  sdl_log("disp size", drsz.x, drsz.y);
+  sdl_log("virt size", virt_width, virt_height);
+  cam.virt_width = virt_width;
+  cam.virt_height = virt_height;
+  cam.display_width = static_cast{int}(drsz.x);
+  cam.display_height = static_cast{int}(drsz.y);
+  cam.window_width = static_cast{int}(wsz.x);
+  cam.window_height = static_cast{int}(wsz.y);
+  cam.shadowmap_size = sm_size;
+  *app.pviewport_main = glm::make_uvec2(
+    static_cast{uint}(cam.virt_width),
+    static_cast{uint}(cam.virt_height));
+  *app.pviewport_disp = glm::make_uvec2(
+    static_cast{uint}(cam.display_width),
+    static_cast{uint}(cam.display_height));
+  *app.pviewport_sm = glm::make_uvec2(
+    static_cast{uint}(cam.shadowmap_size),
+    static_cast{uint}(cam.shadowmap_size));
+  // update mvp
+  float const perspective_near =
+    glc.conf.get("perspective_near", 1.0f, 0.001f, 100.0f);
+  float const perspective_far =
+    glc.conf.get("perspective_far", 10000.0f, 10.0f, 1000000.0f);
+  float const perspective_wh =
+    glc.conf.get("perspective_wh", 1.0f, 0.001f, 100.0f);
+  const ssbase = max(cam.virt_height, cam.virt_width);
+  const h = perspective_wh * cast_float(cam.virt_height)
+    / cast_float(ssbase);
+  const w = perspective_wh * cast_float(cam.virt_width)
+    / cast_float(ssbase);
+  {
+    // camera projection
+    const near = perspective_near;
+    const far = perspective_far;
+    const left = cast_float(-w);
+    const right = cast_float(w);
+    const bottom = cast_float(-h);
+    const top = cast_float(h);
+    cam.camera_pers.near = near;
+    cam.camera_pers.far = far;
+    cam.camera_pers.width = w;
+    cam.camera_pers.height = h;
+    cam.projection = glm::frustum(left, right, bottom, top, near, far);
+  }
+  {
+    // shadowmap projection
+    function void set_sm(glm::mat4 mutable& dst, float di)
+    {
+      const far = di * 1.0f;
+      const near = di * -1.0f;
+      const left = -di;
+      const right = di;
+      const bottom = -di;
+      const top = di;
+      dst = glm::ortho(left, right, bottom, top, near, far);
+    }
+    float far = glc.shadowmap_distance;
+    for (const i: 0 .. static_cast{size_t}(glc.num_shadowmaps)) {
+      set_sm(cam.sm_projection[i], far);
+      far *= glc.shadowmap_scale;
+    }
+    // debug_log("smp0", cam.sm_projection[0].to_cslice());
+    // debug_log("smp1", cam.sm_projection[1].to_cslice());
+  }
+  *app.proj_pm = cam; // update proj_pm also
+  return true;
+}
+
+public function void handle_event(app_data mutable& app,
+  app_ctrl_i mutable& actrl, SDL_Event const& ev, float frame_speed)
+{
+  const etype = ev.type;
+  if (etype == SDL_WINDOWEVENT) {
+    //if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+      if (update_window_geometry(app, actrl.get_drawable_size(),
+        actrl.get_window_size())) {
+        actrl.geometry_changed();
+        debug_log("WINDOWEVENT");
+      }
+    //}
+    if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+      mutable& ss = downcast_mutable{app_scene_shared}(*app.scene_shared);
+      ss.engine_status = ev.window.data1 != 0;
+      debug_log("app scene_shared engine status", ss.engine_status);
+    }
+  } else if (etype == SDL_MOUSEBUTTONDOWN) {
+    const& pj = *app.proj_pm;
+    const bx = cast_float(ev.button.x) / cast_float(pj.window_width);
+    const by = cast_float(ev.button.y) / cast_float(pj.window_height);
+    debug_log("down", bx, by, ev.button.x, ev.button.y,
+      pj.window_width, pj.window_height);
+    if (bx < 0.1 && by < 0.1) {
+      app.scene_next = 1;
+      debug_log("next", app.scene_next);
+      return;
+    } else if (bx > 0.9 && by > 0.9) {
+      app.exposure *= 2.0;
+      if (app.exposure > 16.0f) {
+	app.exposure = 1.0f / 16.0f;
+      }
+      return;
+    } else if (bx > 0.9 && by < 0.1) {
+      app.option_value = app.option_value + 1;
+      debug_log("option_value", app.option_value);
+      return;
+    }
+  } else if (etype == SDL_FINGERDOWN) {
+    if (ev.tfinger.x < 0.1 && ev.tfinger.y < 0.1) {
+      app.scene_next = 1;
+      return;
+    } else if (ev.tfinger.x > 0.9 && ev.tfinger.y > 0.9) {
+      app.app_commands["scene_pause"] = "1";
+      // app.light_on = app.light_on > 0.5f ? 0.0f : 1.0f;
+      return;
+    } else if (ev.tfinger.x < 0.1 && ev.tfinger.y > 0.9) {
+      app.exposure *= 2.0;
+      if (app.exposure > 16.0f) {
+	app.exposure = 1.0f / 16.0f;
+      }
+      return;
+    } else if (ev.tfinger.x > 0.9 && ev.tfinger.y < 0.1) {
+      app.option_value = app.option_value + 1;
+      debug_log("option_value", app.option_value);
+      return;
+    }
+  } else if (etype == SDL_KEYDOWN) {
+    if (case app.edit_mode.some) {
+      app.edit_mode.some->set_camera_angle(app.player.angle);
+      glm::vec3 cursor_move;
+      app.edit_mode.some->on_key_pressed(
+	static_cast{int}(ev.key.keysym.scancode), app.modmask, cursor_move,
+	app.app_status_message);
+      // debug_log("keydown stmsg", app.app_status_message);
+      const glm::vec3 m =
+	cursor_move * app.edit_mode_vattr.aabb_or_tconv.w;
+	// 接線空間座標に変換
+      // debug_log("cursor_move", cursor_move, "m", m);
+      mutable mo0 = app.edit_mode_trans * glm::make_vec4(
+	0.0f, 0.0f, 0.0f, 1.0f);
+      mutable mo1 = app.edit_mode_trans * glm::make_vec4(
+	m.x, m.y, m.z, 1.0f);
+	// オブジェクト座標に変換
+      mo0 /= mo0.w;
+      mo1 /= mo1.w;
+      const mo = mo1 - mo0;
+      // edit_modeに使うsceneではオブジェクト座標がそのままグローバル座標
+      app.player.position += glm::make_vec3(mo.x, mo.y, mo.z);
+    }
+    // sdl_log("KEYDOWN event", static_cast{int}(ev.key.keysym.scancode));
+    if (const ed: app.edit_mode.some) {
+      if (ed->is_textinput_mode()) {
+        return;
+      }
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_TAB) {
+      if ((app.modmask & 1) == 1) {
+        app.scene_next = -1;
+      } else {
+        app.scene_next = 1;
+      }
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F11) {
+      actrl.set_param("fullscreen", "1");
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F5) {
+      actrl.set_param("reload", "1");
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F7) {
+      actrl.set_param("dummy_flip", "1");
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F8) {
+      app.exposure *= 0.5;
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F9) {
+      app.exposure *= 2.0;
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F10) {
+      actrl.set_param("vsync", "1");
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_E) {
+      app.app_commands["throw"] = "1";
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_Q) {
+      app.light_on = app.light_on > 0.5f ? 0.0f : 1.0f;
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F1) {
+      app.app_commands["scene_pause"] = "1";
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F2) {
+      app.option_value = app.option_value + 1;
+      debug_log("option_value", app.option_value);
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F3) {
+      app.option_value = 0;
+      debug_log("option_value", app.option_value);
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F4) {
+      if ((app.modmask & 1) != 0) {
+	app.option_value2 = -1;
+      } else {
+	app.option_value2 = ((app.option_value2) + 2) % 10 - 1;
+      }
+      debug_log("option_value2", app.option_value2);
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
+      save_state(app);
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_PAGEDOWN) {
+      if ((app.modmask & 1) != 0) {
+	app.light.y -= 0.01f;
+      } else {
+	app.light.x -= 0.01f;
+      }
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_PAGEUP) {
+      if ((app.modmask & 1) != 0) {
+	app.light.y += 0.01f;
+      } else {
+	app.light.x += 0.01f;
+      }
+      return;
+    }
+    // debug_log("key", static_cast{int}(ev.key.keysym.scancode));
+  } else if (etype == SDL_TEXTINPUT) {
+    // const sli = ev.text.text.to_cslice().to_crawptr().to_cslice(32);
+    // const len = find_mapped(sli, 0, 0);
+    // const s = string(sli[0 .. len]);
+    if (const edit_mode: app.edit_mode.some) {
+      edit_mode->on_textinput(sdl_textevent_text(ev.text),
+        app.app_status_message);
+      // debug_log("ti stmsg", app.app_status_message);
+    }
+  }
+  const& proj = *app.proj_pm;
+  const virt_sz = glm::make_uvec2(static_cast{uint}(proj.virt_width),
+    static_cast{uint}(proj.virt_height));
+  app.ictl.handle_event(ev, frame_speed, virt_sz, app.app_commands);
+}
+
+function void update_joystick(app_data mutable& app,
+  cslice{joystick_state} const& joysticks)
+{
+  // TODO: マップできるようにする
+  if (joysticks.empty()) {
+    return;
+  }
+  const& ji = joysticks[0];
+  if (ji.hats.size() == 0) {
+    app.player_joystick = ji;
+    return;
+  } else if (ji.hats.size() >= 1 && ji.buttons.size() >= 16 &&
+    ji.axes.size() >= 6) {
+    mutable& axes = app.player_joystick.axes;
+    mutable& btns = app.player_joystick.buttons;
+    axes[0] = ji.axes[0];
+    axes[1] = ji.axes[1];
+    axes[2] = ji.axes[3];
+    axes[3] = ji.axes[4];
+    axes[4] = 0;
+    axes[5] = 0;
+    btns[0] = (ji.hats[0] & 1) != 0;
+    btns[1] = (ji.hats[0] & 4) != 0;
+    btns[2] = (ji.hats[0] & 8) != 0;
+    btns[3] = (ji.hats[0] & 2) != 0;
+    btns[4] = ji.buttons[11];
+    btns[5] = ji.buttons[15];
+    btns[6] = ji.buttons[13];
+    btns[7] = ji.buttons[14];
+    btns[8] = ji.buttons[6];
+    btns[9] = ji.buttons[7];
+    btns[10] = ji.buttons[0];
+    btns[11] = ji.buttons[1];
+    btns[12] = ji.buttons[3];
+    btns[13] = ji.buttons[4];
+    btns[14] = ji.buttons[16];
+  }
+  // debug_log(joysticks);
+}
+
+public function void handle_keys(app_data mutable& app,
+  cslice{uchar} const& keys, cslice{joystick_state} const& joysticks,
+  float frame_speed)
+{
+  bool no_move = false;
+  if (const em: app.edit_mode.some) {
+    if (em->is_textinput_mode()) {
+      no_move = true;
+    }
+  }
+  if (!no_move) {
+    update_joystick(app, joysticks);
+    app.ictl.handle_keys(app.player, keys, app.player_joystick, frame_speed,
+      app.app_commands);
+  }
+  if (app.axim.is_valid()) {
+    // ラグ確認のためft601経由でLED点灯する
+    const kleft = app.ictl.get_key(keys, SDL_SCANCODE_LEFT) != 0u;
+    const kright = app.ictl.get_key(keys, SDL_SCANCODE_RIGHT) != 0u;
+    farray{uchar, 4} buf;
+    buf[0] |= static_cast{uchar}(kleft ? 1u : 0u);
+    buf[0] |= static_cast{uchar}(kright ? 2u : 0u);
+    buf[1] = buf[0];
+    buf[2] = buf[0];
+    buf[3] = buf[0];
+    app.axim.axi_write(0x44a00000, buf);
+  }
+  glm::quat mctrl_angle = glm::make_quat_wxyz(1.0, 0.0, 0.0, 0.0);
+  if (const& mctrl: app.mctrl.some) {
+    mctrl_angle = mctrl->get_current_value().conjugate();
+  }
+  glm::quat camera_rel = glm::make_quat_wxyz(1.0, 0.0, 0.0, 0.0);
+  app.ictl.action_step(app.player, app.player.pos_delta, frame_speed);
+  {
+    mutable& ss = downcast_mutable{app_scene_shared}(*app.scene_shared);
+    ss.light_on = app.light_on;
+    ss.light = app.light;
+    ss.exposure = sqrt(app.exposure); // 半段単位
+    ss.option_value = app.option_value;
+    ss.option_value2 = app.option_value2;
+    ss.scene_next = app.scene_next;
+    ss.posang.position = app.player.position;
+    ss.posang.angle = app.player.angle * mctrl_angle * camera_rel;
+    ss.pos_delta = app.player.pos_delta;
+    ss.app_commands.swap(app.app_commands);
+    ss.app_status_message = app.app_status_message;
+    app.scene_next = 0;
+    // sdl_log("posang = ", ss.posang);
+  }
+  app.app_commands.clear();
+  // app.prev_joy_buttons = buttons;
+}
+

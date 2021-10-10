@@ -23,8 +23,9 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
   function double gen_rand_double()
   {
     // 0から1まで
+    const ulonglong den = 0x100000000ul;
     return static_cast{double}(rndp->generate())
-      / static_cast{double}(0x100000000ul);
+      / static_cast{double}(den);
   }
   function float gen_rand_float()
   {

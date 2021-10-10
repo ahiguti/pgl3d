@@ -16,6 +16,7 @@ public threaded interface build_context_i
     string const& joint_name, poly_t const& poly, mesh_index const& mp) const;
     // 引数nはdgf_fillersのn番を使用して描画することを指定する。
     // joint_nameが空文字列でないときはその名前のjointをその位置に作成する。
+  public function vec2 assign_texture(cslice{vec2} const& boundary, float h);
 }
 
 /* vertex_attr構造体はdrawerのfillerへ渡す頂点データを保持する。個々の
@@ -566,22 +567,25 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   // surf_quadsには(mx-mi)の大きさの6面の頂点座標が入っている
   const& coord_min = mi;
   const& coord_max = mx;
-  if (poly.size() != 4) {
-    debug_log("WARN gf_ctx_tex3d_surf poly.size() != 4");
+  if (poly.size() < 3) {
+    debug_log("WARN gf_ctx_tex3d_surf poly.size() < 3");
     return;
   }
+  size_t const poly_size_max = 4u;
+  const poly_size = min(poly.size(), poly_size_max);
   // debug_log("gf_ctx_tex3d_surf surf_quads=", surf_quads, "poly=", poly);
   const tan = (poly[1].pos - poly[0].pos).normalize();
   const nor = normal_from_poly(poly, false);
   mutable len = glm::length(poly[1].pos - poly[0].pos);
-  mutable darrayst{vec2} bnd = darrayst{vec2}(poly.size(), vec2());
+  mutable darrayst{vec2} bnd = darrayst{vec2}(poly_size, vec2());
   vec3 base_pos = poly[0].pos;
   if (fill_floor) {
     const bno = cross(nor, tan);
-    mutable darrayst{vec2} base = darrayst{vec2}(poly.size(), vec2());
+    mutable darrayst{vec2} base = darrayst{vec2}(poly_size, vec2());
     vec2 base_min;
     vec2 base_max;
-    for (const i, const& p: poly) {
+    for (const i: 0 .. poly_size) {
+      const& p = poly[i];
       base[i].x = dot(p.pos, tan);
       base[i].y = dot(p.pos, bno);
       if (i == 0) {
@@ -625,9 +629,15 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     const texscale_inv = coord_len / len;
       // オブジェクト座標からテクスチャ座標への倍率
     const coord_min_xy = glm::make_vec2(coord_min.x, coord_min.y);
+    /*
     for (const i, const b: bnd) {
       // 底面ポリゴンの位置
       attr0.boundary[i] = coord_min_xy + bnd[i] * texscale_inv;
+    }
+    */
+    for (const i: 0u .. poly_size_max) {
+      // 底面ポリゴンの位置
+      attr0.boundary[i] = coord_min_xy + bnd[i % poly_size] * texscale_inv;
     }
   }
   // quad_attrとしてsurf_quadsの各面の各頂点の頂点データを作る。

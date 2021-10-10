@@ -1,0 +1,164 @@
+public namespace app::app_drawstep;
+public import common -;
+public import exception -;
+public import numeric::fpmath -;
+public import pointer::raw -;
+public import text::positional -;
+public import io::time -;
+public import fundamental::mainloop -;
+public import io::environ;
+public import pgl3d::ext::debug_helper -;
+public import pgl3d::exports -;
+public import meta m;
+public import glm;
+public import app::app_data -;
+public import app::app_scene -;
+public import app::texture::triangles_texture -;
+
+public function varray{drawer_cond} init_drawsteps(
+  app_data mutable& app, shader_config const& sconf,
+  drawer_shared const& ds)
+{
+  debug_log("init_drawsteps", *app.pviewport_disp, *app.pviewport_main);
+  app.raycast_cull_front = sconf.conf.get("raycast_cull_front", 0, 0, 1) != 0;
+  app.raycast_layer = sconf.conf.get("raycast_layer", 15, 0, 63);
+    // 0のときソートしない
+  app.enable_dbgui = sconf.conf.get("enable_dbgui", 0, 0, 1) != 0;
+  downcast_mutable{app_scene_shared}(*app.scene_shared).raycast_layer
+    = app.raycast_layer;
+
+  prepare_triangles_texture_data(sconf.conf, app.txs, app.tvt);
+  *ds.textures = *app.txs;
+  *ds.tvt = *app.tvt;
+
+  // レンダリングパスを組み立てる
+  const ctrue = make_ptr{bool}(true);
+  const cblur = app.cond_blur;
+  const cnoblur = app.cond_noblur;
+  varray{drawer_cond} r;
+  varray{drawer_cond} solid;
+  varray{varray{drawer_cond}} shadow;
+  varray{drawer_cond} zpre;
+  {
+    const shadowmap_name = "sm";
+    const num_shadowmaps = sconf.num_shadowmaps;
+    make_drawstep_triangles_surface(ctrue, sconf, ds, app.proj_df,
+      shadowmap_name, num_shadowmaps, solid, shadow, zpre);
+    make_drawstep_raycast(ctrue, sconf, ds, app.proj_df, shadowmap_name,
+      num_shadowmaps, app.raycast_layer, solid, shadow, zpre);
+    for (int i: 0 .. num_shadowmaps) {
+      r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_sm,
+        app.pviewport_sm, shadowmap_name + to_string(i), true,
+        make_varray{string}(),
+        "GL_DEPTH_COMPONENT", false));
+        // set shadowmap framebuffer i
+      r.append(shadow[static_cast{size_t}(i)]);
+    }
+  }
+  r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
+    app.pviewport_main,
+    "col1", true, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+    false));
+    // set color+depth framebuffer
+  r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "zprepass"));
+  r.append(zpre); // draw solid z-prepass
+  r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "solid"));
+  r.append(solid); // draw solid color
+  r.push_back(make_drawstep_lineparticle(ctrue, sconf, ds, app.proj_df));
+    // draw solid
+  r.push_back(make_drawstep_skybox(ctrue, sconf, ds, app.proj_df));
+    // draw solid
+  r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "blend"));
+  r.push_back(make_drawstep_particle(ctrue, sconf, ds, app.pviewport_main));
+  r.push_back(make_drawstep_particle_bb(ctrue, sconf, ds, app.proj_df));
+  r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
+    app.pviewport_main,
+    "col0", true, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+    false));
+    // set color+depth framebuffer
+  r.push_back(make_drawstep_ssao(ctrue, sconf, ds, app.dp_ssao, "col1"));
+    // col1からcol0へssaoフィルタ実行
+  r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
+    app.pviewport_main,
+    "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+    false));
+    // col1再利用
+  r.push_back(make_drawstep_fxaa(ctrue, sconf, ds, app.dp_fxaa, "col0"));
+    // col0からcol1へfxaaフィルタ実行
+  if (sconf.conf.get("capture_filter", 0, 0, 1) != 0) {
+    // TODO: blur_h反映
+    debug_log("enable capture filter");
+    r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
+      app.pviewport_main,
+      "col0", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+      false));
+      // col0再利用
+    r.push_back(make_drawstep_blur(ctrue, sconf, ds, app.dp_blur, "col1"));
+      // col1からcol0へblurフィルタ実行
+    r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "blend"));
+    r.push_back(make_drawstep_rect2d(ctrue, sconf, ds));
+    r.push_back(make_drawstep_font2(ctrue, sconf, ds, app.pviewport_main));
+    r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_main,
+      app.pviewport_main,
+      "col1", false, make_varray{string}("GL_RGBA"), "GL_DEPTH_COMPONENT",
+      false));
+      // col1再利用
+    r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "solid"));
+    r.push_back(make_drawstep_capture(ctrue, sconf, ds, app.pviewport_main,
+      app.capt_data, "col0"));
+      // col0からcol1へcaptureフィルタ実行
+    r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_disp,
+      app.pviewport_disp,
+      "", false, make_varray{string}(), "", false));
+      // set toplevel framebuffer
+    r.push_back(make_drawstep_passthrough(ctrue, sconf, ds, "col0"));
+      // col0からtoplevelへpassthroughフィルタ実行
+  } else {
+    debug_log("blur_h draw");
+    {
+      r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
+        app.pviewport_main,
+        "col2", true, make_varray{string}("GL_RGBA"), "", true));
+        // (blur_h有りのとき) col2, bilinear
+      r.push_back(make_drawstep_blur(cblur, sconf, ds, app.dp_blur, "col1"));
+        // (blur_h有りのとき) col1からcol2へblurフィルタ実行
+      r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_main,
+        app.pviewport_main,
+        "col3", true, make_varray{string}("GL_RGBA"), "",
+        app.virt_scale != 1.0));
+        // (blur_h有りのとき) col3, virt_scale==1.0ならnearest
+      r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
+        app.white_count_ptr, false, "col2", ""));
+        // (blur_h有りのとき) blur_h (direction_h) col2 -> col3
+      r.push_back(make_drawstep_setfb(cblur, sconf, ds, app.pviewport_disp,
+        app.pviewport_disp,
+        "", true, make_varray{string}(), "", false));
+        // (blur_h有りのとき) set toplevel framebuffer
+      r.push_back(make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
+        app.white_count_ptr, true, "col3", "col2"));
+        // (blur_h有りのとき) blur_h (direction_v) col3, col2 -> toplevel
+    }
+    {
+      r.push_back(make_drawstep_setfb(cnoblur, sconf, ds, app.pviewport_disp,
+        app.pviewport_disp,
+        "", true, make_varray{string}(), "", false));
+        // (blur_h無しのとき) set toplevel framebuffer
+      r.push_back(make_drawstep_blur(cnoblur, sconf, ds, app.dp_blur,
+        "col1"));
+        // (blur_h無しのとき) col1からcol0へblurフィルタ実行
+    }
+    r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "blend"));
+      // blendに設定
+    r.push_back(make_drawstep_rect2d(ctrue, sconf, ds));
+      // rect2dをtoplevelにblendで書き込み
+    r.push_back(make_drawstep_font2(ctrue, sconf, ds, app.pviewport_disp));
+      // font2をtoplevelにblendで書き込み
+  }
+  for (const i, const& e: r) {
+    if (const em: e.step->get_edit_mode().some) {
+      app.edit_mode.some = em;
+    }
+  }
+  return r;
+}
+

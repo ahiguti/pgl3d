@@ -433,6 +433,11 @@ build_context_impl(varray{ptr{vertices}} mutable& vptrs0,
       }
     }
   }
+  function vec2 assign_texture(cslice{vec2} const& bounary, float h)
+  {
+    // TODO: テクスチャの一部を割り当て
+    return make_vec2(0.0, 0.0);
+  }
 }
 
 private threaded function void

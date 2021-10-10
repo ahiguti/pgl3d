@@ -1,10 +1,10 @@
 public threaded namespace app::texture::triangles_texture;
 public import common -;
 public import pgl3d::exports_threaded -;
-public import app::texture::tile -;
 public import text::serialize::compact_pod -;
 public import glm -;
 public import meta m;
+public import app::texture::tile -;
 
 struct app_textures(bool edit_mode, int mw, int mh, int md, int pw,
   int ph, int pd)
