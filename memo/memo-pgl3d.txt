@@ -4644,4 +4644,10 @@ const texscale = bound_len / coord_len
 (tan,nor)平面での各poly[]の座標をテクスチャ座標に変換し、
 boundary[]にセットする。
 
+----------------
+
+init_drawstepの中で3dテクスチャを生成・読み込んでいる
+build_verticesの中で頂点データを作っている
+頂点データでアトラスを作成してからテクスチャを生成する必要がある
+
 

@@ -11,7 +11,6 @@ public import pgl3d::ext::debug_helper -;
 public import pgl3d::exports -;
 public import meta m;
 public import glm;
-public import app::texture::triangles_texture -;
 public import app::app_scene -;
 public import app::app_data -;
 public import app::app_drawstep -;

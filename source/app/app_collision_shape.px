@@ -1,0 +1,44 @@
+public namespace app::app_collision_shape;
+public import common -;
+public import exception -;
+public import numeric::fpmath -;
+public import pointer::raw -;
+public import text::positional -;
+public import io::time -;
+public import fundamental::mainloop -;
+public import io::environ;
+public import pgl3d::ext::debug_helper -;
+public import pgl3d::exports -;
+public import meta m;
+public import glm;
+public import app::app_data -;
+public import app::app_raycast_object -;
+public import app::texture::triangles_texture -;
+
+public tsvaluetype enum collision_shape_e {
+  collision_shape_e_sphere = 0,
+  collision_shape_e_box = 1,
+  collision_shape_e_convex_hull = 2,
+  collision_shape_e_concave = 3,
+  collision_shape_e_voxel = 4,
+}
+
+public multithreaded struct
+collision_shape_data(string const& name0, joint_id_type joint_id0,
+  float mass0, collision_shape_e shape0, varray{float} const& values0,
+  varray{vertex_attr} const& vattrs0, varray{uint} const& elements0,
+  tptr{tiled_voxel_texture} const& tvt0)
+{
+  public string name = name0;
+  public joint_id_type joint_id = joint_id0;
+  public float mass = mass0;
+  public collision_shape_e shape = shape0;
+  public varray{float} values = values0;
+  public varray{vertex_attr} vattrs = vattrs0;
+  public varray{uint} elements = elements0;
+  public tptr{tiled_voxel_texture} tvt = tvt0;
+}
+
+public metafunction collision_shape_data_array
+  varray{tcptr{collision_shape_data}};
+

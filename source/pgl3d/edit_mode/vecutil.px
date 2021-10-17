@@ -6,21 +6,3 @@ private import glm -;
 public metafunction ui static_cast{uint};
 public metafunction si static_cast{int};
 
-public threaded function {t} bool lt_all_uvec3(uvec3 const& a, t const& b)
-{
-  if (m::eq{t, uvec3}) {
-    return a.x < b.x && a.y < b.y && a.z < b.z;
-  } else {
-    return a.x < b && a.y < b && a.z < b;
-  }
-}
-
-public threaded function {t} bool le_all_uvec3(uvec3 const& a, t const& b)
-{
-  if (m::eq{t, uvec3}) {
-    return a.x <= b.x && a.y <= b.y && a.z <= b.z;
-  } else {
-    return a.x <= b && a.y <= b && a.z <= b;
-  }
-}
-

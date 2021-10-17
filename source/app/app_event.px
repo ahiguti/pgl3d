@@ -14,103 +14,6 @@ public import glm;
 public import app::app_data -;
 public import app::app_scene -;
 
-function void save_state(app_data const& app)
-{
-  camera_state st;
-  st.player = app.player;
-  st.light = app.light;
-  const s = to_string(st);
-  debug_log("save", s);
-  sdl_save_file("/build/camera_state.raw", s);
-}
-
-function bool update_window_geometry(app_data mutable& app,
-  glm::uvec2 const& drsz, glm::uvec2 const& wsz)
-{
-  const& glc = *app.sconf.some;
-  mutable& cam = *app.proj_df;
-  if (
-    cam.display_width == static_cast{int}(drsz.x) &&
-    cam.display_height == static_cast{int}(drsz.y) &&
-    cam.window_width == static_cast{int}(wsz.x) &&
-    cam.window_height == static_cast{int}(wsz.y))
-  {
-    return false;
-  }
-  sdl_log("display geometry changed");
-  const virt_width = static_cast{int}(static_cast{float}(drsz.x)
-    / app.virt_scale);
-  const virt_height = static_cast{int}(static_cast{float}(drsz.y)
-    / app.virt_scale);
-  const sm_size = glc.shadowmap_resolution;
-  sdl_log("disp size", drsz.x, drsz.y);
-  sdl_log("virt size", virt_width, virt_height);
-  cam.virt_width = virt_width;
-  cam.virt_height = virt_height;
-  cam.display_width = static_cast{int}(drsz.x);
-  cam.display_height = static_cast{int}(drsz.y);
-  cam.window_width = static_cast{int}(wsz.x);
-  cam.window_height = static_cast{int}(wsz.y);
-  cam.shadowmap_size = sm_size;
-  *app.pviewport_main = glm::make_uvec2(
-    static_cast{uint}(cam.virt_width),
-    static_cast{uint}(cam.virt_height));
-  *app.pviewport_disp = glm::make_uvec2(
-    static_cast{uint}(cam.display_width),
-    static_cast{uint}(cam.display_height));
-  *app.pviewport_sm = glm::make_uvec2(
-    static_cast{uint}(cam.shadowmap_size),
-    static_cast{uint}(cam.shadowmap_size));
-  // update mvp
-  float const perspective_near =
-    glc.conf.get("perspective_near", 1.0f, 0.001f, 100.0f);
-  float const perspective_far =
-    glc.conf.get("perspective_far", 10000.0f, 10.0f, 1000000.0f);
-  float const perspective_wh =
-    glc.conf.get("perspective_wh", 1.0f, 0.001f, 100.0f);
-  const ssbase = max(cam.virt_height, cam.virt_width);
-  const h = perspective_wh * cast_float(cam.virt_height)
-    / cast_float(ssbase);
-  const w = perspective_wh * cast_float(cam.virt_width)
-    / cast_float(ssbase);
-  {
-    // camera projection
-    const near = perspective_near;
-    const far = perspective_far;
-    const left = cast_float(-w);
-    const right = cast_float(w);
-    const bottom = cast_float(-h);
-    const top = cast_float(h);
-    cam.camera_pers.near = near;
-    cam.camera_pers.far = far;
-    cam.camera_pers.width = w;
-    cam.camera_pers.height = h;
-    cam.projection = glm::frustum(left, right, bottom, top, near, far);
-  }
-  {
-    // shadowmap projection
-    function void set_sm(glm::mat4 mutable& dst, float di)
-    {
-      const far = di * 1.0f;
-      const near = di * -1.0f;
-      const left = -di;
-      const right = di;
-      const bottom = -di;
-      const top = di;
-      dst = glm::ortho(left, right, bottom, top, near, far);
-    }
-    float far = glc.shadowmap_distance;
-    for (const i: 0 .. static_cast{size_t}(glc.num_shadowmaps)) {
-      set_sm(cam.sm_projection[i], far);
-      far *= glc.shadowmap_scale;
-    }
-    // debug_log("smp0", cam.sm_projection[0].to_cslice());
-    // debug_log("smp1", cam.sm_projection[1].to_cslice());
-  }
-  *app.proj_pm = cam; // update proj_pm also
-  return true;
-}
-
 public function void handle_event(app_data mutable& app,
   app_ctrl_i mutable& actrl, SDL_Event const& ev, float frame_speed)
 {
@@ -297,46 +200,6 @@ public function void handle_event(app_data mutable& app,
   app.ictl.handle_event(ev, frame_speed, virt_sz, app.app_commands);
 }
 
-function void update_joystick(app_data mutable& app,
-  cslice{joystick_state} const& joysticks)
-{
-  // TODO: マップできるようにする
-  if (joysticks.empty()) {
-    return;
-  }
-  const& ji = joysticks[0];
-  if (ji.hats.size() == 0) {
-    app.player_joystick = ji;
-    return;
-  } else if (ji.hats.size() >= 1 && ji.buttons.size() >= 16 &&
-    ji.axes.size() >= 6) {
-    mutable& axes = app.player_joystick.axes;
-    mutable& btns = app.player_joystick.buttons;
-    axes[0] = ji.axes[0];
-    axes[1] = ji.axes[1];
-    axes[2] = ji.axes[3];
-    axes[3] = ji.axes[4];
-    axes[4] = 0;
-    axes[5] = 0;
-    btns[0] = (ji.hats[0] & 1) != 0;
-    btns[1] = (ji.hats[0] & 4) != 0;
-    btns[2] = (ji.hats[0] & 8) != 0;
-    btns[3] = (ji.hats[0] & 2) != 0;
-    btns[4] = ji.buttons[11];
-    btns[5] = ji.buttons[15];
-    btns[6] = ji.buttons[13];
-    btns[7] = ji.buttons[14];
-    btns[8] = ji.buttons[6];
-    btns[9] = ji.buttons[7];
-    btns[10] = ji.buttons[0];
-    btns[11] = ji.buttons[1];
-    btns[12] = ji.buttons[3];
-    btns[13] = ji.buttons[4];
-    btns[14] = ji.buttons[16];
-  }
-  // debug_log(joysticks);
-}
-
 public function void handle_keys(app_data mutable& app,
   cslice{uchar} const& keys, cslice{joystick_state} const& joysticks,
   float frame_speed)
@@ -388,5 +251,142 @@ public function void handle_keys(app_data mutable& app,
   }
   app.app_commands.clear();
   // app.prev_joy_buttons = buttons;
+}
+
+function void save_state(app_data const& app)
+{
+  camera_state st;
+  st.player = app.player;
+  st.light = app.light;
+  const s = to_string(st);
+  debug_log("save", s);
+  sdl_save_file("/build/camera_state.raw", s);
+}
+
+function bool update_window_geometry(app_data mutable& app,
+  glm::uvec2 const& drsz, glm::uvec2 const& wsz)
+{
+  const& glc = *app.sconf.some;
+  mutable& cam = *app.proj_df;
+  if (
+    cam.display_width == static_cast{int}(drsz.x) &&
+    cam.display_height == static_cast{int}(drsz.y) &&
+    cam.window_width == static_cast{int}(wsz.x) &&
+    cam.window_height == static_cast{int}(wsz.y))
+  {
+    return false;
+  }
+  sdl_log("display geometry changed");
+  const virt_width = static_cast{int}(static_cast{float}(drsz.x)
+    / app.virt_scale);
+  const virt_height = static_cast{int}(static_cast{float}(drsz.y)
+    / app.virt_scale);
+  const sm_size = glc.shadowmap_resolution;
+  sdl_log("disp size", drsz.x, drsz.y);
+  sdl_log("virt size", virt_width, virt_height);
+  cam.virt_width = virt_width;
+  cam.virt_height = virt_height;
+  cam.display_width = static_cast{int}(drsz.x);
+  cam.display_height = static_cast{int}(drsz.y);
+  cam.window_width = static_cast{int}(wsz.x);
+  cam.window_height = static_cast{int}(wsz.y);
+  cam.shadowmap_size = sm_size;
+  *app.pviewport_main = glm::make_uvec2(
+    static_cast{uint}(cam.virt_width),
+    static_cast{uint}(cam.virt_height));
+  *app.pviewport_disp = glm::make_uvec2(
+    static_cast{uint}(cam.display_width),
+    static_cast{uint}(cam.display_height));
+  *app.pviewport_sm = glm::make_uvec2(
+    static_cast{uint}(cam.shadowmap_size),
+    static_cast{uint}(cam.shadowmap_size));
+  // update mvp
+  float const perspective_near =
+    glc.conf.get("perspective_near", 1.0f, 0.001f, 100.0f);
+  float const perspective_far =
+    glc.conf.get("perspective_far", 10000.0f, 10.0f, 1000000.0f);
+  float const perspective_wh =
+    glc.conf.get("perspective_wh", 1.0f, 0.001f, 100.0f);
+  const ssbase = max(cam.virt_height, cam.virt_width);
+  const h = perspective_wh * cast_float(cam.virt_height)
+    / cast_float(ssbase);
+  const w = perspective_wh * cast_float(cam.virt_width)
+    / cast_float(ssbase);
+  {
+    // camera projection
+    const near = perspective_near;
+    const far = perspective_far;
+    const left = cast_float(-w);
+    const right = cast_float(w);
+    const bottom = cast_float(-h);
+    const top = cast_float(h);
+    cam.camera_pers.near = near;
+    cam.camera_pers.far = far;
+    cam.camera_pers.width = w;
+    cam.camera_pers.height = h;
+    cam.projection = glm::frustum(left, right, bottom, top, near, far);
+  }
+  {
+    // shadowmap projection
+    function void set_sm(glm::mat4 mutable& dst, float di)
+    {
+      const far = di * 1.0f;
+      const near = di * -1.0f;
+      const left = -di;
+      const right = di;
+      const bottom = -di;
+      const top = di;
+      dst = glm::ortho(left, right, bottom, top, near, far);
+    }
+    float far = glc.shadowmap_distance;
+    for (const i: 0 .. static_cast{size_t}(glc.num_shadowmaps)) {
+      set_sm(cam.sm_projection[i], far);
+      far *= glc.shadowmap_scale;
+    }
+    // debug_log("smp0", cam.sm_projection[0].to_cslice());
+    // debug_log("smp1", cam.sm_projection[1].to_cslice());
+  }
+  *app.proj_pm = cam; // update proj_pm also
+  return true;
+}
+
+function void update_joystick(app_data mutable& app,
+  cslice{joystick_state} const& joysticks)
+{
+  // TODO: マップできるようにする
+  if (joysticks.empty()) {
+    return;
+  }
+  const& ji = joysticks[0];
+  if (ji.hats.size() == 0) {
+    app.player_joystick = ji;
+    return;
+  } else if (ji.hats.size() >= 1 && ji.buttons.size() >= 16 &&
+    ji.axes.size() >= 6) {
+    mutable& axes = app.player_joystick.axes;
+    mutable& btns = app.player_joystick.buttons;
+    axes[0] = ji.axes[0];
+    axes[1] = ji.axes[1];
+    axes[2] = ji.axes[3];
+    axes[3] = ji.axes[4];
+    axes[4] = 0;
+    axes[5] = 0;
+    btns[0] = (ji.hats[0] & 1) != 0;
+    btns[1] = (ji.hats[0] & 4) != 0;
+    btns[2] = (ji.hats[0] & 8) != 0;
+    btns[3] = (ji.hats[0] & 2) != 0;
+    btns[4] = ji.buttons[11];
+    btns[5] = ji.buttons[15];
+    btns[6] = ji.buttons[13];
+    btns[7] = ji.buttons[14];
+    btns[8] = ji.buttons[6];
+    btns[9] = ji.buttons[7];
+    btns[10] = ji.buttons[0];
+    btns[11] = ji.buttons[1];
+    btns[12] = ji.buttons[3];
+    btns[13] = ji.buttons[4];
+    btns[14] = ji.buttons[16];
+  }
+  // debug_log(joysticks);
 }
 

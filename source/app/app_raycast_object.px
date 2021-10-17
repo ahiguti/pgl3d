@@ -1,0 +1,189 @@
+public namespace app::app_raycast_object;
+public import common -;
+public import exception -;
+public import numeric::fpmath -;
+public import pointer::raw -;
+public import text::positional -;
+public import io::time -;
+public import fundamental::mainloop -;
+public import io::environ;
+public import pgl3d::ext::debug_helper -;
+public import pgl3d::exports -;
+public import meta m;
+public import glm;
+public import app::app_data -;
+public import app::texture::triangles_texture -;
+
+public multithreaded struct raycast_object()
+{
+  public joint_id_type joint_id;
+  public float radius = 1.0f; // 物体の外接球の半径
+  public glm::mat4 model_matrix = mat4_identity();
+  public glm::vec3 relative_pos; // カメラからみた座標
+  public bool near_flag;
+}
+
+public multithreaded struct raycast_drawers_info()
+{
+  public varray{vbid_t} subdrawer_vbids;
+  public vbid_t subdrawer_vbid_min;
+  public vbid_t subdrawer_vbid_max;
+  public tree_map{string, joint_id_type} name_to_joint_id;
+  public tree_map{joint_id_type, float} vs_radius;
+}
+
+public multithreaded struct raycast_objects()
+{
+  // raycastシェーダのために必要なフレーム毎の処理をするための構造体
+  public float haov_tan = 0.0f; // カメラの半画角のtangent
+  public glm::vec2 dv_xz;
+  public glm::vec2 du_xz;
+  public varray{raycast_object} objects;
+  public tree_multimap{float, uint} nearest_objects;
+  public function void set_perspective(perspective const& pers)
+  {
+    const w = pers.width;
+    const h = pers.height;
+    haov_tan = sqrt(w * w + h * h) / fabs(pers.near);
+      // 半画角のtangent
+    dv_xz = glm::make_vec2(haov_tan, 1.0f).normalize();
+      // 円錐がy=0に接する半直線(x,zともに正のがわ)の単位ベクトル
+    du_xz = glm::make_vec2(dv_xz.y, -dv_xz.x);
+      // dvから時計回りに90度。右下方向。
+  }
+  public function void clear_objects()
+  {
+    objects.clear();
+    nearest_objects.clear();
+  }
+  public function bool push_object(raycast_drawers_info const& rdi,
+    projection_info const& cam, scene_node const& sn)
+  {
+    raycast_object obj;
+    obj.joint_id = sn.joint_id;
+    if (const& rad: rdi.vs_radius[sn.joint_id]) {
+      obj.radius = rad;
+    } else {
+      debug_log("raycast_objects: push_object: unknown join_id", sn.joint_id);
+    }
+    const& trns = sn.trans.value;
+    obj.model_matrix = trns;
+    if (obj.radius < 10.0f) {
+      // 小さいオブジェクトはnearestには入れない
+      objects.push_back(obj);
+      return true;
+    }
+    const& s = trns.to_cslice();
+    // debug_log("trans", s);
+    const pos = glm::make_vec4(s[12], s[13], s[14], 1.0f);
+    const relpos = cam.view * pos;
+    obj.relative_pos = glm::make_vec3(relpos.x, relpos.y, -relpos.z);
+    // 視錐台に接するかどうかを大雑把に判定する
+    // 相対位置relposをxy平面上で回転させてy=0, x>=0に下ろした点Bのxz座標を
+    // 計算。zを反転させ、手前を負値にする。
+    const relpos_xz = glm::make_vec2(relpos.x, relpos.y);
+    const posb_xz = glm::make_vec2(glm::length(relpos_xz), -relpos.z);
+      // 点Bのxz座標
+    // dvは円錐の端(右上向き)の単位ベクトル。duはそれに垂直な右下向きの
+    // 単位ベクトル。点Bの座標のそれら方向の成分を計算。
+    const b_dv = glm::dot(posb_xz, dv_xz); // 右上
+    const b_du = glm::dot(posb_xz, du_xz); // 右下
+    // dv方向の半直線と点Bの距離を計算
+    float dist_b = 0.0f;
+    if (b_dv >= 0.0f) {
+      // 右上方向成分が正
+      if (b_du >= 0.0f) {
+        // 右下成分も正。円錐とBの距離は右下成分の大きさ。
+        dist_b = b_du;
+      } else {
+        // 右下成分が負。Bは円錐の内側なので距離は0。
+        dist_b = 0.0f;
+      }
+    } else {
+      // 右下成分が負
+      dist_b = glm::length(posb_xz);
+    }
+    //  debug_log("rel", obj.relative_pos, "dist_b", dist_b, "rad",
+    //  obj.radius, "posb_xz", posb_xz, "dv_xz", dv_xz, "jid", sn.joint_id);
+    if (dist_b > obj.radius) {
+      // 物体に外接する球が視野の円錐に接しないので表示不要
+      return false;
+    }
+    // debug_log("show rel", obj.relative_pos, "dist", dist_b, "rad",
+    //   obj.radius, sn.joint_id);
+    uint i = static_cast{uint}(objects.size());
+    objects.push_back(obj);
+    nearest_objects.insert(posb_xz.y, i);
+    return true;
+  }
+  public function void prepare_instances(node_common_data mutable& ncd,
+    raycast_drawers_info const& rdi,
+    cslice{prepare_instance_data_funcptr} const& ftable,
+    whole_instances_type mutable& whole_instances)
+  {
+    scene_node mutable sn = scene_node(joint_id_type(), mat4_identity());
+    uint const ndr = static_cast{uint}(
+      rdi.subdrawer_vbid_max - rdi.subdrawer_vbid_min) + 1;
+    function void extend_whole_instances(vbid_t vbid, vsid_t vsid)
+    {
+      // while_instancesの大きさを必要に応じてリサイズする
+      if (whole_instances.size() <= static_cast{size_t}(vbid)) {
+	whole_instances.resize(static_cast{size_t}(vbid) + 1,
+	  bo_instances_type());
+      }
+      mutable& boi = whole_instances[vbid];
+      if (boi.size() <= static_cast{size_t}(vsid)) {
+	boi.resize(static_cast{size_t}(vsid) + 1, instance_data());
+      }
+    }
+
+    // 近くて大きいオブジェクトを、先に描画するsubdrawer向けインスタンス
+    // リストに入れる。近くて大きいsubdrawer-1個のオブジェクトはそれぞれ
+    // 固有のsubdrawerで順に描画される。残りのオブジェクトは同じsubdrawer
+    // でまとめて描画される。
+    size_t cur = rdi.subdrawer_vbids.size() - 1;
+    for (float z, const& idx: nearest_objects) {
+      mutable& obj = objects[idx];
+      obj.near_flag = true;
+      const vbid_t vbid = rdi.subdrawer_vbids[cur];
+      const vsid_t vsid = obj.joint_id.vsid;
+      sn.joint_id.vbid = vbid;
+      sn.joint_id.vsid = vsid;
+      sn.trans.value = obj.model_matrix;
+      if (vbid != vbid_invalid() && vsid != vsid_invalid()) {
+	// debug_log("prepare_instance_data_ft_rec near instance vbid=", vbid,
+	//   "vsid=", vsid, "cur=", cur, "z=", z);
+	extend_whole_instances(vbid, vsid);
+	mutable& idata = whole_instances[vbid][vsid];
+	ftable[vbid](sn, ncd, idata);
+	// debug_log("inserted idata", idata.instance_buffer.size());
+      }
+      // ssubtype=1は小さいオブジェクト用。
+      // ssubtype>1は大きいオブジェクト用で、large_shadow=0のとき影は差さない。
+      if (cur > 2) {
+	--cur;
+      }
+    }
+    // 小さいオブジェクトはssubtype=1のdrawerで書く。影を差す。
+    cur = 1;
+    for (const i, const& obj: objects) {
+      if (obj.near_flag) {
+	continue;
+      }
+      const vbid_t vbid = rdi.subdrawer_vbids[cur];
+      const vsid_t vsid = obj.joint_id.vsid;
+      sn.joint_id.vbid = vbid;
+      sn.joint_id.vsid = vsid;
+      sn.trans.value = obj.model_matrix;
+      if (vbid != vbid_invalid() && vsid != vsid_invalid()) {
+	// debug_log("prepare_instance_data_ft_rec far instance vbid=", vbid,
+	//   "vsid=", vsid, "cur=", cur);
+	extend_whole_instances(vbid, vsid);
+	mutable& idata = whole_instances[vbid][vsid];
+	ftable[vbid](sn, ncd, idata);
+	// debug_log("inserted idata", idata.instance_buffer.size());
+      }
+    }
+  }
+}
+

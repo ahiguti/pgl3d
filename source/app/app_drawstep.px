@@ -159,6 +159,7 @@ public function varray{drawer_cond} init_drawsteps(
       app.edit_mode.some = em;
     }
   }
+
   return r;
 }
 

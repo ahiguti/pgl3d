@@ -105,6 +105,24 @@ public metafunction to_ivec3 map{ivec3, static_cast{int, uint}};
 public metafunction to_uvec3 map{uvec3, static_cast{uint, int}};
 public metafunction to_vec3 map{vec3, static_cast{float, int}};
 
+public threaded function {t} bool lt_all_uvec3(uvec3 const& a, t const& b)
+{
+  if (m::eq{t, uvec3}) {
+    return a.x < b.x && a.y < b.y && a.z < b.z;
+  } else {
+    return a.x < b && a.y < b && a.z < b;
+  }
+}
+
+public threaded function {t} bool le_all_uvec3(uvec3 const& a, t const& b)
+{
+  if (m::eq{t, uvec3}) {
+    return a.x <= b.x && a.y <= b.y && a.z <= b.z;
+  } else {
+    return a.x <= b && a.y <= b && a.z <= b;
+  }
+}
+
 public threaded function glm::mat3 mat3_identity()
 {
   return glm::make_mat3(
