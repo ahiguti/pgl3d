@@ -4620,13 +4620,17 @@ vertices::push_polygon_distinct()は頂点データにポリゴン一枚を登�
 
 TODO:
 (1) vertex_attrに底面ポリゴンの座標を保持するfield(6頂点まで?)を追加
+    (done)
 (2) gf_ctx_tex3d_surfの中で底面ポリゴンの座標をテクスチャ座標に変換し、
     追加したfieldにそれをセット。polyで指定されたポリゴンからそれを
     囲むような直方体を作り、polyの各頂点(直方体の内側)のテクスチャ座標
     をuvwにセット。tanをpoly[1]-poly[0]の向きにしているのを修正。
+    (done)
 (3) vertex_attrをglvertex::verticesに変換している箇所(どこ?)を変更
+    (done)
 (4) coord_min, coord_max の指定, coord_lenの計算について、任意の大きさ
     のテクスチャと範囲を指定できるようにする。
+    (done)
 (5) 個々のtex3dについて対応するボクセルデータを生成する処理
 
 gf_ctx_tex3d_surf()
