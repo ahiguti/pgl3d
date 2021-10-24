@@ -1,22 +1,44 @@
-private threaded namespace app::texture::atlas;
+public threaded namespace pgl3d::texture::atlas;
 public import common -;
-public import pgl3d::exports_threaded *;
 public import glm -;
 public import meta m;
+public import pgl3d::texture::texture -;
+public import pgl3d::engine::util -;
 
 public multithreaded struct atlas_entry {
   public glm::vec3 position;
   public glm::uvec3 uposition;
   public glm::vec3 size;
   public glm::uvec3 usize;
-  public varray{glm::vec2} boundary; // 底面ポリゴン
+  public varray{glm::vec2} boundary; // テクスチャ座標スケールの底面ポリゴン
 }
 
 public multithreaded struct atlas(uvec3 tmap_size0) {
   public uvec3 const tmap_size = tmap_size0;
+    // テクスチャのブロック単位の大きさ。xyz軸がそれぞれ2の冪。
   public uint const tmap_size_max =
     foldl{max}(expand(f: m::field_names{uvec3}; tmap_size.f));
     // tmap_sizeの最大軸の値
+  public function atlas_entry assign(cslice{vec2} const& boundary,
+    float height) {
+    // boundaryはテクスチャ座標スケールの底面ポリゴン。この大きさが収まる
+    // ようにテクスチャの一部を割り当てる。
+    debug_log("atlas assign", boundary, height);
+    const i = entries.size();
+    const aabb = calc_aabb(boundary);
+    const aabb_sz2 = aabb.second - aabb.first;
+    const aabb_sz = make_vec3(aabb_sz2.x, aabb_sz2.y, height);
+    const uaabb_sz = map{uvec3, static_cast{uint, float}}(
+      (aabb_sz - 0.0001f) * static_cast{float}(tmap_size_max));
+    atlas_entry ent;
+    ent.boundary = boundary;
+    ent.size = aabb_sz;
+    ent.usize = uaabb_sz + make_uvec3(1u, 1u, 1u);
+    find_space(ent);
+    debug_log("atlas assign", ent);
+    entries.push_back(ent);
+    return ent;
+  }
   private vec3 const offset_max =
     map{vec3, static_cast{float, uint}}(tmap_size)
       / static_cast{float}(tmap_size_max);
@@ -38,45 +60,37 @@ public multithreaded struct atlas(uvec3 tmap_size0) {
     return map{vec3, static_cast{float, uint}}(upos)
       / static_cast{float}(tmap_size_max);
   }
-  public function atlas_entry assign(cslice{vec2} const& boundary,
-    float height) {
-    const i = entries.size();
-    const aabb = calc_aabb(boundary);
-    const aabb_sz2 = aabb.second - aabb.first;
-    const aabb_sz = make_vec3(aabb_sz2.x, aabb_sz2.y, height);
-    const uaabb_sz = map{uvec3, static_cast{uint, float}}(
-      aabb_sz * static_cast{float}(tmap_size_max));
-    atlas_entry ent;
-    ent.boundary = boundary;
-    ent.size = aabb_sz;
-    ent.usize = uaabb_sz + make_uvec3(1u, 1u, 1u);
-    find_space(ent);
-    entries.push_back(ent);
-    return ent;
-  }
-  private function void find_space(atlas_entry mutable& ent) const {
+  private function void find_space(atlas_entry mutable& ent) {
     if (!le_all_uvec3(ent.usize, tmap_size)) {
+      debug_log("atlas find_space size", ent.usize, tmap_size);
       throw runtime_error_template{"atlas"}("find_space size");
     }
-    const offset_max = tmap_size - ent.usize;
+    const offset_max = (tmap_size - ent.usize) + 1u;
     bool found = false;
     uvec3 offset_found;
     range_foreach(offset_max) bool (uint ox, uint oy, uint oz) {
       bool is_space = true;
-      range_foreach(ent.usize) void (uint x, uint y, uint z) {
+      range_foreach(ent.usize) bool (uint x, uint y, uint z) {
         const v = offset_to_entry.get(ox + x, oy + y, oz + z);
         if (v != 0) {
           is_space = false;
+          return false;
         }
+        return true;
       }
-      if (is_space) {
-        found = true;
-        offset_found = make_uvec3(ox, oy, oz);
-        return false;
+      if (!is_space) {
+        return true;
       }
-      return true;
+      found = true;
+      offset_found = make_uvec3(ox, oy, oz);
+      const ent_id = static_cast{uint}(entries.size());
+      range_foreach(ent.usize) void (uint x, uint y, uint z) {
+        offset_to_entry.set(ox + x, oy + y, oz + z, ent_id);
+      }
+      return false;
     }
     if (!found) {
+      debug_log("atlas find_space nospace", ent.usize, tmap_size);
       throw runtime_error_template{"atlas"}("find_space nospace");
     }
     ent.uposition = offset_found;
