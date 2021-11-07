@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ "$PXC_BUILD_PROFILE" == "" ]; then
+if [ "$PXC_BUILD_PROFILE" = "" ]; then
   PXC_BUILD_PROFILE=release
 fi
 echo $0: PXC_BUILD_PROFILE=$PXC_BUILD_PROFILE

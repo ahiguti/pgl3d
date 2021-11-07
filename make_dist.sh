@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# release_distでビルドし、実行に必要なdll等をdist/以下にコピーする。
+
 cd `dirname $0`
 
 ./clean_all.sh

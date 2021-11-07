@@ -39,8 +39,9 @@ LinearMath_vs2010_x64_release.lib
 apt install cmake 
 cd bullet
 ./cmake_posix.sh
+make
 
-apt install libx11-dev libglm-dev libsdl2-dev libsld2-image-dev libsdl2-ttf-dev
-apt install fonts-mplus
+apt install libx11-dev libglm-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
+apt install fonts-mplus libboost-dev
 
 

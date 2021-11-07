@@ -74,8 +74,9 @@ const float shadowmap_max_distance = <%shadowmap_max_distance/>;
 <%/>
 
 <%if><%eq><%stype/>1<%/>
-const vec2 boundary[4] =
-  { vary_boundary0, vary_boundary1, vary_boundary2, vary_boundary3 };
+vec2 boundary[4] = vec2[](
+  vary_boundary0, vary_boundary1, vary_boundary2, vary_boundary3
+);
 <%/>
 
 /*
@@ -367,14 +368,10 @@ vec4 light_all(in vec3 light_color, in float lstr, in vec3 mate_specular,
 
 vec4 get_sampler_sm(int i, vec2 p)
 {
-  <%if><%is_gl3/>
-    return <%texture2d/>(sampler_sm[i], p);
-  <%else/>
-    <%for x 0><%smsz/>
-      if (i == <%x/>) return <%texture2d/>(sampler_sm[<%x/>], p);
-    <%/>
-    return vec4(0.0);
+  <%for x 0><%smsz/>
+    if (i == <%x/>) return <%texture2d/>(sampler_sm[<%x/>], p);
   <%/>
+  return vec4(0.0);
 }
 
 void main(void)

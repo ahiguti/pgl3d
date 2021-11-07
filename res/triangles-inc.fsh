@@ -750,11 +750,11 @@ int raycast_tilemap(
         // boundaryの内側かどうかを判定する
         hitgr = true;
         for (int i = 0; i < boundary_len; ++i) {
-          const vec2 p0 = boundary[i];
-          const vec2 p1 = (i + 1 == boundary_len)
+          vec2 p0 = boundary[i];
+          vec2 p1 = (i + 1 == boundary_len)
             ? boundary[0] : boundary[i + 1];
-          const vec2 p01 = p1 - p0;
-          const vec2 pnor = vec2(-p01.y, p01.x);
+          vec2 p01 = p1 - p0;
+          vec2 pnor = vec2(-p01.y, p01.x);
           if (dot(pnor, c.xy - p0 * virt3_size) < 0.0) {
             hitgr = false; // boundaryの外側
           }

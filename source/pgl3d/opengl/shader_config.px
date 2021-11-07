@@ -69,8 +69,10 @@ shader_config(bool is_gles0, int major0, int minor0, int msaa0,
 	return "precision highp float;\n";
       }
     } else {
-      if (is_gl3_or_gles3()) {
-	return "#version 420\n"; // return "#version 150\n";
+      if (major >= 4 && minor >= 2) {
+	return "#version 420\n";
+      } else if (is_gl3_or_gles3()) {
+	return "#version 330\n";
       } else {
 	return "#version 120\n";
       }

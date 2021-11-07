@@ -105,6 +105,12 @@ public struct sdlcontext(pgl3d_config const& config0)
       }
       gles_flag = true;
     }
+    if (config.get("glmajor", 0, 0, 1024) != 0) {
+      glmajor = config.get("glmajor", 0, 0, 1024);
+    }
+    if (config.get("glminor", 0, 0, 1024) != 0) {
+      glminor = config.get("glminor", 0, 0, 1024);
+    }
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, glmajor);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, glminor);
     SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
