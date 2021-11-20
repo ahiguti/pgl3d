@@ -13,12 +13,25 @@ public multithreaded struct atlas_entry {
   public varray{glm::vec2} boundary; // テクスチャ座標スケールの底面ポリゴン
 }
 
-public multithreaded struct atlas(uvec3 tmap_size0) {
-  public uvec3 const tmap_size = tmap_size0;
+public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
+  private uvec3 tmap_size;
     // テクスチャのブロック単位の大きさ。xyz軸がそれぞれ2の冪。
-  public uint const tmap_size_max =
-    foldl{max}(expand(f: m::field_names{uvec3}; tmap_size.f));
+  private uint tmap_size_max;
     // tmap_sizeの最大軸の値
+  private vec3 offset_max;
+    // テクスチャ座標の最大値
+  private varray{atlas_entry} entries;
+  private texture_data offset_to_entry;
+  public function void reset(uvec3 tmap_size0) {
+    tmap_size = tmap_size0;
+    tmap_size_max = foldl{max}(expand(f: m::field_names{uvec3}; tmap_size.f));
+    offset_max = map{vec3, static_cast{float, uint}}(tmap_size)
+      / static_cast{float}(tmap_size_max);
+    const tmsz_l2 = map{uvec3, integral_log2}(tmap_size);
+    offset_to_entry.set_size_l2_uvec3(tmsz_l2);
+    entries.push_back(atlas_entry());
+      // entries[0]はダミー
+  }
   public function atlas_entry assign(cslice{vec2} const& boundary,
     float height) {
     // boundaryはテクスチャ座標スケールの底面ポリゴン。この大きさが収まる
@@ -38,19 +51,6 @@ public multithreaded struct atlas(uvec3 tmap_size0) {
     debug_log("atlas assign", ent);
     entries.push_back(ent);
     return ent;
-  }
-  private vec3 const offset_max =
-    map{vec3, static_cast{float, uint}}(tmap_size)
-      / static_cast{float}(tmap_size_max);
-    // テクスチャ座標の最大値
-  private varray{atlas_entry} entries;
-  private texture_data offset_to_entry;
-  init();
-  private function void init() {
-    const tmsz_l2 = map{uvec3, integral_log2}(tmap_size);
-    offset_to_entry.set_size_l2_uvec3(tmsz_l2);
-    entries.push_back(atlas_entry());
-      // entries[0]はダミー
   }
   private function uvec3 to_upos(vec3 pos) const {
     return map{uvec3, static_cast{uint, float}}(

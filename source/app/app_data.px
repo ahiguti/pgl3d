@@ -9,6 +9,7 @@ public import fundamental::mainloop -;
 public import io::environ;
 public import pgl3d::ext::debug_helper -;
 public import pgl3d::exports -;
+public import pgl3d::texture::atlas -;
 public import meta m;
 public import glm;
 
@@ -69,6 +70,7 @@ public struct app_data(tptr{pgl3d_scene_shared} const& scene_shared0)
   public ftd3_aximaster axim;
   public option{ptr{motion_controller_serial}} mctrl;
   public float virt_scale = 1.0;
+  public ptr{atlas} const atl = make_ptr{atlas}();
   init();
   private function void init() {
     string s;

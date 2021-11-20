@@ -2,6 +2,7 @@ private threaded namespace pgl3d::drawer::triangles "export-unsafe";
 public import common -;
 public import meta m;
 public import pgl3d::drawer::base -;
+public import pgl3d::texture::atlas -;
 public import pgl3d::edit_mode::edit_control -;
 public import pgl3d::edit_mode::noedit_control -;
 
@@ -101,13 +102,13 @@ public function void
 make_drawer_triangles_stype(ptr{bool} const& cond, shader_config const& glc,
   drawer_shared const& ds, ptr{projection_info} const& pj,
   int stype, int num_subtypes, string const& smname, int num_shadowmaps,
-  varray{drawer_cond} mutable& solid_r,
+  ptr{atlas} const& atl, varray{drawer_cond} mutable& solid_r,
   varray{varray{drawer_cond}} mutable& shadow_r,
   varray{drawer_cond} mutable& zpre_r)
 {
   shadow_r.resize(static_cast{size_t}(num_shadowmaps), varray{drawer_cond}());
   const maindr = make_ptr{drawer_triangles}(glc, ds, pj, stype, smname,
-    num_shadowmaps);
+    num_shadowmaps, atl);
   for (int i: 0 .. num_subtypes) {
     solid_r.push_back(drawer_cond(cond, make_ptr{drawstep_triangles}(
       maindr, stype, num_subtypes - i - 1, draw_step_solid, 0u)));
@@ -201,7 +202,8 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
 
 public struct drawer_triangles(shader_config const& glc0,
   drawer_shared const& ds0, ptr{projection_info} const& pj0,
-  int stype0, string const& smname0, int num_shadowmaps0)
+  int stype0, string const& smname0, int num_shadowmaps0,
+  ptr{atlas} const& atl0)
 {
   /* stype==0 は三角形をそのまま描画する。
    * stype==1 は直方体の内部をraycastで描画する。
@@ -214,6 +216,7 @@ public struct drawer_triangles(shader_config const& glc0,
   public int const stype = stype0;
   public string const smname = smname0;
   public size_t const num_shadowmaps = static_cast{size_t}(num_shadowmaps0);
+  public ptr{atlas} const atl = atl0;
   metafunction tattr triangles_vertex_attributes;
   textures_ptr textures = ds.textures;
   tptr{tiled_voxel_texture} tvt = ds.tvt;
@@ -302,10 +305,10 @@ public struct drawer_triangles(shader_config const& glc0,
 	}
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
-        edit_mode_ptr.some = make_ptr{edit_control}(emt);
+        edit_mode_ptr.some = make_ptr{edit_control}(emt, atl);
         debug_log("create edit_control instance");
       } else {
-        edit_mode_ptr.some = make_ptr{noedit_control}(emt);
+        edit_mode_ptr.some = make_ptr{noedit_control}(emt, atl);
         debug_log("create noedit_control instance");
       }
     }

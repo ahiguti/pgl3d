@@ -43,9 +43,9 @@ public function varray{drawer_cond} init_drawsteps(
     const shadowmap_name = "sm";
     const num_shadowmaps = sconf.num_shadowmaps;
     make_drawstep_triangles_surface(ctrue, sconf, ds, app.proj_df,
-      shadowmap_name, num_shadowmaps, solid, shadow, zpre);
+      shadowmap_name, num_shadowmaps, app.atl, solid, shadow, zpre);
     make_drawstep_raycast(ctrue, sconf, ds, app.proj_df, shadowmap_name,
-      num_shadowmaps, app.raycast_layer, solid, shadow, zpre);
+      num_shadowmaps, app.atl, app.raycast_layer, solid, shadow, zpre);
     for (int i: 0 .. num_shadowmaps) {
       r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_sm,
         app.pviewport_sm, shadowmap_name + to_string(i), true,

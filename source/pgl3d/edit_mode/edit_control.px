@@ -8,6 +8,7 @@ private import text::serialize::compact_pod -;
 private import pgl3d::texture::subtexture -;
 private import pgl3d::texture::generator -;
 private import pgl3d::texture::filling -;
+private import pgl3d::texture::atlas -;
 private import pgl3d::edit_mode::procedural -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::texutil -;
@@ -30,7 +31,8 @@ private metafunction dbg_noderef{f} no_operation;
 
 private metafunction save_dir "/build/saved/";
 
-public struct edit_control(ptr{edit_mode_texture} const& emt0)
+public struct edit_control(ptr{edit_mode_texture} const& emt0,
+  ptr{atlas} const& atl0)
 <edit_control_i>
 {
   public function void on_key_pressed(int scancode, uint modmask,
@@ -417,6 +419,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0)
       // 各軸のカーソル移動を変換する
   }
   private ptr{edit_mode_texture} emt = emt0;
+  private ptr{atlas} atl = atl0;
   private ptr{tiled_texture_edit_view} const ttev =
     make_ptr{tiled_texture_edit_view}(emt0);
   private projection_info prj;
