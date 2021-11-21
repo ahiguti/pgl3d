@@ -729,6 +729,8 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
       // 内部テスト。noderef_paramのimat3変換をテストする。
       debug_log("test_noderef");
       test_noderef_param();
+    } else if (cmd == "test_atlas") {
+      gen_test_atlas();
     } else {
       debug_log("unrecognized command", toks);
       message = "unrecognized command";
@@ -1575,6 +1577,22 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
     (*p)[1].swap(copy_data.tex[1]);
     paste_value(0xff, merge_mode_opaque());
     copied = false;
+  }
+  private function void gen_test_atlas()
+  {
+    debug_log("gen_test_atlas");
+    set_cursor_tpat(false);
+    const saved_cpos = ttev->get_cursor_pos();
+    for (size_t i, const& ent: atl->get_entries()) {
+      glm::uvec3 const& upos = ent.uposition;
+      glm::uvec3 const& usize = ent.usize;
+      ttev->set_cursor_pos(upos, upos + usize);
+      gen_test();
+      copy_value();
+      fill_space_range(*ttev, copy_data, rndp);
+      paste_value(0xff, merge_mode_opaque());
+    }
+    ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
   }
   private function void copy_fragments()
   {

@@ -22,6 +22,9 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
     // テクスチャ座標の最大値
   private varray{atlas_entry} entries;
   private texture_data offset_to_entry;
+  public function varray{atlas_entry} get_entries() const {
+    return entries;
+  }
   public function void reset(uvec3 tmap_size0) {
     tmap_size = tmap_size0;
     tmap_size_max = foldl{max}(expand(f: m::field_names{uvec3}; tmap_size.f));
