@@ -1587,10 +1587,32 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
       glm::uvec3 const& upos = ent.uposition;
       glm::uvec3 const& usize = ent.usize;
       ttev->set_cursor_pos(upos, upos + usize);
+      /*
+      color_param c;
+      c.metalness = 0;
+      c.emission = 0;
+      c.roughness = 5;
+      c.rgb.r = 128u + rndp->generate_uint(128u);
+      c.rgb.g = 128u + rndp->generate_uint(128u);
+      c.rgb.b = 128u + rndp->generate_uint(128u);
+      debug_log("test_atlas color", c.rgb);
+      {
+        const value = encode_color_param(c);
+        function void ffunc(subtexture mutable& data, uint x, uint y, uint z)
+        {
+
+          data.tex[0].set(x, y, z, make_filled_voxel());
+          data.tex[1].set(x, y, z, value);
+        }
+        fill_range_func{ffunc}(false, false);
+      }
+      */
       gen_test();
       copy_value();
       fill_space_range(*ttev, copy_data, rndp);
       paste_value(0xff, merge_mode_opaque());
+      /*
+      */
     }
     ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
   }

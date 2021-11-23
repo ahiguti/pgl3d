@@ -493,11 +493,16 @@ private threaded function void gf_ctx_tex3d_int_surf(size_t nbase,
   varray{varray{vec3}} const& surf_quads,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
-  const sz = mx - mi;
   varray{varray{vec3}} quads = surf_quads;
   if (quads.empty()) {
     // surf_quadsが指定されていないとき、テクスチャ座標の(mx-mi)の大きさの
     // 直方体の6面の座標をquadsにセットする。
+    mutable sz = mx - mi;
+    if (const a: atl.some) {
+      // atlas割り当てを行うときは、quadsは1.0の大きさで作っておき、あとで
+      // 割り当てたatlas entryの大きさを掛ける
+      sz = make_vec3(1.0f, 1.0f, 1.0f);
+    }
     const front = make_varray{vec3}(
       make_vec3(0.0f, 0.0f, sz.z),
       make_vec3(sz.x, 0.0f, sz.z),
@@ -560,10 +565,11 @@ private threaded function void gf_ctx_tex3d_opt(size_t nbase, size_t ntex,
 }
 
 private threaded function void gf_ctx_tex3d_surf(size_t ntex,
-  vec3 const& mi, vec3 const& mx, varray{varray{vec3}} const& surf_quads,
+  vec3 const& mi, vec3 const& mx, varray{varray{vec3}} const& surf_quads0,
   option{ptr{atlas}} const& atl, float tex_height, build_context_i const& ctx,
   poly_t const& poly, mesh_index const& mp)
 {
+  mutable surf_quads = surf_quads0;
   const fill_floor = true;
     // FIXME: 実装中
     // FIXME: 貼り付けるテクスチャの範囲はこの関数の中で割り当て、あとで
@@ -633,11 +639,19 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
       const ae = a->assign(attr0.boundary, tex_height);
       // 割り当てられた領域のオフセットをcoordに加算
       coord_min += ae.position;
-      coord_max += ae.position;
+      // 割り当てられた領域の大きさに合わせてcoordの大きさを更新
+      coord_max = coord_min + ae.size;
       coord_min_xy = glm::make_vec2(coord_min.x, coord_min.y);
       for (const i: 0u .. poly_size_max) {
         // 底面ポリゴンの位置を更新
         attr0.boundary[i] = coord_min_xy + bnd[i % poly_size] * texscale_inv;
+      }
+      for (const i, mutable& q: surf_quads) {
+        // surf_quadsには1.0の大きさの座標が入っている。ここで割り当てられた
+        // 領域の大きさをセットする。
+        for (const j, mutable& v: q) {
+          v = v * ae.size;
+        }
       }
     }
   }

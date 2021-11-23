@@ -6,10 +6,10 @@ public import pgl3d::texture::texture -;
 public import pgl3d::engine::util -;
 
 public multithreaded struct atlas_entry {
-  public glm::vec3 position;
-  public glm::uvec3 uposition;
-  public glm::vec3 size;
-  public glm::uvec3 usize;
+  public glm::vec3 position; // テクスチャ座標での始点座標
+  public glm::uvec3 uposition; // タイルマップ上の始点座標
+  public glm::vec3 size; // テクスチャ座標での大きさ
+  public glm::uvec3 usize; // タイルマップ上の大きさ
   public varray{glm::vec2} boundary; // テクスチャ座標スケールの底面ポリゴン
 }
 

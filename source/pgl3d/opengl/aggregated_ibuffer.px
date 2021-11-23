@@ -23,8 +23,9 @@ public threaded struct aggregated_ibuffer(bool enable_instanced0,
   public bool const enable_instanced = enable_instanced0;
   public bool const enable_uniform_instancing = enable_uniform_instancing0;
   private varray{ptr{async_buffer}} buffers;
-  private size_t buffer_current;
-    // 現在書き込み中のVBO。0以上3未満。
+  private size_t buffer_current; // 現在書き込み中のVBO。0以上3未満。
+  public size_t glbuffer_size_max; // 参考のために計測
+  public size_t instance_buffer_size_max; // 参考のために計測
   public function ptr{async_buffer} get_current() const {
     return buffers[buffer_current];
   }
@@ -94,6 +95,15 @@ aggregated_ibuffer_frame_begin(aggregated_ibuffer mutable& aibuf,
       }
       //debug_log("ibuffer_frame_begin begin6");
       cur_buf.unmap_buffer();
+      if (aibuf.glbuffer_size_max < offset_float * 4) {
+        aibuf.glbuffer_size_max = offset_float * 4;
+        debug_log("glbuffer_size (bytes)", aibuf.glbuffer_size_max);
+      }
+      if (aibuf.instance_buffer_size_max < cur_buf.size_bytes) {
+        aibuf.instance_buffer_size_max = cur_buf.size_bytes;
+        debug_log("instance_buffer_size (bytes)",
+          aibuf.instance_buffer_size_max);
+      }
     }
     //debug_log("ibuffer_frame_begin end");
   }

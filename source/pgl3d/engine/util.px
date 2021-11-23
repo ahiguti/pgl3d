@@ -198,6 +198,15 @@ rand_generator(uint seed0)
   public function float generate_float() {
     return static_cast{float}(generate()) / 4294967296.0;
   }
+  public function uint generate_uint(uint maxval) {
+    double dv = static_cast{double}(generate()) / 4294967296.0;
+    dv = dv * static_cast{double}(maxval);
+    uint r = static_cast{uint}(dv);
+    if (r > maxval) {
+      r = 0;
+    }
+    return r;
+  }
 }
 
 public threaded function quat

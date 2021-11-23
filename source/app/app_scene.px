@@ -122,6 +122,7 @@ public function void build_vertices(app_data mutable& app,
     .translate(glm::make_vec3(0.0, 0.0, small_box_size * (-1.0f)))
     .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
   debug_log("make box");
+  option{ptr{atlas}} noatl;
   option{ptr{atlas}} atl;
   atl.some = app.atl;
   atl.some->reset(voxtmap.get_size_uvec3());
@@ -132,10 +133,10 @@ public function void build_vertices(app_data mutable& app,
     regular_polygon(1.4142f * box_size, 4,
       apply(m1,
 	bump_apply(m, true,
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height))),
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height))),
       apply(m1,
-	ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height))));
+	ctx_tex3d(1, 0, mi, mx, noatl, tex_height))));
   // pgs.make_vertex_set(tr1_0, "box", cuboid_tex3d(mi, mx, glm::vec3(),
   //   32.0f));
   // debug_log("box", box_size, mi, mx, m0);
@@ -149,7 +150,7 @@ public function void build_vertices(app_data mutable& app,
     regular_polygon(1.4142f * box_size, 4,
       apply(m0, hole()),
       apply(m0,
-	ctx_tex3d(0, 0, mi, mx, option{ptr{atlas}}(), tex_height))));
+	ctx_tex3d(0, 0, mi, mx, noatl, tex_height))));
           // テクスチャ全体をmapする
   // debug_log("main reg box end");
   // debug_log("make box_opt1");
@@ -157,7 +158,7 @@ public function void build_vertices(app_data mutable& app,
     regular_polygon(1.4142f * box_size, 4,
       apply(m0, hole()),
       apply(m0,
-	ctx_tex3d(0, 0, mi_atl, mx_atl, atl, tex_height))));
+	ctx_tex3d(0, 0, mi, mx, noatl, tex_height))));
   // (80, 0, 35), (16, 21, 2) 全体は(2048x2048x64)
   // const tmi = glm::make_vec3(80.0f, 0.0f, 35.0f);
   // const tsz = glm::make_vec3(16.0f, 21.0f, 2.0f);
@@ -174,14 +175,14 @@ public function void build_vertices(app_data mutable& app,
   // pgs.make_vertex_set(tr1_0, "smallbox",
   //   regular_polygon(1.4142f * small_box_size, 4,
   //     apply(small_m1,
-  //       ctx_tex3d(0, 0, smallmi, smallmx, atl, tex_height)),
+  //       ctx_tex3d(0, 0, smallmi, smallmx, noatl, tex_height)),
   //     hole()));
   pgs.make_vertex_set(tr1_0, "mstex3d",
     regular_polygon(300.0f, 100,
       apply(m1,
 	bump_rec(1.0, 1.0, 16,
 	  lid(
-	    ctx_tex3d(1, 0, mi, mx, option{ptr{atlas}}(), tex_height),
+	    ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
 	    bump_rec(0.01, 1.0, 1,
 	      hole(),
 	      hole()
@@ -199,10 +200,10 @@ public function void build_vertices(app_data mutable& app,
         apply(m1,
           bump_rec(1.0, 1.0, 16,
             lid(
-              ctx_tex3d(1, 0, mi, mx, option{ptr{atlas}}(), tex_height),
+              ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
               bump_rec(0.01, 1.0, 1,
                 ctx_fill(0),
-                ctx_tex3d(1, 0, mi, mx, option{ptr{atlas}}(), tex_height)
+                ctx_tex3d(1, 0, mi, mx, noatl, tex_height)
               )
             ),
             hole()
@@ -226,11 +227,11 @@ public function void build_vertices(app_data mutable& app,
   if (false) {
     pgs.make_vertex_set(tr1_0, "saucer",
       regular_polygon(150.0, 40,
-        bump_rec(1.8, 0.5, 1, ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)),
+        bump_rec(1.8, 0.5, 1, ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height)),
         bump_rec(0.05, 0.9, 5,
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-          sphere(10, ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)))));
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          sphere(10, ctx_tex3d(1, 0, mi, mx, noatl, tex_height)))));
   }
   pgs.make_vertex_set(tr0_0, "saucer",
     regular_polygon(15.0, 40,
@@ -312,11 +313,11 @@ public function void build_vertices(app_data mutable& app,
     pgs.make_vertex_set(tr1_0, "bullet",
       regular_polygon(1.0, 6,
         bump_apply(m, true,
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)),
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height)),
         bump_apply(m, true,
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-          ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height))));
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          ctx_tex3d(1, 0, mi, mx, noatl, tex_height))));
   }
   pgs.make_vertex_set(tr0_0, "bullet",
     regular_polygon(1.0, 6,
