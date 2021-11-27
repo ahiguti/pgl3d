@@ -45,3 +45,8 @@ apt install libx11-dev libglm-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
 apt install fonts-mplus libboost-dev
 
 
+-------------------------
+SDL2.0.16
+
+SDL2.dllだけdynamic link, SDL2_imageとSDL2_ttfはstatic link。(なぜ？)
+

@@ -55,6 +55,8 @@ else
         fi
 fi
 
+chmod 755 "$build_target" # WSLだと実行権限をつける必要がある
+
 if [ "$PXC_BUILD_NOEXEC" != "" ]; then
         # PXC_BUILD_NOEXECが指定されていれば実行せずに終了する
         exit 0
@@ -73,8 +75,6 @@ wait_bgpid() {
         fi
 }
 
-#trap "echo got SIGINT" 2
-#trap "echo got SIGTERM" 15
 trap wait_bgpid EXIT
 
 unset TZ # cygwinがTZをセットしてしまうので消す

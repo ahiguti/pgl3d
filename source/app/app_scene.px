@@ -58,7 +58,8 @@ public function void build_vertices(app_data mutable& app,
 
   // import
   const objs = make_farray{string}(
-      "parts"
+      "parts",
+      "tuto2"
       // "al",
       // "cessna",
       // "skyscraper",
@@ -80,10 +81,10 @@ public function void build_vertices(app_data mutable& app,
   const parti = make_varray{string}("vbid_particle");
   const parti_bb = make_varray{string}("vbid_particle_bb");
   for (const i, const name: objs) {
-    string fn = name + ".obj";
-    sdl_log("load", fn);
+    string fn = "res/" + name + ".obj";
     string fcontent;
     sdl_load_file(fn, fcontent);
+    sdl_log("load", fn, fcontent.size());
     const wfobjp = wfobject_read(fcontent);
     for (const j, mutable& v: wfobjp->v) {
       // v *= 10.0f;
@@ -94,8 +95,11 @@ public function void build_vertices(app_data mutable& app,
     }
   }
   sdl_log("load prebuild");
-  pgs.make_vertex_set(tr1_0, "empty-scene", hole());
   mutable rnd = make_rand_generator(1U);
+  pgs.make_vertex_set(tr1_0, "empty-scene", hole());
+  pgs.make_vertex_set(tr0_0, "tuto2-multi2s8",
+    rand_sphere(200.0, 9000, false, true, rnd,
+      ctx_point_joint("tuto2")));
   mutable m = mat4_identity();
   mutable m0 = m;
   mutable m1 = m;
@@ -517,7 +521,7 @@ public function void build_vertices(app_data mutable& app,
   shapes_add_voxel("boxsurf-tex3d", -32768.0f);
   shapes_add_sphere("box_opt1", 32768.0f);
   shapes_add_sphere("smallbox", 1.0f);
-  shapes_add_sphere("mstex3d", 1000.0f);
+  shapes_add_sphere("tuto2", 1.0f);
   shapes_add_sphere("nest", 1000.0f);
   shapes_add_sphere("box50", 50.0f);
   shapes_add_sphere("bullet2", 2.0f);
@@ -958,9 +962,10 @@ scene_control(node_factory const& nfac,
     // "untitled", "saucer", "saucer-multi", "block-multi", "block",
     // "ab-multi", "ab-multi3", "skyscraper",
     // "al", "cessna", "skyscraper", "airboat",
-    // "parts",
     // "knight-multi",
     "empty-scene",
+    //"parts",
+    "tuto2-multi2s8",
     "box",
     "boxsurf-tex3d",
     "box-multi",

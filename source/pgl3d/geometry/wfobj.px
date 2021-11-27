@@ -28,6 +28,7 @@ public threaded struct wfelement {
 public threaded function ptr{wfobject}
 wfobject_read(cstrref const& str)
 {
+  debug_log("wfobject_read");
   const p = make_ptr{wfobject}();
   const g = make_ptr{wfgroup}(); 
   varray{wfelement} elems_work;
@@ -44,7 +45,7 @@ wfobject_read(cstrref const& str)
 	vtx.y = from_string{float}(arr[1]);
 	vtx.z = from_string{float}(arr[2]);
 	p->v.push_back(vtx);
-	// debug_log("read vtx", vtx);
+	debug_log("read vtx", vtx);
       }
       if (ch0 == 'f' && ch1 == ' ') {
 	line.increment_front(2);
@@ -58,12 +59,13 @@ wfobject_read(cstrref const& str)
 	  elems_work.push_back(e);
 	}
 	split_foreach{parse_token, cstrref, uchar}(line, ' ');
-	// debug_log("read f", elems_work);
+	debug_log("read f", elems_work);
 	g->f.push_back(elems_work);
       }
     }
   }
   p->groups.insert("", g);
+  debug_log("wfobject_read done");
   return p;
 }
 
