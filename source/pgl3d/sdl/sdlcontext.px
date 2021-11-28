@@ -233,7 +233,7 @@ public struct sdlcontext(pgl3d_config const& config0)
     const n = SDL_NumJoysticks();
     for (const i: 0 .. n) {
       const j = SDL_JoystickOpen(i);
-      // sdl_log("joystick", i, ccharptr_to_string(SDL_JoystickName(j)));
+      // debug_log("joystick", i, ccharptr_to_string(SDL_JoystickName(j)));
       const hndp = make_handle_type();
       joystick_info inf;
       hndp->reset(j);

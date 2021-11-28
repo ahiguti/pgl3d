@@ -490,29 +490,31 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       app->on_event(ev, actrl, frctl.frame_speed_mul);
     }
     // fr.save_ticks("event");
-    // if (!sdlc.joysticks.empty()) {
-// FIXME: linux
-    {
-      sdlc.update_joystick_info(); // FIXME? 
+    if (is_windows) {
+      // FIXME: windowsでjoystick効いてない? sdl2のversionによると思われる
+      // TODO: linux?
+      sdlc.update_joystick_info();
       SDL_JoystickUpdate();
       if (sdlc.joysticks.size() != joysticks.size()) {
 	joysticks.resize(sdlc.joysticks.size(), joystick_state());
+        debug_log("joysticks", joysticks.size());
       }
     }
-/*
-*/
     for (const i: 0 .. joysticks.size()) {
       const& hnd = *sdlc.joystick_handles[i];
       const& inf = sdlc.joysticks[i];
       mutable& st = joysticks[i];
       if (st.axes.size() != inf.num_axes) {
 	st.axes.resize(inf.num_axes, 0);
+        // debug_log("joystick", i, "axes", st.axes.size());
       }
       if (st.buttons.size() != inf.num_buttons) {
 	st.buttons.resize(inf.num_buttons, false);
+        // debug_log("joystick", i, "buttons", st.buttons.size());
       }
       if (st.hats.size() != inf.num_hats) {
 	st.hats.resize(inf.num_hats, 0);
+        // debug_log("joystick", i, "hats", st.hats.size());
       }
       for (const j: 0 .. inf.num_axes) {
 	const v = SDL_JoystickGetAxis(hnd.get(), static_cast{int}(j));
