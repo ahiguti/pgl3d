@@ -1,3 +1,4 @@
+datadir=..
 dbgval=0
 gldebug=0
 
@@ -16,7 +17,7 @@ raycast_layer=32
 
 glfinish=1
 enable_raycast_zprepass=0
-enable_dbgui=0
+enable_dbgui=1
 vsync=1
 fullscreen=0
 width=1280

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# release_distでビルドし、実行に必要なdll等をdist/以下にコピーする。
+# release_distでビルドし、実行に必要なdll等をpgl3d_dist/以下にコピーする。
 
 cd `dirname $0`
 
@@ -13,11 +13,15 @@ if ! ./build_exec.sh ; then
         exit 1
 fi
 
-rm -rf dist
-mkdir dist
-mkdir dist/var
-cp -a res dist/
-cp ./windows/x64/Release/pgl3d_app.exe dist/
-cp -a ./windows/x64/Release/*.dll dist/
+rm -rf pgl3d_dist
+mkdir pgl3d_dist
+mkdir pgl3d_dist/var
+cp -a res pgl3d_dist/
+cp ./windows/x64/Release/pgl3d_app.exe pgl3d_dist/
+cp -a ./windows/x64/Release/*.dll pgl3d_dist/
+cat res/pgl3d.cnf | grep -v 'datadir' > pgl3d_dist/res/pgl3d.cnf
+mkdir pgl3d_dist/data
+# cygwin
+cp /cygdrive/c/build/*.raw pgl3d_dist/data/
 echo "done"
 

@@ -27,14 +27,21 @@ private import pgl3d::ext::nvapi -;
 private import pgl3d::ext::debug_helper -;
 // private import pgl3d::engine::console -;
 
-public function void mainloop(ptr{pgl3d_application} const& app,
-  cstrref const& conf_filename)
+public function {tapp} void mainloop(cstrref const& conf_filename)
 {
+  option{ptr{pgl3d_application}} oapp;
+    // pgl3d_applicationはopenglのリソースを保持するので、openglのコンテキスト
+    // を削除する前にpgl3d_applicationを解放しなければならない。そのため
+    // mainloop_internalに渡すpgl3d_applicationが唯一の参照になるようにする
+  oapp.some = make_ptr{tapp}();
   string confstr;
   sdl_load_file(conf_filename, confstr);
   const conf = pgl3d_config(confstr);
   opengl::base::set_check_error_enabled(conf.get("gldebug", 0, 0, 1));
-  const ml = make_ptr{mainloop_internal}(app, conf);
+  const ml = make_ptr{mainloop_internal}(oapp.some, conf);
+  oapp = option{ptr{pgl3d_application}}();
+    // mainloop_internalに渡したappが唯一の参照となるようにするために、
+    // ここでoappからの参照をなくす。
   set_mainloop(ml);
 }
 
@@ -258,12 +265,12 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   }
 }
 
-private struct mainloop_internal(ptr{pgl3d_application} const& app,
+private struct mainloop_internal(ptr{pgl3d_application} const& app0,
   pgl3d_config const& conf)
 <mainloop_i>
 {
   int cnt = 0;
-  main_ctrl ctrl = main_ctrl(app, conf);
+  option{ptr{main_ctrl}} octrlp = make_option(make_ptr{main_ctrl}(app0, conf));
   public function bool step()
   {
     if (cnt == 0) {
@@ -271,9 +278,18 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app,
       debug_log("mainloop nvapi:", nvapi_get_init_error());
     }
     ++cnt;
-    bool r = ctrl.step_internal(ctrl);
+    bool r = false;
+    {
+      const ctrlp = octrlp.some;
+      mutable& ctrl = *ctrlp;
+      r = ctrl.step_internal(ctrl);
+    }
     if (r) {
       debug_log("mainloop finished");
+      // main_ctrlへの参照をなくす。appへの参照はこれが唯一なので、appも
+      // 解放される。
+      octrlp = option{ptr{main_ctrl}}();
+      debug_log("mainloop cleanup done");
     }
     return r;
   }
@@ -288,10 +304,14 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   pgl3d_config const& conf)
 <app_ctrl_i>
 {
-  private ptr{pgl3d_application} app = app0;
   private sdlcontext sdlc = sdlcontext(conf);
+  private ptr{pgl3d_application} app = app0;
+    // sdlcontextの中でGLのコンテキストを削除しているので、appが保持する
+    // リソースはsdlcのデストラクタの前に解放する必要がある。そのため
+    // appはsdlcより後ろに置かなければならない。またappは唯一の参照でなけ
+    // ればならないことに注意。
   private shader_config sconf = shader_config(sdlc.gles_flag, sdlc.glmajor,
-    sdlc.glminor, sdlc.enable_msaa, conf);
+    sdlc.glminor, sdlc.enable_msaa, sdlc.forbid_read_modify_write, conf);
   private drawer_shared ds;
   private varray{drawer_cond} drawsteps = app->on_init_drawstep(sconf, ds);
   private pglshader pgs = pglshader(sconf, ds, drawsteps,

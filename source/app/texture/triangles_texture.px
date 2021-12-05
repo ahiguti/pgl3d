@@ -25,7 +25,8 @@ struct app_textures(bool edit_mode, int mw, int mh, int md, int pw,
 
 public function void
 prepare_triangles_texture_data(pgl3d_config const& cfg,
-  textures_ptr const& textures, tptr{tiled_voxel_texture} const& tvt)
+  string const& datadir, textures_ptr const& textures,
+  tptr{tiled_voxel_texture} const& tvt)
 {
   app_textures txs = app_textures(
     cfg.get("edit_mode", 0, 0, 1) != 0,
@@ -37,7 +38,7 @@ prepare_triangles_texture_data(pgl3d_config const& cfg,
     cfg.get("voxel_pat_d", 9, 4, 12));
   txs.vox = tvt;
   prepare_parallax_mapping_texture_data(txs);
-  prepare_raycasting_texture_data(cfg, txs);
+  prepare_raycasting_texture_data(cfg, datadir, txs);
   textures->insert("triangles.tile_color", txs.tex_tcol);
   textures->insert("triangles.tile_depth", txs.tex_tdep);
   textures->insert("triangles.tile_map", txs.tex_tmap);
@@ -47,7 +48,7 @@ prepare_triangles_texture_data(pgl3d_config const& cfg,
 
 function void
 prepare_raycasting_texture_data(pgl3d_config const& cfg,
-  app_textures mutable& txs)
+  string const& datadir, app_textures mutable& txs)
 {
   metafunction ui static_cast{uint};
   mutable& voxtile = txs.vox->voxtile;
@@ -62,7 +63,7 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
       const& msz = txs.voxtmap_size_l2;
       const& psz = txs.voxtpat_size_l2;
       // 現行フォーマットのデータ。"edit_2_9_9_2.raw"のようなファイル名。
-      string fn = "/build/edit_2_"
+      string fn = datadir + "/edit_2_"
         + to_string(msz.x) + "_"
         + to_string(msz.y) + "_"
         + to_string(msz.z) + "_"
@@ -70,7 +71,7 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
         + to_string(psz.y) + "_"
         + to_string(psz.z) + ".raw";
       // 旧フォーマットのデータ。
-      string fn_v0 = "/build/edit_voxel_" + to_string(msz.x) + "_"
+      string fn_v0 = datadir + "/edit_voxel_" + to_string(msz.x) + "_"
 	+ to_string(msz.y) + "_" + to_string(msz.z) + ".raw";
       debug_log("load fn:", fn, fn_v0);
       // ファイルの中身のテクスチャサイズがtxs.voxtmap_size_l2と
@@ -115,13 +116,13 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
     {
       // edit_common_*.raw があればロードする
       string buf;
-      sdl_load_file("/build/edit_common_tpat.raw", buf);
+      sdl_load_file(datadir + "/edit_common_tpat.raw", buf);
       if (!buf.empty()) {
 	debug_log("loaded common tpat");
 	*txs.vox->tpat_edit = from_string_compact_pod{texture_edit}(buf);
       }
       buf.clear();
-      sdl_load_file("/build/edit_common_tmpri.raw", buf);
+      sdl_load_file(datadir + "/edit_common_tmpri.raw", buf);
       if (!buf.empty()) {
 	debug_log("loaded common tmpri");
 	texture_data tmpri = from_string_compact_pod{texture_data}(buf);
@@ -131,7 +132,7 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
 	  tmpri, uvec3(), sz);
       }
       buf.clear();
-      sdl_load_file("/build/edit_common_tmsec.raw", buf);
+      sdl_load_file(datadir + "/edit_common_tmsec.raw", buf);
       if (!buf.empty()) {
 	debug_log("loaded common tmsec");
 	texture_data tmsec = from_string_compact_pod{texture_data}(buf);
@@ -245,7 +246,7 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
     {
       const& msz = txs.voxtmap_size_l2;
       const& psz = txs.voxtpat_size_l2;
-      string fn = "/build/edit_2_"
+      string fn = datadir + "/edit_2_"
         + to_string(msz.x) + "_"
         + to_string(msz.y) + "_"
         + to_string(msz.z) + "_"

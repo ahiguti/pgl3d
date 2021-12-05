@@ -29,12 +29,13 @@ private metafunction dbg_scale{f} no_operation;
 private metafunction dbg_rotate{f} f; // no_operation;
 private metafunction dbg_noderef{f} no_operation;
 
-private metafunction save_dir "/build/saved/";
+private metafunction save_subdir "/saved/";
 
-public struct edit_control(ptr{edit_mode_texture} const& emt0,
-  ptr{atlas} const& atl0)
+public struct edit_control(string const& datadir0,
+  ptr{edit_mode_texture} const& emt0, ptr{atlas} const& atl0)
 <edit_control_i>
 {
+  string const datadir = datadir0;
   public function void on_key_pressed(int scancode, uint modmask,
     glm::vec3 mutable& cursor_move_r, string mutable& msg_r)
   {
@@ -454,14 +455,14 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
     }
     string buf;
     {
-      sdl_load_file("/build/edit_selection.ser", buf);
+      sdl_load_file(datadir + "/edit_selection.ser", buf);
       if (!buf.empty()) {
         copy_data = subtexture_compat_deserialize(buf);
       }
     }
     {
       edit_state est;
-      sdl_load_file("/build/edit_state.raw", buf);
+      sdl_load_file(datadir + "/edit_state.raw", buf);
       if (!buf.empty()) {
         // TODO: from_string_compact_podがfarrayを使えない
         est = from_string{edit_state}(buf);
@@ -481,13 +482,13 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
     edit_state est;
     est.ttev = ttev->get_state();
     est.cdir = cdir;
-    sdl_save_file("/build/edit_state.raw", to_string(est));
+    sdl_save_file(datadir + "/edit_state.raw", to_string(est));
     const msz = emt->vox.tmap_edit->data[0][0].get_size_l2_uvec3();
     const psz = emt->vox.tpat_edit->data[0][0].get_size_l2_uvec3();
     {
       // "edit_2_9_9_6_10_9_9.raw"のようなファイル名。voxelデータをそのまま
       // 保存する。
-      string fn = "/build/edit_2_"
+      string fn = datadir + "/edit_2_"
         + to_string(msz.x) + "_"
         + to_string(msz.y) + "_"
         + to_string(msz.z) + "_"
@@ -499,14 +500,14 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
     }
     {
       // 現在の選択データを保存。
-      string fn = "/build/edit_selection.ser";
+      string fn = datadir + "/edit_selection.ser";
       sdl_save_file(fn, to_string(copy_data));
     }
     /*
     {
       // tpatテクスチャを保存。
       texture_edit const& tpat = *emt->vox.tpat_edit;
-      string fn = "/build/edit_common_tpat.raw";
+      string fn = datadir + "/edit_common_tpat.raw";
       sdl_save_file(fn, to_string(tpat));
     }
     {
@@ -516,14 +517,14 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
       tmpri_cpy.set_size_l2(6u, 6u, 6u);
       texture_data_copy_range(tmpri_cpy, uvec3(), tmpri, uvec3(),
         make_uvec3(64u, 64u, 64u));
-      sdl_save_file("/build/edit_common_tmpri.raw",
+      sdl_save_file(datadir + "/edit_common_tmpri.raw",
         to_string_compact_pod(tmpri_cpy));
       texture_reshaped const& tmsec = emt->vox.tmap_edit->data_sec[0];
       texture_reshaped tmsec_cpy;
       tmsec_cpy.set_size_l2(6u, 6u, 6u);
       texture_data_copy_range(tmsec_cpy, uvec3(), tmsec, uvec3(),
         make_uvec3(64u, 64u, 64u));
-      sdl_save_file("/build/edit_common_tmsec.raw",
+      sdl_save_file(datadir + "/edit_common_tmsec.raw",
         to_string_compact_pod(tmsec_cpy));
     }
     */
@@ -562,7 +563,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
     debug_log("console_command:", cmd);
     if (cmd == "save" && toks.size() == 2) {
       // コピーバッファをファイルに保存する。
-      const fn = save_dir + toks[1];
+      const fn = datadir + save_subdir + toks[1];
       {
         // コピーバッファを保存する。noderefの参照先は保存されない。
         if (!sdl_save_file(fn + ".pat", to_string(copy_data))) {
@@ -586,7 +587,7 @@ public struct edit_control(ptr{edit_mode_texture} const& emt0,
     } else if (cmd == "load" && toks.size() == 2) {
       // パターンデータを読み込んでコピーバッファに入れる
       string buf;
-      const fn = save_dir + toks[1];
+      const fn = datadir + save_subdir + toks[1];
       sdl_load_file(fn + ".psd", buf);
       if (!buf.empty()) {
         // noderef参照先を含めたパターンデータを読み込む。

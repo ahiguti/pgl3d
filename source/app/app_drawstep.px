@@ -27,7 +27,7 @@ public function varray{drawer_cond} init_drawsteps(
   downcast_mutable{app_scene_shared}(*app.scene_shared).raycast_layer
     = app.raycast_layer;
 
-  prepare_triangles_texture_data(sconf.conf, app.txs, app.tvt);
+  prepare_triangles_texture_data(sconf.conf, app.datadir, app.txs, app.tvt);
   *ds.textures = *app.txs;
   *ds.tvt = *app.tvt;
 
@@ -39,13 +39,14 @@ public function varray{drawer_cond} init_drawsteps(
   varray{drawer_cond} solid;
   varray{varray{drawer_cond}} shadow;
   varray{drawer_cond} zpre;
+  const shadowmap_name = "sm";
   {
-    const shadowmap_name = "sm";
     const num_shadowmaps = sconf.num_shadowmaps;
-    make_drawstep_triangles_surface(ctrue, sconf, ds, app.proj_df,
+    make_drawstep_triangles_surface(ctrue, sconf, app.datadir, ds, app.proj_df,
       shadowmap_name, num_shadowmaps, app.atl, solid, shadow, zpre);
-    make_drawstep_raycast(ctrue, sconf, ds, app.proj_df, shadowmap_name,
-      num_shadowmaps, app.atl, app.raycast_layer, solid, shadow, zpre);
+    make_drawstep_raycast(ctrue, sconf, app.datadir, ds, app.proj_df,
+      shadowmap_name, num_shadowmaps, app.atl, app.raycast_layer, solid,
+      shadow, zpre);
     for (int i: 0 .. num_shadowmaps) {
       r.push_back(make_drawstep_setfb(ctrue, sconf, ds, app.pviewport_sm,
         app.pviewport_sm, shadowmap_name + to_string(i), true,
@@ -149,8 +150,17 @@ public function varray{drawer_cond} init_drawsteps(
     }
     r.push_back(make_drawstep_chgmode(ctrue, sconf, ds, "blend"));
       // blendに設定
+    if (app.enable_dbgui) {
+      /*
+      r.push_back(make_drawstep_dbgui(ctrue, sconf, ds, shadowmap_name));
+        // dbguiでshadowmapを可視化
+      */
+      r.push_back(make_drawstep_dbgui2(ctrue, sconf, ds, shadowmap_name));
+        // FIXME: まだ動かない
+    }
     r.push_back(make_drawstep_rect2d(ctrue, sconf, ds));
       // rect2dをtoplevelにblendで書き込み
+      // TODO: 表示されていない？
     r.push_back(make_drawstep_font2(ctrue, sconf, ds, app.pviewport_disp));
       // font2をtoplevelにblendで書き込み
   }

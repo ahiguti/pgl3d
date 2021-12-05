@@ -63,7 +63,7 @@ public metafunction tiled_voxel_texture_update_mipmap
 
 public function void
 make_drawstep_triangles_surface(ptr{bool} const& cond,
-  shader_config const& glc, drawer_shared const& ds,
+  shader_config const& glc, string const& datadir, drawer_shared const& ds,
   ptr{projection_info} const& pj,
   string const& smname, int num_shadowmaps,
   ptr{atlas} const& atl,
@@ -71,20 +71,21 @@ make_drawstep_triangles_surface(ptr{bool} const& cond,
   varray{varray{drawer_cond}} mutable& shadow_r, 
   varray{drawer_cond} mutable& zpre_r)
 {
-  make_drawer_triangles_stype(cond, glc, ds, pj, 0, 1, smname, num_shadowmaps,
-    atl, solid_r, shadow_r, zpre_r);
+  make_drawer_triangles_stype(cond, glc, datadir, ds, pj, 0, 1, smname,
+    num_shadowmaps, atl, solid_r, shadow_r, zpre_r);
 }
 
 public function void
 make_drawstep_raycast(ptr{bool} const& cond, shader_config const& glc,
-  drawer_shared const& ds, ptr{projection_info} const& pj,
-  string const& smname, int num_shadowmaps, ptr{atlas} const& atl,
-  int num_ssubtypes, varray{drawer_cond} mutable& solid_r, 
+  string const& datadir, drawer_shared const& ds,
+  ptr{projection_info} const& pj, string const& smname, int num_shadowmaps,
+  ptr{atlas} const& atl, int num_ssubtypes,
+  varray{drawer_cond} mutable& solid_r,
   varray{varray{drawer_cond}} mutable& shadow_r, 
   varray{drawer_cond} mutable& zpre_r)
 {
-  make_drawer_triangles_stype(cond, glc, ds, pj, 1, num_ssubtypes, smname,
-    num_shadowmaps, atl, solid_r, shadow_r, zpre_r);
+  make_drawer_triangles_stype(cond, glc, datadir, ds, pj, 1, num_ssubtypes,
+    smname, num_shadowmaps, atl, solid_r, shadow_r, zpre_r);
 }
 
 public function drawer_cond

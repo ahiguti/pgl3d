@@ -29,12 +29,14 @@ public struct drawer_font2(shader_config const& glc,
 <drawstep_i>
 {
   metafunction tattr font2_vertex_attributes;
+  ptr{resource_pool} res =
+    pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
   ptr{glm::uvec2} const psize = psize0;
-  font2_shader_ptr sdr_fn = init_font2_shader(glc);
-  gl_texture texture_font;
+  option{font2_shader_ptr} sdr_fn;
+  ptr{gl_texture} texture_font = make_ptr{gl_texture}();
   vbid_t const vbid_font2 = ds.vbid_pool->intern_create("vbid_font2");
-  init();
-  private function void init()
+  init(glc);
+  private function void init(shader_config const& glc)
   {
     const fnames = make_farray{string}(
       "res/mplus-1m-bold.ttf",
@@ -43,7 +45,9 @@ public struct drawer_font2(shader_config const& glc,
       "/usr/share/fonts/mplus/mplus-1m-bold.ttf",
       "/usr/share/fonts/truetype/mplus/mplus-1m-bold.ttf",
       "/usr/share/fonts/liberation/LiberationMono-Regular.ttf");
-    load_gl_texture_fixedwidth_font(texture_font, fnames);
+    load_gl_texture_fixedwidth_font(*texture_font, fnames, 18);
+    res->textures.insert("font", texture_font);
+    reload_shaders(glc);
   }
   public function vbid_t get_vbid() const { return vbid_font2; }
   public function vbid_t get_instances_vbid() const { return vbid_font2; }
@@ -79,6 +83,7 @@ public struct drawer_font2(shader_config const& glc,
     v.char_px = static_cast{float}(ti.char_w);
     v.char_point_size = point_size;
     vptr->push_point{font2_vertex_attributes}(v);
+    debug_log("font2: point_size", point_size);
   }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
   {
@@ -88,10 +93,10 @@ public struct drawer_font2(shader_config const& glc,
   {
     texture_info r;
     if (name == "font") {
-      r.surface_w = texture_font.surface_w;
-      r.surface_h = texture_font.surface_h;
-      r.char_w = texture_font.char_w;
-      r.char_h = texture_font.char_h;
+      r.surface_w = texture_font->surface_w;
+      r.surface_h = texture_font->surface_h;
+      r.char_w = texture_font->char_w;
+      r.char_h = texture_font->char_h;
     }
     return r;
   }
@@ -100,19 +105,29 @@ public struct drawer_font2(shader_config const& glc,
   }
   public function bool reload_shaders(shader_config const& glc)
   {
+    option{font2_shader_ptr} s0;
+    try {
+      s0.some = init_font2_shader(glc);
+    } catch (runtime_error ex) {
+      debug_log("reload failed: " + ex.message());
+      return false;
+    }
+    // debug_log("dbgui reload_shaders done");
+    sdr_fn.some = s0.some;
     return true;
   }
   public function void draw_drawstep(draw_data mutable& ddata)
   {
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture_font.texture_id.get());
+    glBindTexture(GL_TEXTURE_2D, texture_font->texture_id.get());
     glDisable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     const& sz = *psize;
     const screen_size_px = glm::make_vec2(
       static_cast{float}(sz.x),
       static_cast{float}(sz.y));
-    mutable& sdr = *sdr_fn;
+    const sdrp = sdr_fn.some;
+    mutable& sdr = *sdrp;
     glUseProgram(sdr.program);
     glUniform1i(sdr.u_sampler_font, 0);
     glUniform2fv(sdr.u_screen_size_px, 1, screen_size_px.to_crawptr());
@@ -131,6 +146,12 @@ metafunction font2_shader_ptr
 function font2_shader_ptr
 init_font2_shader(shader_config const& g)
 {
+  tree_map{string, string} bnd;
+  const v = load_shader_program(g, bnd, "font2.vsh");
+  const f = load_shader_program(g, bnd, "font2.fsh");
+  return make_glshader_ptr{font2_uniforms, font2_instance_attributes,
+    font2_vertex_attributes}(v, f, "idata", g.debug_level, "font2");
+  /*
   string v;
   v += g.prepend();
   v += "uniform vec2 screen_size_px;\n";
@@ -187,6 +208,7 @@ init_font2_shader(shader_config const& g)
   f += "}\n";
   return make_glshader_ptr{font2_uniforms, font2_instance_attributes,
     font2_vertex_attributes}(v, f, "idata", g.debug_level, "font2");
+  */
 }
 
 private threaded function void prepare_instance_data_font2(

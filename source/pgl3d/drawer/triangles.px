@@ -100,15 +100,16 @@ private tsvaluetype struct shadowmap_uniforms()
 
 public function void
 make_drawer_triangles_stype(ptr{bool} const& cond, shader_config const& glc,
-  drawer_shared const& ds, ptr{projection_info} const& pj,
-  int stype, int num_subtypes, string const& smname, int num_shadowmaps,
-  ptr{atlas} const& atl, varray{drawer_cond} mutable& solid_r,
+  string const& datadir, drawer_shared const& ds,
+  ptr{projection_info} const& pj, int stype, int num_subtypes,
+  string const& smname, int num_shadowmaps, ptr{atlas} const& atl,
+  varray{drawer_cond} mutable& solid_r,
   varray{varray{drawer_cond}} mutable& shadow_r,
   varray{drawer_cond} mutable& zpre_r)
 {
   shadow_r.resize(static_cast{size_t}(num_shadowmaps), varray{drawer_cond}());
-  const maindr = make_ptr{drawer_triangles}(glc, ds, pj, stype, smname,
-    num_shadowmaps, atl);
+  const maindr = make_ptr{drawer_triangles}(glc, datadir, ds, pj, stype,
+    smname, num_shadowmaps, atl);
   for (int i: 0 .. num_subtypes) {
     solid_r.push_back(drawer_cond(cond, make_ptr{drawstep_triangles}(
       maindr, stype, num_subtypes - i - 1, draw_step_solid, 0u)));
@@ -201,9 +202,9 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
 }
 
 public struct drawer_triangles(shader_config const& glc0,
-  drawer_shared const& ds0, ptr{projection_info} const& pj0,
-  int stype0, string const& smname0, int num_shadowmaps0,
-  ptr{atlas} const& atl0)
+  string const& datadir0, drawer_shared const& ds0,
+  ptr{projection_info} const& pj0, int stype0, string const& smname0,
+  int num_shadowmaps0, ptr{atlas} const& atl0)
 {
   /* stype==0 は三角形をそのまま描画する。
    * stype==1 は直方体の内部をraycastで描画する。
@@ -211,6 +212,7 @@ public struct drawer_triangles(shader_config const& glc0,
    *          に使うためのものだが現在使っていない。
    */
   shader_config glc = glc0;
+  string const datadir = datadir0;
   public drawer_shared const ds = ds0;
   public ptr{projection_info} pj = pj0;
   public int const stype = stype0;
@@ -305,10 +307,10 @@ public struct drawer_triangles(shader_config const& glc0,
 	}
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
-        edit_mode_ptr.some = make_ptr{edit_control}(emt, atl);
+        edit_mode_ptr.some = make_ptr{edit_control}(datadir, emt, atl);
         debug_log("create edit_control instance");
       } else {
-        edit_mode_ptr.some = make_ptr{noedit_control}(emt, atl);
+        edit_mode_ptr.some = make_ptr{noedit_control}(datadir, emt, atl);
         debug_log("create noedit_control instance");
       }
     }
@@ -444,7 +446,9 @@ public struct drawer_triangles(shader_config const& glc0,
       bnd["raycast_cull_front"] = to_string(raycast_cull_front ? 1 : 0);
       bnd["update_frag_depth"] = to_string(update_frag_depth ? 1 : 0);
       bnd["check_frag_depth"] = to_string(
-	(enable_raycast_zprepass || raycast_sort) ? 1 : 0);
+	((enable_raycast_zprepass || raycast_sort) && glc.check_frag_depth)
+        ? 1 : 0);
+      // debug_log("check_frag_depth", bnd["check_frag_depth"]);
       bnd["debug_zprepass"] = to_string(debug_zprepass ? 1 : 0);
       bnd["shadowmap_resolution"] = to_string(glc.shadowmap_resolution);
       bnd["shaodwmap_scale"] = to_string(
@@ -712,17 +716,19 @@ public struct drawer_triangles(shader_config const& glc0,
 	if (raycast_cull_front) {
 	  glCullFace(GL_BACK);
 	}
-        if (m::is_true{is_gl45}) {
-          glTextureBarrier();
-          // デプスバッファへの書き込みを次回のdepth_rd読み出しに反映させる。
-          // これをしないと次回のearly depth testによる計算省略がおきず遅く
-          // なる(未定義動作のはず)。glTextureBarrier()を挟めば各フラグメント
-          // でread/modify/write処理してもよい。
-          // https://www.khronos.org/opengl/wiki/Memory_Model#Texture_barrier
-          // ... The third thing this functionality changes is that you are
-          // permitted to perform a single read/modify/write operation
-          // between a texel fetch and a framebuffer image under the
-          // following conditions: ...
+        if (m::ne{is_windows, 0}) {
+          if (glc.version_ge(4, 5)) {
+            glTextureBarrier();
+            // デプスバッファへの書き込みを次回のdepth_rd読み出しに反映させる。
+            // これをしないと次回のearly depth testによる計算省略がおきず遅く
+            // なる(未定義動作のはず)。glTextureBarrier()を挟めば各フラグメント
+            // でread/modify/write処理してもよい。
+            // https://www.khronos.org/opengl/wiki/Memory_Model#Texture_barrier
+            // ... The third thing this functionality changes is that you are
+            // permitted to perform a single read/modify/write operation
+            // between a texel fetch and a framebuffer image under the
+            // following conditions: ...
+          }
         }
       }
     }

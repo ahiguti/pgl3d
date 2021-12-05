@@ -13,8 +13,8 @@ cp -af $drive/build/ext/*.ttf ../res/
 
 # chcp.com 65001
 rm -f ./x64/Release/pgl3d_app.log
-./pxc2cc-windows-release.sh && \
-"$drive/Program Files (x86)/Microsoft Visual Studio/2019/Professional/Common7/IDE/devenv.exe" pgl3d_app.sln /Build "Release|x64"
+time ./pxc2cc-windows-release.sh && \
+time "$drive/Program Files (x86)/Microsoft Visual Studio/2019/Professional/Common7/IDE/devenv.exe" pgl3d_app.sln /Build "Release|x64"
 ret=$?
 if [ -f ./x64/Release/pgl3d_app.log ]; then
   cat ./x64/Release/pgl3d_app.log

@@ -260,7 +260,7 @@ function void save_state(app_data const& app)
   st.light = app.light;
   const s = to_string(st);
   debug_log("save", s);
-  sdl_save_file("/build/camera_state.raw", s);
+  sdl_save_file(app.datadir + "/camera_state.raw", s);
 }
 
 function bool update_window_geometry(app_data mutable& app,

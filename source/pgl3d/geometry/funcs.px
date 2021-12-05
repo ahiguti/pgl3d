@@ -617,8 +617,8 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
       bnd[i] = b - base_min;
     }
     len = max(base_sz.x, base_sz.y);
-    debug_log("tan=", tan, "bno=", bno, "poly01=", poly[1].pos - poly[0].pos,
-      "poly12=", poly[2].pos - poly[1].pos);
+    // debug_log("tan=", tan, "bno=", bno, "poly01=",
+    //   poly[1].pos - poly[0].pos, "poly12=", poly[2].pos - poly[1].pos);
   }
   const coord_sz = coord_max - coord_min;
   const coord_len = foldl{max}(coord_sz.x, coord_sz.y, coord_sz.z);

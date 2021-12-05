@@ -38,14 +38,14 @@ public threaded struct gl_texture()
 
 public function void
 load_gl_texture_fixedwidth_font(gl_texture mutable& fnt,
-  cslice{string} const& fnames)
+  cslice{string} const& fnames, int point)
 {
   check_byteorder();
   sdl_log("loading fonts");
   scoped_nullable{TTF_CloseFont} font;
   for (size_t i, const& fn0: fnames) {
     string fn = fn0;
-    const p = TTF_OpenFont(fn.c_str(), 18);
+    const p = TTF_OpenFont(fn.c_str(), point);
     sdl_log("openfont", fn, p.to_size_t());
     font.reset(p);
     if (font.get() != rawptr{TTF_Font}()) {
@@ -115,11 +115,12 @@ load_gl_texture_fixedwidth_font(gl_texture mutable& fnt,
       sur_chars_buf[i+0] = 255;
       sur_chars_buf[i+1] = 255;
       sur_chars_buf[i+2] = 255;
+      // sur_chars_buf[i+3]のalpha値はそのまま保持
     }
   }
   glActiveTexture(GL_TEXTURE0);
   fnt.texture_id.generate();
-  sdl_log("font_texture_id", fnt.texture_id.get());
+  sdl_log("font_texture_id", fnt.texture_id.get(), "w", sur_chars_ref.w, "h", sur_chars_ref.h);
   glBindTexture(GL_TEXTURE_2D, fnt.texture_id.get());
   glTexImage2D(GL_TEXTURE_2D, 0, cast_int(GL_RGBA),
     sur_chars_ref.w, sur_chars_ref.h,

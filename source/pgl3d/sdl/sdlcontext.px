@@ -9,6 +9,7 @@ public import pgl3d::opengl::glresource -;
 public import pgl3d::sdl::sdlutil -;
 public import pgl3d::engine::pglconfig -;
 public import pgl3d::engine::pglbase -;
+public import pgl3d::engine::util -;
 
 public struct sdlcontext(pgl3d_config const& config0)
 {
@@ -21,7 +22,11 @@ public struct sdlcontext(pgl3d_config const& config0)
   public int glminor;
   public int max2dtex;
   public int max3dtex;
+  public int maxtexunits;
   public int vsync = 0;
+  public bool forbid_read_modify_write = false;
+    // glTextureBarrierを使ったread-modify-writeを禁止するかどうか。
+    // nvidia以外では期待通り動いてくれないので禁止する。
   public scoped_nullable{SDL_DestroyWindow} sdl_window;
   private scoped_nullable{SDL_GL_DeleteContext} sdl_glcontext;
   public varray{ptr{scoped_nullable{SDL_JoystickClose}}} joystick_handles;
@@ -144,6 +149,8 @@ public struct sdlcontext(pgl3d_config const& config0)
       sdl_glcontext.reset(glctx);
       return true;
     }
+    /* OpenGLのバージョンを指定してコンテキストを作り、失敗したらバージョン
+     * を下げ、成功するまで繰り返す。*/
     while (true) {
       create_context();
       if (!verstr.empty()) {
@@ -207,12 +214,14 @@ public struct sdlcontext(pgl3d_config const& config0)
     const renderer = cubptr_to_string(glGetString_nocheck(GL_RENDERER));
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, address(max2dtex));
     glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, address(max3dtex));
+    glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, address(maxtexunits));
     /*
     glGetIntegerv(GL_MAJOR_VERSION, address(glmajor));
     glGetIntegerv(GL_MINOR_VERSION, address(glminor));
     */
-    sdl_log("opengl", glmajor, glminor, vendor, renderer);
-    sdl_log("maxtex", max2dtex, max3dtex);
+    sdl_log("opengl version", glmajor, glminor, "vendor", vendor, renderer);
+    sdl_log("maxtex 2d/3d", max2dtex, max3dtex);
+    sdl_log("maxtexunits", maxtexunits);
     /*
     sdl_log("GL_EXTENSIONS", cubptr_to_string(glGetString(GL_EXTENSIONS)));
     */
@@ -224,6 +233,10 @@ public struct sdlcontext(pgl3d_config const& config0)
 	static_cast{uint}(i))));
     }
     */
+    if (find_substr(to_lower(vendor), "nvidia") == vendor.size()) {
+      forbid_read_modify_write = true;
+    }
+    sdl_log("forbid_read_modify_write", forbid_read_modify_write);
   }
   public function void update_joystick_info()
   {

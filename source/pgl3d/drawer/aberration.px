@@ -74,13 +74,6 @@ public struct drawer_aberration(shader_config const& glc,
     sdr_re = init_aberration_shader(glc);
     return true;
   }
-  public function bool has_step(draw_step step) const
-  {
-    if (step == draw_step_postprocess) {
-      return true;
-    }
-    return false;
-  }
   public function void draw_drawstep(draw_data mutable& ddata)
   {
     // debug_log("aberration draw");

@@ -6,8 +6,8 @@ private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::texture::atlas -;
 
-public struct noedit_control(ptr{edit_mode_texture} const& emt0,
-  ptr{atlas} const& atl0)
+public struct noedit_control(string const& datadir0,
+  ptr{edit_mode_texture} const& emt0, ptr{atlas} const& atl0)
 <edit_control_i>
 {
   // edit_modeが無効のときのedit_control_i実装。view無しでeditを直接glの

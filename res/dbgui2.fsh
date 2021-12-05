@@ -45,7 +45,8 @@ test_precision(vec2 p)
 
 void main(void)
 {
-  <%fragcolor/> = test_noise(vary_vert);
+  // <%fragcolor/> = test_noise(vary_vert);
+  <%fragcolor/> = vec4(1.0, 1.0, 0.0, 1.0);
   return;
   /*
   vec2 p = (gl_FragCoord.xy + 0.5) / 256.0;

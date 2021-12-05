@@ -58,12 +58,15 @@ public struct draw_data(shader_config const& glc)
   }
 }
 
+// drawer間で共有するリソース
 public struct drawer_shared()
 {
   public textures_ptr const textures
     = make_textures_ptr();
+    // テクスチャデータを連想配列に保持し共有する
   public resource_pool_ptr const gl_resources
     = make_ptr{resource_pool}();
+    // GLのテクスチャとフレームバッファを連想配列に保持し共有する
   public tptr{tiled_voxel_texture} const tvt
     = make_tptr{tiled_voxel_texture}();
   public ptr{edit_mode_texture} const emt
@@ -368,14 +371,24 @@ load_shader_program(shader_config const& g,
     sev.add_global_const(k, m);
   }
   {
-    const se = load_stempl_internal(fname, 100);
-    const string s = sev.eval(se);
+    string s;
+    const se = load_stempl_internal(fname, 100, s);
+    try {
+      s = sev.eval(se);
+    } catch (stempl_exception ex) {
+      const offset = ex.offset;
+      const s0 = s[0 .. offset];
+      const s1 = s[offset .. s.size()];
+      debug_log("load_shader_program:", ex.message(),
+        "\n" + s0 + "[ERROR]" + s1);
+      throw ex;
+    }
     return s;
   }
 }
 
 private function stempl_expr
-load_stempl_internal(cstrref const& fname, int rec_limit)
+load_stempl_internal(cstrref const& fname, int rec_limit, string mutable& s_r)
 {
   if (rec_limit < 1) {
     throw runtime_error_template{"load_stempl"}("recursion_limit_exceeded");
@@ -384,6 +397,7 @@ load_stempl_internal(cstrref const& fname, int rec_limit)
   if (!sdl_load_file(to_string("res/") + fname, src)) {
     throw runtime_error_template{"load_stempl_file"}(fname);
   }
+  s_r = src;
   stempl_expr se;
   try {
     se = stempl_parse(src);
@@ -408,7 +422,8 @@ extract_import(stempl_expr mutable& se, int rec_limit)
 	continue;
       }
       const fn = *ccons->args[0].literal; // TODO: error message
-      const ne = load_stempl_internal(fn, rec_limit - 1);
+      string s;
+      const ne = load_stempl_internal(fn, rec_limit - 1, s);
       e = ne;
     }
   }

@@ -10,12 +10,12 @@ private tsvaluetype struct dbgui_vertex_attributes()
 
 private tsvaluetype struct dbgui_instance_attributes()
 {
-  public glm::vec4 idata; // x0, y0, dx, dy
 }
 
 private tsvaluetype struct dbgui_uniforms()
 {
   public int sampler_sm; // array
+  public int sampler_dbg; // array
 }
 
 public struct drawer_dbgui(shader_config const& glc0,
@@ -28,6 +28,7 @@ public struct drawer_dbgui(shader_config const& glc0,
   ptr{resource_pool} res = pointer_downcast{ptr{resource_pool}}(
     ds.gl_resources);
   varray{cptr{gl_framebuffer}} shadowmap_fbs;
+  varray{cptr{gl_texture}} textures;
   option{dbgui_shader_ptr} sdr_di;
   vbid_t const vbid_dbgui = ds.vbid_pool->intern("vbid_generic_filter");
   init();
@@ -40,7 +41,7 @@ public struct drawer_dbgui(shader_config const& glc0,
   public function vbid_t get_vertices_vbid() const { return vbid_dbgui; }
   public function prepare_instance_data_funcptr
   get_prepare_instance_data_funcptr() const {
-    return make_tfuncptr{prepare_instance_data_dbgui}();
+    return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
     return make_tattr_vertex_buffer{tattr}(false, false);
@@ -52,10 +53,10 @@ public struct drawer_dbgui(shader_config const& glc0,
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{dbgui_vertex_attributes, 4} vs;
-    vs[0].vert = glm::make_vec2(0.0, 0.0);
-    vs[1].vert = glm::make_vec2(1.0, 0.0);
-    vs[2].vert = glm::make_vec2(1.0, 1.0);
-    vs[3].vert = glm::make_vec2(0.0, 1.0);
+    vs[0].vert = glm::make_vec2(-1.0, -1.0);
+    vs[1].vert = glm::make_vec2( 1.0, -1.0);
+    vs[2].vert = glm::make_vec2( 1.0,  1.0);
+    vs[3].vert = glm::make_vec2(-1.0,  1.0);
     vptr->push_polygon_distinct{dbgui_vertex_attributes, 0}(dummy_vattr, vs);
   }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
@@ -73,11 +74,17 @@ public struct drawer_dbgui(shader_config const& glc0,
       const name = sm_name + to_string(i);
       if (const f: res->framebuffers[name]) {
 	shadowmap_fbs.push_back(f);
+        // debug_log("dbgui: shadowmap", name);
       } else {
 	break;
       }
       ++i;
     }
+    textures.clear();
+    if (const p: res->textures["font"]) {
+      textures.push_back(p);
+    }
+    debug_log("dbgui sm", shadowmap_fbs.size(), "tex", textures.size());
   }
   public function bool reload_shaders(shader_config const& glc0)
   {
@@ -88,26 +95,40 @@ public struct drawer_dbgui(shader_config const& glc0,
       debug_log("reload failed: " + ex.message());
       return false;
     }
+    // debug_log("dbgui reload_shaders done");
     sdr_di.some = s0.some;
     return true;
   }
   public function void draw_drawstep(draw_data mutable& ddata)
   {
     glDisable(GL_DEPTH_TEST);
+    glDepthMask(0);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     mutable& sdr = *sdr_di.some;
     glUseProgram(sdr.program);
     darrayst{int} sampler_smarr = darrayst{int}(
-          static_cast{size_t}(glc.num_shadowmaps), 0);
+      static_cast{size_t}(shadowmap_fbs.size()), 0);
+    darrayst{int} sampler_dbg = darrayst{int}(
+      static_cast{size_t}(textures.size()), 0);
     for (const i: 0 .. shadowmap_fbs.size()) {
       glActiveTexture(static_cast{GLenum}(
         static_cast{int}(GL_TEXTURE8) + static_cast{int}(i)));
       glBindTexture(GL_TEXTURE_2D, shadowmap_fbs[i]->texture_depth.get());
       sampler_smarr[i] = 8 + static_cast{int}(i);
     }
-    glUniform1iv(sdr.u_sampler_sm, glc.num_shadowmaps,
+    for (const i: 0 .. textures.size()) {
+      glActiveTexture(static_cast{GLenum}(
+        static_cast{int}(GL_TEXTURE0) + static_cast{int}(i)));
+      glBindTexture(GL_TEXTURE_2D, textures[i]->texture_id.get());
+      sampler_dbg[i] = 0 + static_cast{int}(i);
+    }
+    // debug_log("dbgui draw_drawstep", shadowmap_fbs.size());
+    glUniform1iv(sdr.u_sampler_sm, static_cast{int}(sampler_smarr.size()),
       caddress(sampler_smarr[0]));
-    ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    glUniform1iv(sdr.u_sampler_dbg, static_cast{int}(sampler_dbg.size()),
+      caddress(sampler_dbg[0]));
+    const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
+    bo.draw(0, sdr);
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
@@ -128,33 +149,6 @@ init_dbgui_shader(shader_config const& g)
   const v = load_shader_program(g, bnd, "dbgui.vsh");
   const f = load_shader_program(g, bnd, "dbgui.fsh");
   return make_glshader_ptr{dbgui_uniforms, dbgui_instance_attributes,
-    dbgui_vertex_attributes}(v, f, "idata", g.debug_level, "dbgui");
-  /*
-  string v;
-  string f;
-  v += g.prepend();
-  v += g.vert_in() + "vec2 vert;\n";
-  v += g.decl_instance_attr("vec4", "idata");
-  v += "void main(void) {\n";
-  v += "vec4 idata_i = " + g.instance_attr("idata") + ";\n";
-  v += "vec2 screen_pos = idata_i.xy + idata_i.zw * vert;\n";
-  v += "gl_Position = vec4(screen_pos, 0.0, 1.0);\n";
-  v += "}\n";
-  f += g.prepend();
-  f += g.decl_fragcolor();
-  f += "void main(void) {\n";
-  f += g.fragcolor() + " = vec4(1.0, 1.0, 1.0, 0.3);\n";
-  f += "}\n";
-  return make_glshader_ptr{dbgui_uniforms, dbgui_instance_attributes,
-    dbgui_vertex_attributes}(v, f, "idata", g.debug_level, "dbgui");
-  */
-}
-
-private threaded function void prepare_instance_data_dbgui(
-  scene_node const& sn, node_common_data mutable& ncd,
-  instance_data mutable& idata)
-{
-  const sli = sn.trans.value.to_cslice();
-  idata.instance_buffer.append(sli[0 .. 4]);
+    dbgui_vertex_attributes}(v, f, "", g.debug_level, "dbgui");
 }
 

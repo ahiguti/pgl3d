@@ -95,12 +95,14 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
 	glEnable(GL_MULTISAMPLE);
       }
     }
-    /*
-    */
     if (m::not{is_gles}) {
-      if (!glc.is_gl3_or_gles3()) {
-	glEnable(GL_POINT_SPRITE);
-	sdl_log("GL_POINT_SPRITE enabled");
+      /* OpenGL 3.3で削除されたはずだが、IntelドライバでGL_POINT_SPRITEを
+       * 有効にしないと動作しないので有効にしておく。 */
+      const vendor = cubptr_to_string(glGetString_nocheck(GL_VENDOR));
+      if (find_substr(to_lower(vendor), "intel") != vendor.size()) {
+	glEnable_nocheck(GL_POINT_SPRITE);
+        const e = glGetError();
+	sdl_log("GL_POINT_SPRITE enabled e=", static_cast{int}(e));
       }
       glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
     }

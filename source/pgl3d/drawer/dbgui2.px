@@ -29,7 +29,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
     ds.gl_resources);
   varray{cptr{gl_framebuffer}} shadowmap_fbs;
   option{dbgui2_shader_ptr} sdr_di;
-  vbid_t const vbid_dbgui2 = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_dbgui2 = ds.vbid_pool->intern("vbid_dbgui2");
   bool dump_done = false;
   init();
   private function void init()
@@ -99,8 +99,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     mutable& sdr = *sdr_di.some;
     glUseProgram(sdr.program);
-    darrayst{int} sampler_smarr = darrayst{int}(
-          static_cast{size_t}(glc.num_shadowmaps), 0);
+    darrayst{int} sampler_smarr = darrayst{int}(shadowmap_fbs.size(), 0);
     for (const i: 0 .. shadowmap_fbs.size()) {
       glActiveTexture(static_cast{GLenum}(
         static_cast{int}(GL_TEXTURE8) + static_cast{int}(i)));
@@ -110,6 +109,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
     glUniform1iv(sdr.u_sampler_sm, glc.num_shadowmaps,
       caddress(sampler_smarr[0]));
     ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    /*
     if (!dump_done) {
       varray{uchar} buf;
       buf.resize(256u * 256u * 4u, 0u);
@@ -126,6 +126,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
       }
       debug_log("sum", sum);
     }
+    */
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
