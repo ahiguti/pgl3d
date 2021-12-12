@@ -25,8 +25,11 @@ public function void app_main()
   // debug_helper::dump_modules();
   // debug_helper::dump_backtrace();
   string config_fn = "res/pgl3d.cnf";
-  if (io::environ::argv.size() > 1) {
-    config_fn = io::environ::argv[1];
+  for (size_t i: 1 .. io::environ::argv.size()) {
+    const s = io::environ::argv[i];
+    if (find_mapped(s, static_cast{size_t}(0u), '=') >= s.size()) {
+      config_fn = s;
+    }
   }
   debug_log("config_fn", config_fn);
   pgl3d::engine::mainloop::mainloop{app_application}(config_fn);

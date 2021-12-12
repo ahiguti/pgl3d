@@ -50,3 +50,13 @@ SDL2.0.16
 
 SDL2.dllだけdynamic link, SDL2_imageとSDL2_ttfはstatic link。(なぜ？)
 
+-------------------------
+windowsバイナリをwineで動くようにビルドする
+
+condition variableによる起床がおかしいのではないか。
+回避のためにスレッドを使わないようにビルドする。
+1. bulletをmultithread改造版ではなくオリジナルのものを使う
+2. 設定 async_motion_thread=1 を入れる
+これでwineで動く。ただしbulletが超遅い。
+condition variableのwaitをwait_forに置き換えるのでもよい。
+

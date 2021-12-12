@@ -1,0 +1,117 @@
+public threaded namespace pgl3d::engine::pxc_backtrace "use-unsafe";
+public import numeric::integral -;
+public import container::array -;
+
+public threaded function extern "::pxcrt::dump_pxc_backtrace" void
+dump_pxc_backtrace();
+
+public threaded function
+extern "::pxcrt::dump_pxc_backtrace_all_threads" void
+dump_pxc_backtrace_all_threads(int depth);
+
+extern "functions" inline
+
+namespace pxcrt {
+
+void dump_pxc_backtrace(int depth);
+void dump_pxc_backtrace_all_threads(int depth);
+
+};
+
+;
+
+extern "implementation" inline
+
+namespace pxcrt {
+
+#ifdef PXC_ENABLE_PXC_BACKTRACE
+
+void dump_pxc_backtrace_thr(const char *idstr, pxc_backtrace_entry *entries,
+  unsigned num)
+{
+  #ifdef _MSC_VER
+  char buf[1024] = { };
+  sprintf_s(buf, "pxc_backtrace %s %u\n", idstr, num);
+  _write(debug_log_file, buf, (unsigned)strlen(buf));
+  while (num > 0) {
+    auto const& e = entries[num - 1];
+    sprintf_s(buf, "%s\n", e.name);
+    _write(debug_log_file, buf, (unsigned)strlen(buf));
+    --num;
+  }
+  #else
+  fprintf(stderr, "pxc_backtrace %s %u\n", idstr, num);
+  while (num > 0) {
+    auto const& e = entries[num - 1];
+    fprintf(stderr, "%s %s\n", p->name, p->src);
+    --num;
+  }
+  #endif
+}
+
+thread_local pxc_backtrace_entry thr_pxc_backtrace_entries[1024];
+thread_local unsigned thr_pxc_backtrace_entries_cur = 0;
+
+std::mutex bt_threads_mtx;
+std::map<std::thread::id, std::pair<pxc_backtrace_entry *, unsigned *>>
+  bt_threads;
+
+struct bt_thread_entry {
+  bt_thread_entry() {
+    std::lock_guard<std::mutex> g(bt_threads_mtx);
+    auto& e = bt_threads[std::this_thread::get_id()];
+    e.first = &thr_pxc_backtrace_entries[0];
+    e.second = &thr_pxc_backtrace_entries_cur;
+  }
+  ~bt_thread_entry() {
+    std::lock_guard<std::mutex> g(bt_threads_mtx);
+    bt_threads.erase(std::this_thread::get_id());
+  }
+};
+
+thread_local bt_thread_entry bt_thread_entry_obj;
+
+void dump_pxc_backtrace(::pxcrt::bt_int depth)
+{
+  unsigned n = thr_pxc_backtrace_entries_cur;
+  if (depth >= 0) {
+    n = std::min(n, static_cast<unsigned>(depth));
+  }
+  std::stringstream ss;
+  ss << std::this_thread::get_id();
+  auto idstr = ss.str();
+  dump_pxc_backtrace_thr(idstr.c_str(), thr_pxc_backtrace_entries, n);
+}
+
+void dump_pxc_backtrace_all_threads(::pxcrt::bt_int depth)
+{
+  std::lock_guard<std::mutex> g(bt_threads_mtx);
+  for (auto iter = bt_threads.begin(); iter != bt_threads.end(); ++iter) {
+    auto const& e = iter->second;
+    unsigned n = *e.second;
+    if (depth >= 0) {
+      n = std::min(n, static_cast<unsigned>(depth));
+    }
+    std::stringstream ss;
+    ss << iter->first;
+    auto idstr = ss.str();
+    dump_pxc_backtrace_thr(idstr.c_str(), e.first, n);
+  }
+}
+
+#else
+
+void dump_pxc_backtrace(::pxcrt::bt_int depth)
+{
+}
+
+void dump_pxc_backtrace_all_threads(::pxcrt::bt_int depth)
+{
+}
+
+#endif
+
+};
+
+;
+

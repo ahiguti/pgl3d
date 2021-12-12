@@ -1,6 +1,7 @@
 public namespace pgl3d::ext::debug_helper "use-unsafe";
 public import common -;
 public import meta m;
+private import pgl3d::engine::pxc_backtrace;
 
 public function extern "::pxcrt::dump_modules" void dump_modules();
 public function extern "::pxcrt::dump_backtrace" void dump_backtrace();
@@ -48,12 +49,13 @@ void init_debug_helper()
 
 void dump_backtrace()
 {
+  dump_pxc_backtrace_all_threads(-1);
 #ifdef _MSC_VER
   HANDLE proc = GetCurrentProcess();
   void *addr[512] = { };
   char buf[1024] = { };
   unsigned short num_frames = CaptureStackBackTrace(0, 512, addr, NULL);
-  sprintf_s(buf, "backtrace %i\n", num_frames);
+  sprintf_s(buf, "c_backtrace %i\n", num_frames);
   _write(debug_log_file, buf, (unsigned)strlen(buf));
   for (unsigned short i = 0; i < num_frames; ++i) {
     DWORD_PTR a = (DWORD_PTR)(addr[i]);

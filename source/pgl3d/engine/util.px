@@ -104,6 +104,7 @@ public threaded function {t} t abs(t x)
 public metafunction to_ivec3 map{ivec3, static_cast{int, uint}};
 public metafunction to_uvec3 map{uvec3, static_cast{uint, int}};
 public metafunction to_vec3 map{vec3, static_cast{float, int}};
+public metafunction to_vec3_from_uvec3 map{vec3, static_cast{float, uint}};
 
 public threaded function {t} bool lt_all_uvec3(uvec3 const& a, t const& b)
 {

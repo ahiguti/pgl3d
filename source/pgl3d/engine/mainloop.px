@@ -25,6 +25,7 @@ private import opengl::compat -;
 private import pgl3d::ext::process_priority -;
 private import pgl3d::ext::nvapi -;
 private import pgl3d::ext::debug_helper -;
+private import pgl3d::engine::pxc_backtrace -;
 // private import pgl3d::engine::console -;
 
 public function {tapp} void mainloop(cstrref const& conf_filename)
@@ -286,6 +287,11 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app0,
     }
     if (r) {
       debug_log("mainloop finished");
+      {
+        const ctrlp = octrlp.some;
+        mutable& ctrl = *ctrlp;
+        ctrl.finish_mainloop();
+      }
       // main_ctrlへの参照をなくす。appへの参照はこれが唯一なので、appも
       // 解放される。
       octrlp = option{ptr{main_ctrl}}();
@@ -298,6 +304,22 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app0,
 private interface main_ctrl_export_i
 {
   public function glm::uvec2 get_window_size();
+}
+
+private threaded function void heartbeat_thread(tptr{bool} const& fin)
+{
+  while (true) {
+    bool v = false;
+    {
+      v = *fin;
+    }
+    if (v) {
+      break;
+    }
+    debug_system().sleep(1);
+    debug_log("heartbeat_thread: dump");
+    dump_pxc_backtrace_all_threads(-1);
+  }
 }
 
 private struct main_ctrl(ptr{pgl3d_application} const& app0,
@@ -318,6 +340,8 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     sdlc.init_w, sdlc.init_h);
   private node_factory nfac;
   private option{ptr{motion_thread_client}} motion_thr;
+  private tptr{bool} heartbeat_fin = make_tptr{bool}(false);
+  private option{callable_ptr{void, m::nil}} heartbeat_thr;
   private size_t saved_stat_num_objects;
   private frame_stat_log mutable fr = frame_stat_log(
     conf.get("framestat_threshold", 0.0, 0.0, 10.0));
@@ -347,11 +371,17 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   */
   private int target_tick = 0;
   private bool engine_status = true;
-  init();
-  private function void init()
+  init(conf);
+  private function void init(pgl3d_config const& conf)
   {
     sdl_log("PGL3D main");
     sdl_log("shader config", sconf);
+
+    if (conf.get("enable_heartbeat_thread", 0, 0, 1) == 1) {
+      sdl_log("start heartbeat thread");
+      heartbeat_thr.some = make_thread_ptr{heartbeat_thread}(heartbeat_fin);
+    }
+
     set_process_priority(2);
     disable_ghosting();
       // windowsでfullscreenのときにイベントループを数秒止めると復旧できなく
@@ -727,6 +757,12 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     fr.next_ent();
     // if (scene_next_flag) { frctl.start(); }
     return done;
+  }
+  public function void finish_mainloop() {
+    {
+      *heartbeat_fin = false;
+    }
+    heartbeat_thr.none;
   }
   /* app_ctrl_i methods */
   public function glm::uvec2 get_drawable_size() const

@@ -40,8 +40,8 @@ voxel_map_d=6
 voxel_pat_w=10
 voxel_pat_h=9
 voxel_pat_d=9
-# 8,8,6
-voxel_map_w=8
+# 7,8,6
+voxel_map_w=7
 voxel_map_h=8
 voxel_map_d=6
 voxel_pat_w=9

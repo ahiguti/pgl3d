@@ -1,4 +1,4 @@
-private threaded namespace pgl3d::edit_mode::fill_space;
+private threaded namespace pgl3d::edit_mode::fill_fillings;
 private import common -;
 private import meta m;
 private import glm -;
@@ -39,13 +39,13 @@ has_space(t const& tex, uvec3 const& pos, uvec3 const& sz)
 }
 
 public function void
-fill_space_range(tiled_texture_edit_view mutable& ttev,
+fill_fillings_range(tiled_texture_edit_view mutable& ttev,
   subtexture mutable& cp, ptr{rand_generator} const& rndp)
 {
   if (cp.copy_size.z < 2u) {
     return;
   }
-  debug_log("fill_space_range");
+  debug_log("fill_fillings_range");
   const fills = ttev.get_fillings();
   varray{filling} single_fills; // fillsのうち1x1x1のもの
   varray{filling} multi_fills; // 1x1x1以外のもの

@@ -1,4 +1,6 @@
 datadir=..
+# enable_heartbeat_thread=1
+# async_motion_thread=1
 dbgval=0
 gldebug=0
 
@@ -11,11 +13,11 @@ auto_reload=1
 capture_filter=0
 aberration_filter=0
 
-motion_serial=Arduino Due
+# motion_serial=Arduino Due
 
 raycast_layer=32
 
-glfinish=1
+glfinish=0
 enable_raycast_zprepass=0
 enable_dbgui=1
 vsync=1
@@ -40,8 +42,8 @@ highdpi=1
 #voxel_pat_w=10
 #voxel_pat_h=9
 #voxel_pat_d=9
-# 8,8,6
-voxel_map_w=8
+# 7,8,6
+voxel_map_w=7
 voxel_map_h=8
 voxel_map_d=6
 voxel_pat_w=9

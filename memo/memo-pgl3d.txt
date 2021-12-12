@@ -2,6 +2,11 @@
 ---------------------------------------------------------------------------
 TODO
 
+- windowsバイナリをwineで動かすと固まる
+  - condition_variableをtimed waitにしてみる
+    - bulletのmt化箇所をwait_for()にしたら固まらなくなった
+    - async_motion_thread=0にセットしてmotionをmain threadで実行する
+
 - gldebug有効にすると終了時に例外が投げられる(done)
 
 - intel graphics, windowsでHUDが出ない。(done)

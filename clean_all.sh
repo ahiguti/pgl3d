@@ -12,4 +12,5 @@ rm -f source/*.exe source/*.o source/*.cc
 rm -f res/*.ttf
 rm -f var/*.raw var/*.log
 rm -f glprog.*.bin
+rm -f *.zip
 rm -rf pgl3d_dist/

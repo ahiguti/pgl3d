@@ -622,12 +622,17 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   }
   const coord_sz = coord_max - coord_min;
   const coord_len = foldl{max}(coord_sz.x, coord_sz.y, coord_sz.z);
-  const texscale = len / coord_len;
+  mutable texscale = len / coord_len;
     // テクスチャ座標からオブジェクト座標への倍率
+  if (const a: atl.some) {
+    // texscale = 32.0f;
+    // TODO: スケールを指定できるようにする
+  }
+  debug_log("texscale=", texscale);
   darrayst{vertex_attr} front = poly;
   mutable attr0 = poly[0];
   if (fill_floor) {
-    const texscale_inv = coord_len / len;
+    const texscale_inv = 1.0f / texscale;
       // オブジェクト座標からテクスチャ座標への倍率
     mutable coord_min_xy = glm::make_vec2(coord_min.x, coord_min.y);
     for (const i: 0u .. poly_size_max) {

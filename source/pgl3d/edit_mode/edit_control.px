@@ -18,7 +18,7 @@ private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::generate_filling -;
-private import pgl3d::edit_mode::fill_space -;
+private import pgl3d::edit_mode::fill_fillings -;
 
 private metafunction dbg_editmode{f} no_operation;
 private metafunction dbg_conv{f} f;
@@ -155,7 +155,7 @@ public struct edit_control(string const& datadir0,
         debug_log("gen_test_param", gen_test_param);
       }
       *rndp_saved = *rndp;
-      gen_test();
+      gen_test_pattern_copydata();
     }
     if (edit_params_mode == edit_params_mode_none) {
       // パラメータ変更モードでは無い場合。カーソル移動やコピペなどの
@@ -722,9 +722,9 @@ public struct edit_control(string const& datadir0,
       gen_fill_from_fragments(patsz, cntmax);
     } else if (cmd == "fill") {
       // fillingsを選択範囲へ埋める
-      fill_space();
+      fill_fillings();
     } else if (cmd == "gentest" && toks.size() == 1) {
-      // 現在のテクスチャの右端にgen_test()でパターン生成する
+      // 現在のテクスチャの右端にgen_test_pattern_testdata()でパターン生成する
       gen_test_large();
     } else if (cmd == "test_noderef" && toks.size() == 1) {
       // 内部テスト。noderef_paramのimat3変換をテストする。
@@ -1544,7 +1544,7 @@ public struct edit_control(string const& datadir0,
   }
   private function void gen_test_large()
   {
-    // 現在のテクスチャの右端にgen_test()でパターン生成する
+    // 現在のテクスチャの右端にgen_test_pattern_copydata()でパターン生成する
     debug_log("gen_test_large");
     set_cursor_tpat(false);
     const texsz = emt->vox.tmap_edit->data[0][0].get_size_uvec3();
@@ -1556,15 +1556,15 @@ public struct edit_control(string const& datadir0,
     uvec3 pos_e = texsz - make_uvec3(1u, 1u, 1u);
     ttev->set_cursor_pos(pos, pos_e);
     debug_log("gen_test_large cursor", pos, pos_e);
-    gen_test();
+    gen_test_pattern_copydata();
       // パターン生成
     copy_value();
-    fill_space_range(*ttev, copy_data, rndp);
-      // 生成した領域にfill_spaceを適用
+    fill_fillings_range(*ttev, copy_data, rndp);
+      // 生成した領域にfill_fillingsを適用
     paste_value(0xff, merge_mode_opaque());
     ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
   }
-  private function void gen_test()
+  private function void gen_test_pattern_copydata()
   {
     // テストパターン生成
     dbg_gen() {
@@ -1579,6 +1579,52 @@ public struct edit_control(string const& datadir0,
     paste_value(0xff, merge_mode_opaque());
     copied = false;
   }
+  private function void gen_test_pattern_atlas(subtexture mutable& stex,
+    uvec3 const& upos, uvec3 const& usize, uvec3 const tmap_size,
+    atlas_entry const& aent) const
+  {
+    // tmapのupos, usizeの範囲がstexにコピーされている。
+    const tms_max = fold_list{max}(1u, tmap_size);
+    range_foreach(usize) void (uint x, uint y, uint z) {
+      for (size_t i, mutable& tex: stex.tex) {
+        tex.set(x, y, z, 0u);
+      }
+      stex.tex[0].set(x, y, z, make_space_voxel());
+    }
+    color_param cp;
+    cp.metalness = 0;
+    cp.emission = 0;
+    cp.roughness = 10;
+    cp.rgb.r = 8;
+    cp.rgb.g = 8;
+    cp.rgb.b = 8;
+    for (const x: 0 .. usize.x) {
+      for (const y: 0 .. usize.y) {
+        bool inside = true;
+        for (const dx: 0 .. 2u) {
+          for (const dy: 0 .. 2u) {
+            const pbase = to_vec3_from_uvec3(make_uvec3(x + dx, y + dy, 0u))
+              / static_cast{float}(tms_max);
+            const pbase_xy = make_vec2(pbase.x, pbase.y);
+            for (size_t i, const& bnd: aent.boundary) {
+              vec2 const p0 = bnd;
+              size_t i1 = (i + 1 != aent.boundary.size()) ? i + 1 : 0u;
+              vec2 const p1 = aent.boundary[i1];
+              vec2 p01 = p1 - p0;
+              vec2 pnor = make_vec2(-p01.y, p01.x);
+              if (glm::dot(pnor, pbase_xy - p0) < 0.0f) {
+                inside = false;
+              }
+            }
+          }
+        }
+        if (inside) {
+          stex.tex[0].set(x, y, 0, make_filled_voxel());
+          stex.tex[1].set(x, y, 0, encode_color_param(cp));
+        }
+      }
+    }
+  }
   private function void gen_test_atlas()
   {
     debug_log("gen_test_atlas");
@@ -1588,29 +1634,13 @@ public struct edit_control(string const& datadir0,
       glm::uvec3 const& upos = ent.uposition;
       glm::uvec3 const& usize = ent.usize;
       ttev->set_cursor_pos(upos, upos + usize);
-      /*
-      color_param c;
-      c.metalness = 0;
-      c.emission = 0;
-      c.roughness = 5;
-      c.rgb.r = 128u + rndp->generate_uint(128u);
-      c.rgb.g = 128u + rndp->generate_uint(128u);
-      c.rgb.b = 128u + rndp->generate_uint(128u);
-      debug_log("test_atlas color", c.rgb);
-      {
-        const value = encode_color_param(c);
-        function void ffunc(subtexture mutable& data, uint x, uint y, uint z)
-        {
-
-          data.tex[0].set(x, y, z, make_filled_voxel());
-          data.tex[1].set(x, y, z, value);
-        }
-        fill_range_func{ffunc}(false, false);
-      }
-      */
-      gen_test();
       copy_value();
-      fill_space_range(*ttev, copy_data, rndp);
+      // atlasのエントリ範囲
+      gen_test_pattern_atlas(copy_data, upos, usize, ttev->tmap_size,
+        ent); // TODO
+      // gen_test_pattern_copydata(); // TODO
+      // copy_value();
+      fill_fillings_range(*ttev, copy_data, rndp);
       paste_value(0xff, merge_mode_opaque());
       /*
       */
@@ -1644,9 +1674,9 @@ public struct edit_control(string const& datadir0,
     generate_filling_from_fragments(*ttev, rndp, fragments,
       cur_tile_scale_log2, patsz, cntmax, cur.first, cur.second);
   }
-  private function void fill_space()
+  private function void fill_fillings()
   {
-    fill_space_range(*ttev, copy_data, rndp);
+    fill_fillings_range(*ttev, copy_data, rndp);
     paste_value(0xff, merge_mode_opaque());
   }
   private function void filling_erase()

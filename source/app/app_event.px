@@ -205,16 +205,19 @@ public function void handle_keys(app_data mutable& app,
   float frame_speed)
 {
   bool no_move = false;
+  // debug_log("handle_keys 0");
   if (const em: app.edit_mode.some) {
     if (em->is_textinput_mode()) {
       no_move = true;
     }
   }
+  // debug_log("handle_keys 1");
   if (!no_move) {
     update_joystick(app, joysticks);
     app.ictl.handle_keys(app.player, keys, app.player_joystick, frame_speed,
       app.app_commands);
   }
+  // debug_log("handle_keys 2");
   if (app.axim.is_valid()) {
     // ラグ確認のためft601経由でLED点灯する
     const kleft = app.ictl.get_key(keys, SDL_SCANCODE_LEFT) != 0u;
@@ -232,6 +235,7 @@ public function void handle_keys(app_data mutable& app,
     mctrl_angle = mctrl->get_current_value().conjugate();
   }
   glm::quat camera_rel = glm::make_quat_wxyz(1.0, 0.0, 0.0, 0.0);
+  // debug_log("handle_keys 3");
   app.ictl.action_step(app.player, app.player.pos_delta, frame_speed);
   {
     mutable& ss = downcast_mutable{app_scene_shared}(*app.scene_shared);
@@ -249,6 +253,7 @@ public function void handle_keys(app_data mutable& app,
     app.scene_next = 0;
     // sdl_log("posang = ", ss.posang);
   }
+  // debug_log("handle_keys 4");
   app.app_commands.clear();
   // app.prev_joy_buttons = buttons;
 }
