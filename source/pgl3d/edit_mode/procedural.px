@@ -96,18 +96,32 @@ procedural_gen_spline(ptr{rand_generator} rndp, uvec3 sz, int gen_param)
   range_foreach(sz) void (uint x, uint y, uint z) {
     if (tex.get(x, y, z) != 0u) {
       c.tex[0].set(x, y, z, make_filled_voxel());
-      c.tex[1].set(x, y, z, 0x00808080u);
+      c.tex[1].set(x, y, z, 0x00c0c0c0u);
     } else {
       c.tex[0].set(x, y, z, make_space_voxel());
       c.tex[1].set(x, y, z, 0x0u);
     }
   }
-  spline_postprocess(c);
+  chamfering(c);
   const p = make_ptr{farray{texture_data, 2}}();
   (*p)[0].swap(c.tex[0]);
   (*p)[1].swap(c.tex[1]);
   return p;
 }
+
+public threaded function void
+procedural_chamfering(ptr{rand_generator} rndp,
+  slice{texture_data} const& tex, uvec3 sz)
+{
+  const szl2 = tex[0].get_size_l2_uvec3();
+  mutable c = pgen_context(rndp);
+  tex[0].swap(c.tex[0]);
+  tex[1].swap(c.tex[1]);
+  chamfering(c);
+  tex[0].swap(c.tex[0]);
+  tex[1].swap(c.tex[1]);
+}
+
 
 // procedural.px
 private threaded struct pgen_context(ptr{rand_generator} rndp0)
@@ -119,7 +133,7 @@ private threaded struct pgen_context(ptr{rand_generator} rndp0)
 
 // procedural.px
 private threaded function void
-spline_postprocess(pgen_context mutable& ctx)
+chamfering(pgen_context mutable& ctx)
 {
   mutable tex = ctx.tex[0]; // copy
   const sz = tex.get_size_uvec3();
@@ -183,7 +197,8 @@ spline_postprocess(pgen_context mutable& ctx)
       pgen_fill_filled(
         make_uvec3(x, y, z),
         make_uvec3(1u, 1u, 1u),
-        ctx);
+        ctx,
+        0x00808000u);
       return;
     }
     if (!((wd.xn || wd.xp) && (wd.yn || wd.yp))) {
@@ -254,7 +269,8 @@ spline_postprocess(pgen_context mutable& ctx)
       pgen_fill_filled(
         make_uvec3(ui(xmi), ui(ymi), z),
         make_uvec3(ui(xsz), ui(ysz), 1u),
-        ctx);
+        ctx,
+        0x00800080u);
     } else {
       pgen_set_plane_dir(
         make_uvec3(ui(xmi), ui(ymi), z),
@@ -334,7 +350,7 @@ private threaded function void pgen_range(uvec3 const& pos, uvec3 const& sz,
   ++ctx.rec_count;
   const rv = ctx.rndp->generate() % 256u;
   if (sz_min == 1u) {
-    pgen_fill_filled(pos, sz, ctx);
+    pgen_fill_filled(pos, sz, ctx, 0x00008080u);
   } else if (rv < 32u) {
     pgen_millefeuille(pos, sz, ctx);
   } else {
@@ -385,7 +401,7 @@ private threaded function void gen_frag1(texture_reshaped mutable& tex_pri,
         sp.dist = si(radius2);
         const v = make_sphere_node(sp, offset, 1, 0);
         tex_pri.set(pos.x + ix, pos.y + iy, pos.z + iz, v);
-        tex_sec.set(pos.x + ix, pos.y + iy, pos.z + iz, 0x00808080u);
+        tex_sec.set(pos.x + ix, pos.y + iy, pos.z + iz, 0x00408080u);
       }
     }
   }
@@ -458,7 +474,7 @@ private threaded function void pgen_millefeuille(uvec3 const& p,
           mutable fpos = make_uvec3(ix + pos.x, iy + pos.y, iz + pos.z);
           swap_xy_if(fpos);
           ctx.tex[0].set(fpos.x, fpos.y, fpos.z, make_filled_voxel());
-          ctx.tex[1].set(fpos.x, fpos.y, fpos.z, 0x00808080u);
+          ctx.tex[1].set(fpos.x, fpos.y, fpos.z, 0x00804080u);
         }
         function void clamp_plane_param(plane_param mutable& pp)
         {
@@ -592,13 +608,15 @@ private threaded function int sgn(int x)
 }
 
 // procedural.px
-private threaded function void pgen_set_plane_dir(uvec3 const& pos,
-  uvec3 const& sz, ivec3 const& iresgn, pgen_context mutable& ctx)
+private threaded function void pgen_set_plane_dir(uvec3 const& pos0,
+  uvec3 const& sz0, ivec3 const& iresgn, pgen_context mutable& ctx)
 {
   // テクスチャデータの指定された範囲を平面切断パターンで埋める。平面
   // の向きはiresgnの符号で指定される。平面に接しないボクセルはfilledか
   // 空白になる。
-  const cdir = map{ivec3, operator::mul}(to_ivec3(sz), iresgn);
+  mutable pos = pos0;
+  mutable sz = sz0;
+  mutable cdir = map{ivec3, operator::mul}(to_ivec3(sz), iresgn);
   bool ax3 = true;
   uint rep = 0;
   uint zc = 0;
@@ -606,8 +624,18 @@ private threaded function void pgen_set_plane_dir(uvec3 const& pos,
   zc += (cdir.y == 0) ? 1u : 0u;
   zc += (cdir.z == 0) ? 1u : 0u;
   if (zc > 1u) {
-    pgen_range(pos, sz, ctx);
+    pgen_range(pos, sz, ctx); // TODO: これは何なのか？
   } else {
+    expand (f: m::field_names{uvec3}) {
+      if (sz.f > 7) {
+        sz.f = 7;
+        if (iresgn.f < 0) {
+          pos.f += sz0.f - sz.f;
+        }
+      }
+    }
+    // cdirを計算しなおす
+    cdir = map{ivec3, operator::mul}(to_ivec3(sz), iresgn);
     if (cdir.x == 0) {
       rep = 0;
       ax3 = false;
@@ -619,14 +647,15 @@ private threaded function void pgen_set_plane_dir(uvec3 const& pos,
       ax3 = false;
     }
     plane_param pp = make_plane_param_dir(cdir, ax3, rep);
-    pp.fit();
+    pp.fit(); // ボクセル値で表現可能な極力近いパラメータに書き換える
+      // 変化しないはず。消してよい。
     pgen_fill_plane(pos, sz, pp, ctx);
   }
 }
 
 // procedural.px
 private threaded function void pgen_fill_filled(uvec3 const& pos,
-  uvec3 const& sz, pgen_context mutable& ctx)
+  uvec3 const& sz, pgen_context mutable& ctx, uint val)
 {
   function void ffunc(uint x, uint y, uint z)
   {
@@ -634,7 +663,7 @@ private threaded function void pgen_fill_filled(uvec3 const& pos,
     const y1 = pos.y + y;
     const z1 = pos.z + z;
     ctx.tex[0].set(x1, y1, z1, make_filled_voxel());
-    ctx.tex[1].set(x1, y1, z1, 0x00808080u);
+    ctx.tex[1].set(x1, y1, z1, val /* 0x00808080u */);
   }
   range_foreach{ffunc}(sz);
 }
@@ -649,7 +678,7 @@ private threaded function void pgen_fill_value(uvec3 const& pos,
     const y1 = pos.y + y;
     const z1 = pos.z + z;
     ctx.tex[0].set(x1, y1, z1, value);
-    ctx.tex[1].set(x1, y1, z1, 0x00808080u);
+    ctx.tex[1].set(x1, y1, z1, 0x00808040u);
   }
   range_foreach{ffunc}(sz);
 }
@@ -658,6 +687,8 @@ private threaded function void pgen_fill_value(uvec3 const& pos,
 private threaded function void pgen_fill_plane(uvec3 const& pos,
   uvec3 const& sz, plane_param const& pp, pgen_context mutable& ctx)
 {
+  // テクスチャの位置posからszの範囲に、パラメータppで指定された向きの
+  // 平面を書き込む。ppはボクセル値にエンコード可能な範囲になっている。
   dbg_pgen() {
     debug_log("pgen_fill_plane", sz);
   }
@@ -673,7 +704,7 @@ private threaded function void pgen_fill_plane(uvec3 const& pos,
       si(z * 2 + 1) - si(sz.z)),
       1);
     ctx.tex[0].set(x1, y1, z1, v);
-    ctx.tex[1].set(x1, y1, z1, 0x00808080u);
+    ctx.tex[1].set(x1, y1, z1, 0x00404080u);
   }
   range_foreach{ffunc}(sz);
 }

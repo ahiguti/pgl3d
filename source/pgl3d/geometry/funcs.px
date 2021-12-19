@@ -13,8 +13,9 @@ public import pgl3d::engine::util -;
 public threaded interface build_context_i
 {
   // 実装はpgl3d::engine::pglshader::build_context_impl
-  public function void fill(bool flat_flat, bool polyjoint, size_t n,
-    string const& joint_name, poly_t const& poly, mesh_index const& mp) const;
+  public function void fill_or_joint(bool flat_flat, bool polyjoint,
+    size_t n, string const& joint_name, poly_t const& poly,
+    mesh_index const& mp) const;
     // 引数nはdgf_fillersのn番を使用して描画することを指定する。
     // joint_nameが空文字列でないときはその名前のjointをその位置に作成する。
   public function vec2 assign_texture(cslice{vec2} const& boundary, float h);
@@ -26,6 +27,9 @@ public threaded interface build_context_i
 public tsvaluetype struct
 vertex_attr()
 {
+  public metafunction boundary_len 5;
+    // 6にするとGL_MAX_VERTEX_ATTRIBの制限(16)に引っ掛かりlocationが重複
+    // する(これはバグではないのか？)
   public vec3 pos;
   public vec3 nor;
   public vec3 tan;
@@ -33,7 +37,7 @@ vertex_attr()
   public vec4 aabb_or_tconv;
   public vec3 aabb_min;
   public vec3 aabb_max;
-  public farray{vec2, 4} boundary;
+  public farray{vec2, boundary_len} boundary;
     // trianglesの底面のテクスチャ座標
   public bool is_tconv;
     // aabb_or_tconvがtconvをあらわすときtrue。これはvoxel貼り付けのときに
@@ -453,25 +457,25 @@ private threaded function void gf_lid(gf_poly const& c0, gf_poly const& c1,
 private threaded function void gf_ctx_fill(size_t n,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
-  ctx.fill(true, false, n, "", poly, mp);
+  ctx.fill_or_joint(true, false, n, "", poly, mp);
 }
 
 private threaded function void gf_ctx_fill_smooth(size_t n,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
-  ctx.fill(false, false, n, "", poly, mp);
+  ctx.fill_or_joint(false, false, n, "", poly, mp);
 }
 
 private threaded function void gf_ctx_poly_joint(string const& joint_name,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
-  ctx.fill(true, true, 0, joint_name, poly, mp);
+  ctx.fill_or_joint(true, true, 0, joint_name, poly, mp);
 }
 
 private threaded function void gf_ctx_point_joint(string const& joint_name,
   build_context_i const& ctx, poly_t const& poly, mesh_index const& mp)
 {
-  ctx.fill(true, false, 0, joint_name, poly, mp);
+  ctx.fill_or_joint(true, false, 0, joint_name, poly, mp);
 }
 
 private threaded function void gf_ctx_tex3d(size_t nbase,
@@ -574,8 +578,8 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     // FIXME: 実装中
     // FIXME: 貼り付けるテクスチャの範囲はこの関数の中で割り当て、あとで
     // そこにボクセルデータを生成する。
-  // tex3d(ボクセルデータを貼り付けた直方体)の頂点データを作りfill()を呼ぶ
-  // 引数polyはtex3dの作成位置を決めるために使われるだけ。
+  // tex3d(ボクセルデータを貼り付けた直方体)の頂点データを作りfill_or_joint()
+  // を呼ぶ。引数polyはtex3dの作成位置を決めるために使われるだけ。
   // surf_quadsには(mx-mi)の大きさの6面の頂点座標が入っている
   mutable coord_min = mi;
   mutable coord_max = mx;
@@ -585,9 +589,12 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     debug_log("WARN gf_ctx_tex3d_surf poly.size() < 3");
     return;
   }
-  size_t const poly_size_max = 4u;
+  size_t const poly_size_max = m::symbol{vertex_attr, "boundary_len"};
   const poly_size = min(poly.size(), poly_size_max);
   // debug_log("gf_ctx_tex3d_surf surf_quads=", surf_quads, "poly=", poly);
+  // polyを基準にして接線空間の座標系を決める。
+  // オブジェクト空間からみた接線空間の単位ベクトル(tan, bno, nor)
+  // 拡大率はオブジェクト空間のまま。
   const tan = (poly[1].pos - poly[0].pos).normalize();
   const nor = normal_from_poly(poly, false);
   mutable len = glm::length(poly[1].pos - poly[0].pos);
@@ -616,16 +623,22 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
     for (const i, const& b: base) {
       bnd[i] = b - base_min;
     }
+    // bnd[]には各頂点の接線空間での座標が入る。すべて値は非負。
+    // bnd[0]は原点とは限らないが、bnd[0]とbnd[1]は(凸ポリゴンであれば)
+    // x軸上に位置する。
     len = max(base_sz.x, base_sz.y);
     // debug_log("tan=", tan, "bno=", bno, "poly01=",
     //   poly[1].pos - poly[0].pos, "poly12=", poly[2].pos - poly[1].pos);
+    base_pos = poly[0].pos - tan * bnd[0].x - bno * bnd[1].y;
+      // オブジェクト空間からみた接線空間の原点は、polyのaabbの始点なので、
+      // poly[0]の位置とは異なることがある。
   }
   const coord_sz = coord_max - coord_min;
   const coord_len = foldl{max}(coord_sz.x, coord_sz.y, coord_sz.z);
   mutable texscale = len / coord_len;
     // テクスチャ座標からオブジェクト座標への倍率
   if (const a: atl.some) {
-    // texscale = 32.0f;
+    texscale = 16.0f;
     // TODO: スケールを指定できるようにする
   }
   debug_log("texscale=", texscale);
@@ -636,20 +649,26 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
       // オブジェクト座標からテクスチャ座標への倍率
     mutable coord_min_xy = glm::make_vec2(coord_min.x, coord_min.y);
     for (const i: 0u .. poly_size_max) {
-      // 底面ポリゴンの位置
-      attr0.boundary[i] = coord_min_xy + bnd[i % poly_size] * texscale_inv;
+      attr0.boundary[i] = make_vec2(-1.0f, -1.0f);
+    }
+    for (const i: 0u .. poly_size) {
+      // 底面ポリゴンの位置。
+      attr0.boundary[i] = coord_min_xy + bnd[i] * texscale_inv;
     }
     if (const a: atl.some) {
       // atlasからテクスチャの一部領域を割り当てる。
-      const ae = a->assign(attr0.boundary, tex_height);
+      const ae = a->assign(attr0.boundary[0 .. poly_size],
+        tex_height * texscale_inv);
       // 割り当てられた領域のオフセットをcoordに加算
+      // ae.positionはpadding内側の始点座標
       coord_min += ae.position;
       // 割り当てられた領域の大きさに合わせてcoordの大きさを更新
+      // ae.sizeはpadding内側の大きさ
       coord_max = coord_min + ae.size;
       coord_min_xy = glm::make_vec2(coord_min.x, coord_min.y);
-      for (const i: 0u .. poly_size_max) {
-        // 底面ポリゴンの位置を更新
-        attr0.boundary[i] = coord_min_xy + bnd[i % poly_size] * texscale_inv;
+      for (const i: 0u .. poly_size) {
+        // 底面ポリゴンの位置を再計算
+        attr0.boundary[i] = coord_min_xy + bnd[i] * texscale_inv;
       }
       for (const i, mutable& q: surf_quads) {
         // surf_quadsには1.0の大きさの座標が入っている。ここで割り当てられた
@@ -658,6 +677,7 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
           v = v * ae.size;
         }
       }
+      debug_log("boundary=", attr0.boundary);
     }
   }
   attr0.pos = base_pos; // 接線空間原点のオブジェクト座標。
@@ -691,7 +711,7 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   //   への変換
   // aabb_min(vec3 aabb_min): テクスチャ座標系での描画範囲aabb最小
   // aabb_max(vec3 aabb_max): テクスチャ座標系での描画範囲aabb最大
-  // boundary(vec2 boundary0から3): テクスチャ座標系での底面多角形
+  // boundary(vec2 boundary0からn): テクスチャ座標系での底面多角形
   // 各頂点の位置はuvw値からわかる。オブジェクト座標系への変換は
   // pos, nor, tan とaabb_or_tconvで計算できる。
   //

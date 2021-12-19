@@ -34,6 +34,12 @@ private tsvaluetype struct triangles_uniforms()
 
 private tsvaluetype struct triangles_vertex_attributes()
 {
+  public metafunction boundary_len
+    m::symbol{pgl3d::geometry::funcs::vertex_attr, "boundary_len"};
+  public metafunction boundary_fields
+    m::map{
+      m::seq{boundary_len},
+      metafunction{x} m::concat{"boundary", x}};
   public glm::vec3 position;
   public glm::vec3 normal;
   public glm::vec3 tangent;
@@ -41,10 +47,9 @@ private tsvaluetype struct triangles_vertex_attributes()
   public glm::vec4 aabb_or_tconv;
   public glm::vec3 aabb_min;
   public glm::vec3 aabb_max;
-  public glm::vec2 boundary0;
-  public glm::vec2 boundary1;
-  public glm::vec2 boundary2;
-  public glm::vec2 boundary3;
+  expand (f : boundary_fields) {
+  public glm::vec2 f; // boundary0, boundary1, ...
+  }
 }
 
 private metafunction zprepass_vertex_attributes triangles_vertex_attributes;
@@ -267,16 +272,16 @@ public struct drawer_triangles(shader_config const& glc0,
     const tex_map = *textures->equal_range("triangles.tile_map");
     const tex_noise = *textures->equal_range("triangles.noise");
     const tex_voxsurf = *textures->equal_range("triangles.voxsurf");
-    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_dpat, tex_col,
-      GL_RGBA, GL_RGBA, GL_NEAREST);
-    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_pmpat, tex_dep,
-      GL_RGBA, GL_RGBA, GL_NEAREST);
-    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_tilemap, tex_map,
-      GL_RGBA, GL_RGBA, GL_NEAREST);
-    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_noise, tex_noise,
-      GL_RED, GL_RGBA, GL_NEAREST);
-    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_voxsurf, tex_voxsurf,
-      GL_RGBA, GL_RGBA, GL_NEAREST);
+    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_dpat, *tex_col,
+      GL_RGBA, GL_NEAREST);
+    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_pmpat, *tex_dep,
+      GL_RGBA, GL_NEAREST);
+    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_tilemap, *tex_map,
+      GL_RGBA, GL_NEAREST);
+    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_noise, *tex_noise,
+      GL_RED, GL_NEAREST);
+    texture_data_to_gl_texture(GL_TEXTURE_2D, *texture_voxsurf, *tex_voxsurf,
+      GL_RGBA, GL_NEAREST);
     res->textures.insert("tile_color", texture_dpat);
     res->textures.insert("tile_parallax", texture_pmpat);
     res->textures.insert("tile", texture_tilemap);
@@ -288,22 +293,22 @@ public struct drawer_triangles(shader_config const& glc0,
 	debug_log("vox tmap", emt->vox.tmap_edit->data[0].size());
 	if (glc.is_gl3_or_gles3()) {
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
-	    emt->vox.tpat_edit->data[0], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tpat_edit->data[0], GL_RGBA, GL_NEAREST);
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
-	    emt->vox.tpat_edit->data[1], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tpat_edit->data[1], GL_RGBA, GL_NEAREST);
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
-	    emt->vox.tmap_edit->data[0], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tmap_edit->data[0], GL_RGBA, GL_NEAREST);
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
-	    emt->vox.tmap_edit->data[1], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tmap_edit->data[1], GL_RGBA, GL_NEAREST);
 	} else {
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
-	    emt->vox.tpat_edit->data[0][0 .. 1], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tpat_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
-	    emt->vox.tpat_edit->data[1][0 .. 1], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tpat_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
-	    emt->vox.tmap_edit->data[0][0 .. 1], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tmap_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
 	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
-	    emt->vox.tmap_edit->data[1][0 .. 1], GL_RGBA, GL_RGBA, GL_NEAREST);
+	    emt->vox.tmap_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
 	}
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
@@ -458,6 +463,8 @@ public struct drawer_triangles(shader_config const& glc0,
 	* glc.shadowmap_distance);
       bnd["raycast_iter"] = to_string(
         glc.conf.get("raycast_iter", 128, 32, 1024));
+      bnd["boundary_len"] = to_string(
+        m::symbol{triangles_vertex_attributes, "boundary_len"});
       debug_log("triangles bnd", bnd);
       s0.some = init_triangles_shader(glc, bnd, stype);
       s1.some = init_zprepass_shader(glc, bnd, stype);

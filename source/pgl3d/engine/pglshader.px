@@ -61,7 +61,8 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
       int val;
       glGetInternalformativ(GL_TEXTURE_2D, GL_RGBA8, GL_TEXTURE_IMAGE_FORMAT,
         1, address(val));
-      debug_log("GL_TEXTURE_IMAGE_FORMAT", val, static_cast{int}(GL_RGBA), static_cast{int}(GL_BGRA));
+      debug_log("GL_TEXTURE_IMAGE_FORMAT", val, static_cast{int}(GL_RGBA),
+        static_cast{int}(GL_BGRA));
     }
     */
     /*
@@ -249,7 +250,12 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   public function void make_vertex_set(cslice{string} const& dr_names,
     cstrref const& shape_name, gf_poly const& expr)
   {
-    // make vertex set by geometry expression
+    // make_vertex_setはshape_nameで指定された名前のオブジェクトの頂点
+    // データを登録する。exprには関数オブジェクトを指定し、その末端で
+    // build_context_i::fill_or_joint()呼び出すことによってメッシュ又は
+    // jointが登録される。dr_namesはメッシュを描画するdrawerのvbid名の
+    // リスト。
+    //
     // TODO: dr_names[0]はsubdrawerであってはならず、残りはsubdrawer
     // でなければならない。さもないと頂点セットの名前からvsidを引くとき
     // の一意性がなくなる。
@@ -417,7 +423,7 @@ build_context_impl(varray{ptr{vertices}} mutable& vptrs0,
   public varray{dgf_filler} fillers;
   vptrs.swap(vptrs0);
   fillers.swap(fillers0);
-  function void fill(bool flat_flag, bool polyjoint, size_t n,
+  function void fill_or_joint(bool flat_flag, bool polyjoint, size_t n,
     string const& joint_name, poly_t const& poly, mesh_index const& mp) const
   {
     if (joint_name.empty()) {

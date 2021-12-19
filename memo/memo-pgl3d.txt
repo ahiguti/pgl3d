@@ -2,6 +2,27 @@
 ---------------------------------------------------------------------------
 TODO
 
+- largeのmipmapが変？
+
+- edit_mode_largeでSHIFT+F12例外(done)
+
+- vertex attributesのlocationが不足。
+  メッシュのデータはテクスチャに置くか？
+  vec4tex(あとまわし)
+
+- boundaryは裏面も描く
+
+- perspective_*を全体的に小さくしたが、小さくしすぎるとどこに問題が出るか？
+
+- raycast_layer複数にしてソート処理しているのをやめる？
+  - raycast_layer=1にすると例外。
+
+- test_atlasで五角形の外にゴミ(done)
+
+- vsync offでpauseしてもちらつくことがある? glTextureBarrierか？
+
+- 次: boundaryの色、5角形以上のポリゴン
+
 - windowsバイナリをwineで動かすと固まる
   - condition_variableをtimed waitにしてみる
     - bulletのmt化箇所をwait_for()にしたら固まらなくなった

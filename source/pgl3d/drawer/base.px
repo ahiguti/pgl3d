@@ -192,17 +192,9 @@ dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
     v.aabb_or_tconv = poly[i].aabb_or_tconv;
     v.aabb_min = poly[i].aabb_min;
     v.aabb_max = poly[i].aabb_max;
-    v.boundary0 = poly[i].boundary[0];
-    v.boundary1 = poly[i].boundary[1];
-    v.boundary2 = poly[i].boundary[2];
-    v.boundary3 = poly[i].boundary[3];
-    /*
-    // FIXME
-    v.boundary0 = glm::make_vec2(1.0, 0.0);
-    v.boundary1 = glm::make_vec2(0.0, 1.0);
-    v.boundary2 = glm::make_vec2(1.0, 1.0);
-    v.boundary3 = glm::make_vec2(0.5, 0.5);
-    */
+    expand (f, j: m::symbol{tattr, "boundary_fields"}) {
+    v.f = poly[i].boundary[j]; // v.boundary0 ...
+    }
     // debug_log("vattr", v);
   }
   if (sz == 4 && override_uvw) {

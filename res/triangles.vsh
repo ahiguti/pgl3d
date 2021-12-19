@@ -4,23 +4,23 @@ uniform mat4 view_projection_matrix;
 uniform vec3 camera_pos;
 uniform mat4 shadowmap_vp[<%smsz/>];
 <%decl_instance_attr mat4 model_matrix/>
-<%vert_in/> vec3 position;
+/* layout (location=0) */<%vert_in/> vec3 position;
   // stype==0のとき頂点のオブジェクト座標
   // stype==1のときオブエジェクト座標系での接線空間の原点
-<%vert_in/> vec3 normal;   // オブジェクト座標系での法線(接線空間のz軸)
-<%vert_in/> vec3 tangent;  // オブジェクト座標系での接線(接線空間のx軸)
-<%vert_in/> vec3 uvw;      // 頂点のテクスチャ座標
-<%vert_in/> vec4 aabb_or_tconv;
+/* layout (location=1) */<%vert_in/> vec3 normal;   // オブジェクト座標系での法線(接線空間のz軸)
+/* layout (location=2) */<%vert_in/> vec3 tangent;  // オブジェクト座標系での接線(接線空間のx軸)
+/* layout (location=3) */<%vert_in/> vec3 uvw;      // 頂点のテクスチャ座標
+/* layout (location=4) */<%vert_in/> vec4 aabb_or_tconv;
   // stype==0のときテクスチャ座標の範囲aabb
   // stype==1のときテクスチャ座標から接線空間への変換
 <%if><%eq><%stype/>1<%/>
-  <%vert_in/> vec3 aabb_min; // テクスチャ座標での範囲aabb
-  <%vert_in/> vec3 aabb_max; // テクスチャ座標での範囲aabb
+/* layout (location=5) */<%vert_in/> vec3 aabb_min; // テクスチャ座標での範囲aabb
+/* layout (location=6) */<%vert_in/> vec3 aabb_max; // テクスチャ座標での範囲aabb
 <%/>
-<%vert_in/> vec2 boundary0; // テクスチャ座標での底面多角形
-<%vert_in/> vec2 boundary1;
-<%vert_in/> vec2 boundary2;
-<%vert_in/> vec2 boundary3;
+// <%vert_in/> vec2 boundary[<%boundary_len/>]; // テクスチャ座標での底面多角形
+<%for x 0><%boundary_len/>
+/* layout (location=<%add><%x/>7<%/>) */<%vert_in/> vec2 boundary<%x/>; // テクスチャ座標での底面多角形
+<%/>
 <%vert_out/> vec3 vary_position; // ワールドの頂点座標
 <%vert_out/> vec3 vary_normal;   // ワールドでの法線
 <%vert_out/> vec3 vary_tangent;  // ワールドでの接線
@@ -32,10 +32,10 @@ uniform mat4 shadowmap_vp[<%smsz/>];
   <%flat/> <%vert_out/> mat4 vary_model_matrix; // 接線空間からワールドへの変換
   <%vert_out/> vec3 vary_position_local; // 接線空間での頂点座標
   <%flat/> <%vert_out/> vec3 vary_camerapos_local; // 接線空間でのカメラ座標
-  <%flat/> <%vert_out/> vec2 vary_boundary0;
-  <%flat/> <%vert_out/> vec2 vary_boundary1;
-  <%flat/> <%vert_out/> vec2 vary_boundary2;
-  <%flat/> <%vert_out/> vec2 vary_boundary3;
+  <%for x 0><%boundary_len/>
+    <%flat/> <%vert_out/> vec2 vary_boundary<%x/>;
+  <%/>
+  <%flat/> <%vert_out/> int vary_boundary_len; // vary_boundary?の有効な長さ
 <%else/>
   <%vert_out/> vec3 vary_uvw;      // 頂点のテクスチャ座標
   <%vert_out/> vec4 vary_aabb_or_tconv; // aabb_or_tconvと同じ
@@ -96,10 +96,14 @@ void main(void)
     vary_aabb_or_tconv = aabb_or_tconv;
     vary_aabb_min = aabb_min;
     vary_aabb_max = aabb_max;
-    vary_boundary0 = boundary0;
-    vary_boundary1 = boundary1;
-    vary_boundary2 = boundary2;
-    vary_boundary3 = boundary3;
+    vary_boundary_len = 0;
+    <%for x 0><%boundary_len/>
+    vary_boundary<%x/> = boundary<%x/>;
+    if (boundary<%x/>.x >= -0.0) {
+      vary_boundary_len = <%x/> + 1;
+    }
+    <%/>
+    // vary_boundary_len = 5; // FIXME
   <%/>
   <%if><%and><%ne><%stype/>1<%/><%enable_shadowmapping/><%/>
     vec3 ndelta = mat3(shadowmap_vp[0]) * vary_normal * ndelta_scale; // 0.02

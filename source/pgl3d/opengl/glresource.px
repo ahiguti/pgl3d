@@ -70,6 +70,13 @@ auto_handle()
       generate_func(1, address(hnd.value));
     }
   }
+  public function void generate_if()
+  {
+    if (hnd.value > 0) {
+      return;
+    }
+    generate();
+  }
   public function void reset()
   {
     if (hnd.value > 0) {

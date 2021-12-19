@@ -61,17 +61,17 @@ glshader(cstrref const& prog_v, cstrref const& prog_f,
   expand (sym: m::map{m::field_names{tuni},
     metafunction{s} m::concat{"u_", s}})
   {
-    public int sym = -1;
+    public int sym = -1; /* 各uniform変数のlocationを保持する変数 */
   }
   expand (sym: m::map{m::field_names{tinst},
     metafunction{s} m::concat{"i_", s}})
   {
-    public int sym = -1;
+    public int sym = -1; /* 各インスタンス変数のlocationを保持する変数 */
   }
   expand (sym: m::map{m::field_names{tvert},
     metafunction{s} m::concat{"v_", s}})
   {
-    public int sym = -1;
+    public int sym = -1; /* 各頂点属性のlocationを保持する変数 */
   }
   public uint program = 0;
   public string error;
@@ -133,8 +133,8 @@ glshader(cstrref const& prog_v, cstrref const& prog_f,
       expand (vsym: {m::concat{"v_", sym}}) {
 	vsym = glGetAttribLocation_nocheck(program, m::to_string{sym});
 	glGetError(); /* ignore */
-	/*
 	sdl_log("attribute", m::to_string{sym}, vsym);
+	/*
 	*/
       }
     }
@@ -250,7 +250,8 @@ glshader(cstrref const& prog_v, cstrref const& prog_f,
 	size_t const nfl = num_float_fld{tfield};
 	if (sym >= 0) {
 	  set_uniform{tfield}(sym, arr, offset, static_cast{int}(cnt));
-//sdl_log("set_uniform", m::to_string{sym}, arr[offset .. offset + nfl]);
+          // sdl_log("set_uniform", m::to_string{sym},
+          //   arr[offset .. offset + nfl]);
 	}
 	offset += nfl;
       }
@@ -269,10 +270,11 @@ glshader(cstrref const& prog_v, cstrref const& prog_f,
 	glEnableVertexAttribArray(static_cast{uint}(sym));
 	glVertexAttribPointer(static_cast{uint}(sym), nfloat, GL_FLOAT, 0,
 	  stride_byte, offset_to_void_cp(offset));
-//sdl_log("vap", m::to_string{sym}, sym, "offset", offset, "float", nfloat, "stride_byte", stride_byte);
+        // sdl_log("vap", m::to_string{sym}, sym, "offset", offset,
+        //   "float", nfloat, "stride_byte", stride_byte);
 	offset += static_cast{size_t}(nfloat) * 4;
       } else {
-//sdl_log("vap notfound", m::to_string{sym}, sym);
+        // sdl_log("vap notfound", m::to_string{sym}, sym);
 	int const nfloat = num_float_fld{m::at{m::field_types{tvert_sh}, idx}};
 	offset += static_cast{size_t}(nfloat) * 4;
       }

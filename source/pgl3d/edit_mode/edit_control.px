@@ -1584,8 +1584,10 @@ public struct edit_control(string const& datadir0,
     atlas_entry const& aent) const
   {
     // tmapのupos, usizeの範囲がstexにコピーされている。
+    // debug_log("gen_test_pattern_atlas", stex.tex[0].get_size_uvec3());
     const tms_max = fold_list{max}(1u, tmap_size);
-    range_foreach(usize) void (uint x, uint y, uint z) {
+    // 領域をクリアする
+    range_foreach(stex.tex[0].get_size_uvec3()) void (uint x, uint y, uint z) {
       for (size_t i, mutable& tex: stex.tex) {
         tex.set(x, y, z, 0u);
       }
@@ -1603,7 +1605,9 @@ public struct edit_control(string const& datadir0,
         bool inside = true;
         for (const dx: 0 .. 2u) {
           for (const dy: 0 .. 2u) {
-            const pbase = to_vec3_from_uvec3(make_uvec3(x + dx, y + dy, 0u))
+            const pbase =
+              to_vec3_from_uvec3(
+                make_uvec3(x + dx + upos.x, y + dy + upos.y, 0u))
               / static_cast{float}(tms_max);
             const pbase_xy = make_vec2(pbase.x, pbase.y);
             for (size_t i, const& bnd: aent.boundary) {
@@ -1619,11 +1623,13 @@ public struct edit_control(string const& datadir0,
           }
         }
         if (inside) {
+          // debug_log("inside", x, y, usize);
           stex.tex[0].set(x, y, 0, make_filled_voxel());
           stex.tex[1].set(x, y, 0, encode_color_param(cp));
         }
       }
     }
+    procedural_chamfering(rndp, stex.tex, usize);
   }
   private function void gen_test_atlas()
   {
@@ -1631,8 +1637,9 @@ public struct edit_control(string const& datadir0,
     set_cursor_tpat(false);
     const saved_cpos = ttev->get_cursor_pos();
     for (size_t i, const& ent: atl->get_entries()) {
-      glm::uvec3 const& upos = ent.uposition;
-      glm::uvec3 const& usize = ent.usize;
+      glm::uvec3 const& upos = ent.uposition_pad;
+      glm::uvec3 const& usize = ent.usize_pad;
+      debug_log("gen_test_atlas", upos, usize);
       ttev->set_cursor_pos(upos, upos + usize);
       copy_value();
       // atlasのエントリ範囲
@@ -1825,14 +1832,18 @@ private function void
 sync_gl_mipmap_all(edit_mode_texture mutable& emt)
 {
   for (const i: 1 .. emt.vox.tpat_edit->data[0].size()) {
-    for (const j, mutable& dataw: emt.vox.tpat_edit->data) {
-      texture_data_sync_gl(dataw[i], si(i), uvec3(),
+    for (const j, mutable& dataj: emt.vox.tpat_edit->data) {
+      debug_log("sync_gl_mipmap_all tpat", i, j, dataj[i].get_size_uvec3(),
+        emt.vox.tpat_edit->data[j][i].get_size_uvec3());
+      texture_data_sync_gl(dataj[i], si(i), uvec3(),
         emt.vox.tpat_edit->data[j][i].get_size_uvec3(), emt.glt_voxtpat);
     }
   }
   for (const i: 1 .. emt.vox.tmap_edit->data[0].size()) {
-    for (const j, mutable& dataw: emt.vox.tpat_edit->data) {
-      texture_data_sync_gl(dataw[i], si(i), uvec3(),
+    for (const j, mutable& dataj: emt.vox.tmap_edit->data) {
+      debug_log("sync_gl_mipmap_all tmap", i, j, dataj[i].get_size_uvec3(),
+        emt.vox.tmap_edit->data[j][i].get_size_uvec3());
+      texture_data_sync_gl(dataj[i], si(i), uvec3(),
         emt.vox.tmap_edit->data[j][i].get_size_uvec3(), emt.glt_voxtmap);
     }
   }

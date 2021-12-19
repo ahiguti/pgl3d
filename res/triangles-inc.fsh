@@ -422,7 +422,8 @@ int raycast_tilemap(
   in vec3 aabb_min, in vec3 aabb_max, out vec4 value0_r, out vec4 value1_r,
   inout vec3 hit_nor,
   in float selfshadow_para, inout float lstr_para, inout int miplevel,
-  in bool enable_variable_miplevel, in vec2 boundary[4])
+  in bool enable_variable_miplevel, in vec2 boundary[<%boundary_len/>],
+  in int boundary_len)
 {
   // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
   // 重くなるのでメリット薄い。
@@ -746,7 +747,7 @@ int raycast_tilemap(
       if (c.z <= aabb_min.z * virt3_size) {
         float dz = c.z - aabb_min.z * virt3_size;
         c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
-        const int boundary_len = 4;
+        // const int boundary_len = <%boundary_len/>;
         // boundaryの内側かどうかを判定する
         hitgr = true;
         for (int i = 0; i < boundary_len; ++i) {

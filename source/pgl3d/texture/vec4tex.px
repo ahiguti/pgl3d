@@ -1,0 +1,30 @@
+public threaded namespace pgl3d::texture::vec4tex;
+public import common -;
+public import glm -;
+public import meta m;
+public import pgl3d::texture::texture -;
+public import pgl3d::engine::util -;
+
+// vec4要素の一次元テクスチャに
+public multithreaded struct vec4tex(size_t size0) {
+  public size_t const size = size0;
+  public texture_data_vec4 tex;
+  public function size_t allocate(cslice{vec4} const& data) {
+    const r = cur_offset;
+    if (cur_offset + data.size() > size) {
+      debug_log("vec4tex assign failed", cur_offset, size, data.size());
+      throw runtime_error_template{"vec4tex"}("");
+    }
+    for (const i: 0 .. data.size()) {
+      tex.set(static_cast{uint}(i), 0, 0, data[i]);
+    }
+    return r;
+  }
+  size_t cur_offset;
+  init();
+  function void init() {
+    tex.set_size_l2(integral_log2(static_cast{uint}(size)), 0, 0);
+      // 一次元テクスチャ
+  }
+}
+

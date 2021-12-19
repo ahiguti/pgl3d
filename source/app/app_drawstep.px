@@ -23,6 +23,7 @@ public function varray{drawer_cond} init_drawsteps(
   app.raycast_cull_front = sconf.conf.get("raycast_cull_front", 0, 0, 1) != 0;
   app.raycast_layer = sconf.conf.get("raycast_layer", 15, 0, 63);
     // 0のときソートしない
+    // TODO: 2未満のとき落ちるのは何故？
   app.enable_dbgui = sconf.conf.get("enable_dbgui", 0, 0, 1) != 0;
   downcast_mutable{app_scene_shared}(*app.scene_shared).raycast_layer
     = app.raycast_layer;

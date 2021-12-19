@@ -119,8 +119,9 @@ load_gl_texture_fixedwidth_font(gl_texture mutable& fnt,
     }
   }
   glActiveTexture(GL_TEXTURE0);
-  fnt.texture_id.generate();
-  sdl_log("font_texture_id", fnt.texture_id.get(), "w", sur_chars_ref.w, "h", sur_chars_ref.h);
+  fnt.texture_id.generate_if();
+  sdl_log("font_texture_id", fnt.texture_id.get(), "w", sur_chars_ref.w, "h",
+    sur_chars_ref.h);
   glBindTexture(GL_TEXTURE_2D, fnt.texture_id.get());
   glTexImage2D(GL_TEXTURE_2D, 0, cast_int(GL_RGBA),
     sur_chars_ref.w, sur_chars_ref.h,
@@ -146,7 +147,7 @@ load_gl_texture_cube(gl_texture mutable& ctex, cslice{string} const& fnames)
 {
   sdl_log("load_cube_texture");
   glActiveTexture(GL_TEXTURE0);
-  ctex.texture_id.generate();
+  ctex.texture_id.generate_if();
   glBindTexture(GL_TEXTURE_CUBE_MAP, ctex.texture_id.get());
   for (const i: 0 .. 6) {
     const td = load_texture_data(fnames[static_cast{uint}(i)]);
@@ -154,7 +155,8 @@ load_gl_texture_cube(gl_texture mutable& ctex, cslice{string} const& fnames)
     ctex.surface_h = td->get_height();
     const tgt = static_cast{GLenum}(
       static_cast{int}(GL_TEXTURE_CUBE_MAP_POSITIVE_X) + i);
-    set_gl_texture(*td, ctex, tgt, GL_RGBA, GL_RGBA, GL_LINEAR);
+    set_gl_texture(*td, ctex, tgt, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+      GL_LINEAR);
   }
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER,
     cast_int(GL_LINEAR));
@@ -175,35 +177,61 @@ public function void
 load_gl_texture_2d(gl_texture mutable& tx, string const& fname)
 {
   const td = load_texture_data(fname);
-  texture_data_to_gl_texture(GL_TEXTURE_2D, tx, td, GL_RGBA, GL_RGBA,
-    GL_NEAREST);
+  texture_data_to_gl_texture(GL_TEXTURE_2D, tx, *td, GL_RGBA, GL_NEAREST);
 }
 
 public function {t} void
 texture_data_to_gl_texture(GLenum target, gl_texture mutable& tx,
-  t const& td, GLenum iformat, GLenum format, GLenum filter)
+  t const& td, GLenum iformat, GLenum filter)
 {
+  // テクスチャデータ(へのポインタ)からopenglテクスチャを作りデータを
+  // 書き込む。iformatはピクセルが4要素ならGL_RGBA, 1要素ならGL_REDの
+  // ように指定する。
   glActiveTexture(GL_TEXTURE0);
-  tx.texture_id.generate();
+  tx.texture_id.generate_if();
   glBindTexture(target, tx.texture_id.get());
-  tx.surface_w = td->get_width();
-  tx.surface_h = td->get_height();
-  tx.surface_d = td->get_depth();
-  set_gl_texture(*td, tx, target, iformat, format, filter);
+  tx.surface_w = td.get_width();
+  tx.surface_h = td.get_height();
+  tx.surface_d = td.get_depth();
+  GLenum format = GL_RGBA;
+  GLenum pixtype = GL_UNSIGNED_BYTE;
+  if (m::eq{t, texture_data}) {
+    pixtype = GL_UNSIGNED_BYTE;
+    format = GL_RGBA;
+  } else if (m::eq{t, texture_data_vec4}) {
+    format = GL_RGBA;
+    pixtype = GL_FLOAT;
+  } else {
+    m::error{"texture_data_to_gl_texture"}();
+  }
+  set_gl_texture(td, tx, target, iformat, format, pixtype, filter);
 }
 
 public function {t} void
 texture_data_array_to_gl_texture(GLenum target, gl_texture mutable& tx,
-  t const& tds, GLenum iformat, GLenum format,
-  GLenum filter)
+  t const& tds, GLenum iformat, GLenum filter)
 {
+  // テクスチャデータ配列からopenglテクスチャを作りデータを書き込む。iformat
+  // はピクセルが4要素ならGL_RGBA, 1要素ならGL_REDのように指定する。
   glActiveTexture(GL_TEXTURE0);
-  tx.texture_id.generate();
+  tx.texture_id.generate_if();
   glBindTexture(target, tx.texture_id.get());
   tx.surface_w = tds[0].get_width();
   tx.surface_h = tds[0].get_height();
   tx.surface_d = tds[0].get_depth();
-  set_gl_texture(tds, tx, target, iformat, format, filter);
+  GLenum format = GL_RGBA;
+  GLenum pixtype = GL_UNSIGNED_BYTE;
+  metafunction tm m::symbol{t, "mapped_type"};
+  if (m::eq{tm, texture_data}) {
+    format = GL_RGBA;
+    pixtype = GL_UNSIGNED_BYTE;
+  } else if (m::eq{tm, texture_data_vec4}) {
+    format = GL_RGBA;
+    pixtype = GL_FLOAT;
+  } else {
+    m::error{m::concat{"invalid type: ", m::full_string{tm}}}();
+  }
+  set_gl_texture(tds, tx, target, iformat, format, pixtype, filter);
 }
 
 /* private */
@@ -220,9 +248,8 @@ function void dump_buf(varray{uint} const& buf)
 }
 
 function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
-  GLenum target, GLenum iformat, GLenum format, GLenum filter)
+  GLenum target, GLenum iformat, GLenum format, GLenum pixtype, GLenum filter)
 {
-  int const dim = (target == GL_TEXTURE_3D) ? 3 : 2;
   size_t tds_sz = 0;
   if (m::eq{t, texture_data}) {
     set_one(tds, 0);
@@ -236,6 +263,7 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
   function {t} void set_one(t const& td, size_t i)
   {
     const cpy = td.get_copy_linear();
+      // メモリ上でreorderされているテクスチャのときはlinearに変換する。
     const crawp = cpy.crange().to_crawptr();
     uint tex_w = td.get_width();
     uint tex_h = td.get_height();
@@ -245,26 +273,40 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
     if (sdl_byteorder() != sdl_lil_endian()) {
       throw runtime_error_template{"set_gl_texture"}("");
     }
-    if (dim == 3) {
+    if (target == GL_TEXTURE_3D) {
       dbg_3dtex() {
         debug_log("3dtex pre", tex_w, tex_h, tex_d);
       }
       const e0 = static_cast{int}(glGetError());
       glTexImage3D(target, mipmap_level, cast_int(iformat),
 	cast_int(tex_w), cast_int(tex_h), cast_int(tex_d),
-	0, format, GL_UNSIGNED_BYTE, crawp.to_cvoidptr());
+	0, format, pixtype, crawp.to_cvoidptr());
       const e1 = static_cast{int}(glGetError());
       dbg_3dtex() {
         debug_log("3dtex post", tex_w, tex_h, tex_d, e0, e1);
       }
-    } else {
+    } else if (target == GL_TEXTURE_2D ||
+      target == GL_TEXTURE_CUBE_MAP_POSITIVE_X ||
+      target == GL_TEXTURE_CUBE_MAP_POSITIVE_Y ||
+      target == GL_TEXTURE_CUBE_MAP_POSITIVE_Z ||
+      target == GL_TEXTURE_CUBE_MAP_NEGATIVE_X ||
+      target == GL_TEXTURE_CUBE_MAP_NEGATIVE_Y ||
+      target == GL_TEXTURE_CUBE_MAP_NEGATIVE_Z) {
       glTexImage2D(target, mipmap_level, cast_int(iformat),
 	cast_int(tex_w), cast_int(tex_h),
-	0, format, GL_UNSIGNED_BYTE, crawp.to_cvoidptr());
+	0, format, pixtype, crawp.to_cvoidptr());
+    } else if (target == GL_TEXTURE_1D) {
+      glTexImage1D(target, mipmap_level, cast_int(iformat),
+        cast_int(tex_w),
+        0, format, pixtype, crawp.to_cvoidptr());
+    } else {
+      debug_log("set_gl_texture: unknown target", target);
+      throw runtime_error_template{"set_gl_texture"}("target");
     }
   }
   // glTexParameteri(target, GL_GENERATE_MIPMAP, static_cast{int}(GL_FALSE));
-  if (target == GL_TEXTURE_2D || target == GL_TEXTURE_3D)
+  if (target == GL_TEXTURE_1D || target == GL_TEXTURE_2D ||
+    target == GL_TEXTURE_3D)
   {
     mutable min_filter = filter;
     if (filter == GL_NEAREST && tds_sz > 1) {

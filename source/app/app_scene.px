@@ -131,7 +131,7 @@ public function void build_vertices(app_data mutable& app,
   atl.some = app.atl;
   atl.some->reset(voxtmap.get_size_uvec3());
     // atlasの大きさをセットして初期化
-  float tex_height = 0.05f;
+  float tex_height = 0.1f;
   // 立方体の各面にtex3d貼り付け
   pgs.make_vertex_set(tr1_0, "boxsurf-tex3d",
     regular_polygon(1.4142f * box_size, 4,
@@ -339,10 +339,12 @@ public function void build_vertices(app_data mutable& app,
     regular_polygon(1.0, 5,
       bump_rec(2.3, 0.8, 1,
         ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)),
+        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)
+        ),
       bump_rec(3.1, 0.8, 1,
         ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height))));
+        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)
+        )));
   if (false) {
     pgs.make_vertex_set(tr0_0, "bullet2",
       regular_polygon(1.0, 5,

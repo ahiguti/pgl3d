@@ -6,11 +6,11 @@ public import pgl3d::texture::texture -;
 public import pgl3d::engine::util -;
 
 public multithreaded struct atlas_entry {
-  public glm::vec3 position; // テクスチャ座標での始点座標
-  public glm::uvec3 uposition; // タイルマップ上の始点座標
-  public glm::vec3 size; // テクスチャ座標での大きさ
-  public glm::uvec3 usize; // タイルマップ上の大きさ
-  public varray{glm::vec2} boundary; // テクスチャ座標スケールの底面ポリゴン
+  public glm::vec3 position; // テクスチャ座標での始点座標(padding内側)
+  public glm::uvec3 uposition_pad; // タイルマップ上の始点座標(padding含む)
+  public glm::vec3 size; // テクスチャ座標での大きさ(padding内側)
+  public glm::uvec3 usize_pad; // タイルマップ上の大きさ(padding含む)
+  public varray{glm::vec2} boundary; // テクスチャ座標での底面ポリゴン
 }
 
 public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
@@ -41,16 +41,27 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
     // ようにテクスチャの一部を割り当てる。
     debug_log("atlas assign", boundary, height);
     const i = entries.size();
-    const aabb = calc_aabb(boundary);
-    const aabb_sz2 = aabb.second - aabb.first;
-    const aabb_sz = make_vec3(aabb_sz2.x, aabb_sz2.y, height);
-    const uaabb_sz = map{uvec3, static_cast{uint, float}}(
-      (aabb_sz - 0.0001f) * static_cast{float}(tmap_size_max));
+    const aabb0 = calc_aabb(boundary); // paddingなしのaabb
+    const aabb0_sz2 = aabb0.second - aabb0.first;
+    const padding = 0.5f / static_cast{float}(tmap_size_max);
+    const aabb_pad = aabb_add_padding(aabb0, padding); // paddingを含むaabb
+    const aabb_pad_sz2 = aabb_pad.second - aabb_pad.first;
+    const aabb_pad_sz = make_vec3(aabb_pad_sz2.x, aabb_pad_sz2.y, height);
+    const uaabb_pad_sz = map{uvec3, static_cast{uint, float}}(
+      (aabb_pad_sz - 0.0001f) * static_cast{float}(tmap_size_max)) + 1u;
+      // aabb_pad_szより小さくないボクセル単位の大きさ
     atlas_entry ent;
     ent.boundary = boundary;
-    ent.size = aabb_sz;
-    ent.usize = uaabb_sz + make_uvec3(1u, 1u, 1u);
-    find_space(ent);
+    ent.size = make_vec3(aabb0_sz2.x, aabb0_sz2.y, height);
+    ent.usize_pad = uaabb_pad_sz;
+    debug_log("atlas assign find_space", ent, "aabb0", aabb0, "aabb_pad",
+      aabb_pad, "tmap_size_max", tmap_size_max);
+    ent.uposition_pad = find_space(ent.usize_pad);
+    ent.position = to_pos(ent.uposition_pad)
+      + make_vec3(padding, padding, 0.0f);
+    for (size_t i, mutable& bnd: ent.boundary) {
+      bnd += make_vec2(ent.position.x, ent.position.y);
+    }
     debug_log("atlas assign", ent);
     entries.push_back(ent);
     return ent;
@@ -63,17 +74,17 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
     return map{vec3, static_cast{float, uint}}(upos)
       / static_cast{float}(tmap_size_max);
   }
-  private function void find_space(atlas_entry mutable& ent) {
-    if (!le_all_uvec3(ent.usize, tmap_size)) {
-      debug_log("atlas find_space size", ent.usize, tmap_size);
+  private function uvec3 find_space(uvec3 mutable& usize) {
+    if (!le_all_uvec3(usize, tmap_size)) {
+      debug_log("atlas find_space size", usize, tmap_size);
       throw runtime_error_template{"atlas"}("find_space size");
     }
-    const offset_max = (tmap_size - ent.usize) + 1u;
+    const offset_max = (tmap_size - usize) + 1u;
     bool found = false;
     uvec3 offset_found;
     range_foreach(offset_max) bool (uint ox, uint oy, uint oz) {
       bool is_space = true;
-      range_foreach(ent.usize) bool (uint x, uint y, uint z) {
+      range_foreach(usize) bool (uint x, uint y, uint z) {
         const v = offset_to_entry.get(ox + x, oy + y, oz + z);
         if (v != 0) {
           is_space = false;
@@ -87,18 +98,26 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
       found = true;
       offset_found = make_uvec3(ox, oy, oz);
       const ent_id = static_cast{uint}(entries.size());
-      range_foreach(ent.usize) void (uint x, uint y, uint z) {
+      range_foreach(usize) void (uint x, uint y, uint z) {
         offset_to_entry.set(ox + x, oy + y, oz + z, ent_id);
       }
       return false;
     }
     if (!found) {
-      debug_log("atlas find_space nospace", ent.usize, tmap_size);
+      debug_log("atlas find_space nospace", usize, tmap_size);
       throw runtime_error_template{"atlas"}("find_space nospace");
     }
-    ent.uposition = offset_found;
-    ent.position = to_pos(ent.uposition);
+    return offset_found;
   }
+}
+
+private threaded function pair{vec2, vec2}
+aabb_add_padding(pair{vec2, vec2} const& aabb0, float padding)
+{
+  mutable aabb = aabb0;
+  aabb.first -= padding;
+  aabb.second += padding;
+  return aabb;
 }
 
 private threaded function pair{vec2, vec2} calc_aabb(cslice{vec2} const& vs)

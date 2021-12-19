@@ -13,6 +13,8 @@ auto_reload=1
 capture_filter=0
 aberration_filter=0
 
+virt_scale=1.0
+
 # motion_serial=Arduino Due
 
 raycast_layer=32
@@ -66,16 +68,15 @@ shadow_ms=1
 shadowmap_distance=8.0
 normalmapping=1
 light_fixed=0
-perspective_wh=0.1
-perspective_near=0.1
-perspective_far=10000
+perspective_wh=0.01
+perspective_near=0.01
+perspective_far=1000
 
 fps=60
 frame_sleep=0
 blur_param=0.8
 blur_filter=1
 bokeh=0
-virt_scale=1.0
 blur_shadow=0
 fxaa_filter=1
 motion_blur_filter=0
