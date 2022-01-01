@@ -365,6 +365,8 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
   float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
   return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 11.5);
     // TODO: LODバイアス調整できるようにする
+    // 10_12_7_10_9_9の時11.5くらい
+    // 7_8_6_9_9_9の時9.5くらい
 }
 
 vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
@@ -425,9 +427,6 @@ int raycast_tilemap(
   in bool enable_variable_miplevel, in vec2 boundary[<%boundary_len/>],
   in int boundary_len)
 {
-  // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
-  // 重くなるのでメリット薄い。
-  // enable_variable_miplevel = false;
   /*
   { // FIXME
     float vx = maptex3_size_log2.x == 10 ? 1.0 : 0.0;
@@ -442,11 +441,17 @@ int raycast_tilemap(
   int miplevel0 = miplevel;
     // カメラからの距離が大きいとmiplevelに大きい値が指定される。
     // 0を超えるとtpatをmip、tile3_size_log2を超えるとtmapもmip。
-  bool mip_detail = false; // 詳細モードかどうか
-  if (enable_variable_miplevel && max_vec3(aabb_max - aabb_min) > 0.125f) {
+  bool mip_detail = true; // 詳細モードかどうか
+    // FIXME: 以前これがfalseだったのは何故？
+    // そのせいで短冊影ができてしまっていた
+  // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
+  // 重くなるのでメリット薄い。
+  // enable_variable_miplevel = false;
+  if (enable_variable_miplevel /*&& max_vec3(aabb_max - aabb_min) > 0.125f*/) {
     // 長距離空白のイテレートを速くするために大きいmiplevelから開始する。
-    // テクスチャに余白が無いと短冊状に影ができてしまう問題があるので
-    // 大きいオブジェクトに限って適用する。
+    // テクスチャに余白が無いと短冊状に影ができてしまう問題があったので
+    // 大きいオブジェクトに限って適用していたが、上のmip_detail=trueに直した
+    // らおきなくなったようなので小さいオブジェクトでも適用することにした。
     miplevel = max(miplevel0, 8);
     mip_detail = miplevel0 == miplevel;
   }
