@@ -26,8 +26,9 @@ private metafunction dbg_save{f} no_operation;
 private metafunction dbg_console{f} no_operation;
 private metafunction dbg_gen{f} no_operation;
 private metafunction dbg_scale{f} no_operation;
-private metafunction dbg_rotate{f} f; // no_operation;
+private metafunction dbg_rotate{f} f;
 private metafunction dbg_noderef{f} no_operation;
+private metafunction dbg_tilesc{f} no_operation;
 
 private metafunction save_subdir "/saved/";
 
@@ -338,10 +339,11 @@ public struct edit_control(string const& datadir0,
       if (prj.option_value2 >= 0.0) {
         mlv = static_cast{size_t}(prj.option_value2);
       }
-      size_t mlpat;
-      size_t mlmap;
+      size_t mlpat = 0;
+      size_t mlmap = 0;
       const vs = get_cur_value(1, mlv, mlpat, mlmap); // secondary
       const vp = get_cur_value(0, mlv, mlpat, mlmap); // primary
+      message += " (pat" + to_string(mlpat) + ",map" + to_string(mlmap) + ")";
       if (is_space_voxel(vp)) {
         const dv = get_dist_3d(vp);
         message += " space " + to_string(dv) + " mip " + to_string(mlpat)
@@ -1458,10 +1460,15 @@ public struct edit_control(string const& datadir0,
     return pair(psc, param.scale + 1u);
   }
   private function uint get_cur_value(texture_value_index idx,
-    size_t miplevel, size_t mutable& mlpat_r, size_t mutable mlmap_r) const
+    size_t mlv, size_t mutable& mlpat_r, size_t mutable& mlmap_r) const
   {
-    mlpat_r = miplevel;
-    mlmap_r = miplevel;
+    const tilesc = ttev->get_max_tile_scale_log2();
+    mlpat_r = min(mlv, tilesc);
+    mlmap_r = mlv >= tilesc ? mlv - tilesc : 0;
+    dbg_tilesc() {
+      debug_log("tilesc", tilesc, "mlv", mlv, "mlpat", mlpat_r, "mlmap",
+        mlmap_r);
+    }
     return ttev->get_cursor_tpat() ?
       get_cur_tpat(idx, mlpat_r) : get_cur_tmap(idx, mlmap_r);
   }
@@ -1583,6 +1590,9 @@ public struct edit_control(string const& datadir0,
     uvec3 const& upos, uvec3 const& usize, uvec3 const tmap_size,
     atlas_entry const& aent) const
   {
+    // FIXME: boundaryだけでなくheightも超えないようにしなければならない。
+    // 現状heightを超えているせいで生成領域が境界多面体をはみ出している。
+    //
     // tmapのupos, usizeの範囲がstexにコピーされている。
     // debug_log("gen_test_pattern_atlas", stex.tex[0].get_size_uvec3());
     const tms_max = fold_list{max}(1u, tmap_size);

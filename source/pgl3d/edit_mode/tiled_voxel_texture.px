@@ -156,6 +156,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     farray{texture_reshaped, multiword_num_words} mutable& dtex)
   {
     const sz = stex[0].get_size_l2_uvec3();
+    debug_log("update_mipmap_one size=", sz);
     mutable sz2 = make_uvec3(
       max(sz.x, 1u) - 1u, 
       max(sz.y, 1u) - 1u, 
@@ -219,35 +220,42 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     debug_log("update_mipmap_all tpat", i);
   }
   // tmapのmiplevel==0の代替となるテクスチャをstexに作成する
-  for (size_t i: 0 .. multiword_num_words) {
-    stex[i] = vox.tmap_edit->data[i][0]; // copy
-  }
-  // node_reference以外の時はtmapのmip0のまま、node_referenceのときは
-  // tpatの対応するmiplevelから値を拾ってきて書き込む
-  const ssz = vox.tmap_edit->data[0][0].get_size_uvec3();
-  for (const z: 0 .. ssz.z) {
-    for (const y: 0 .. ssz.y) {
-      for (const x: 0 .. ssz.z) {
-        farray{texel_value, multiword_num_words} val;
-        for (const i, mutable& valw: val) {
-          valw = stex[i].get(x, y, z);
-        }
-        if (is_node_reference(val[0])) {
-          // noderefなのでtpatから値を拾ってくる
-          const p = decode_noderef_param(val[0]);
-          const c = p.coord;
-          const sc = p.scale;
-          const lv = sc + 1;
-          if (lv < pat_mip_num) {
-            for (const i, mutable& valw: val) {
-              valw = vox.tpat_edit->data[i][lv].get(c.x, c.y, c.z);
-            }
-          } else {
-            val[0] = make_filled_voxel();
+  {
+    for (size_t i: 0 .. multiword_num_words) {
+      stex[i] = vox.tmap_edit->data[i][0]; // copy
+    }
+    // node_reference以外の時はtmapのmip0のまま、node_referenceのときは
+    // tpatの対応するmiplevelから値を拾ってきて書き込む
+    const ssz = vox.tmap_edit->data[0][0].get_size_uvec3();
+    debug_log("tmap mip0 ssz=", ssz);
+    for (const z: 0 .. ssz.z) {
+      for (const y: 0 .. ssz.y) {
+        for (const x: 0 .. ssz.x) {
+          farray{texel_value, multiword_num_words} val;
+          for (const i, mutable& valw: val) {
+            valw = stex[i].get(x, y, z);
           }
-        }
-        for (const i, const& valw: val) {
-          stex[i].set(x, y, z, valw);
+          if (is_node_reference(val[0])) {
+            // noderefなのでtpatから値を拾ってくる
+            const p = decode_noderef_param(val[0]);
+            const c = p.coord;
+            const sc = p.scale;
+            const lv = sc + 1;
+            if (lv < pat_mip_num) {
+              for (const i, mutable& valw: val) {
+                valw = vox.tpat_edit->data[i][lv].get(c.x, c.y, c.z);
+              }
+            } else {
+              for (const i, mutable& valw: val) {
+                val[i] = 0;
+              }
+              val[0] = make_filled_voxel();
+              debug_log("update_mipmap: scale oor", lv, pat_mip_num);
+            }
+          }
+          for (const i, const& valw: val) {
+            stex[i].set(x, y, z, valw);
+          }
         }
       }
     }

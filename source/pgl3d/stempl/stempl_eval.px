@@ -74,6 +74,7 @@ stempl_evaluator()
     add_lazy_function{stempl_func_variable}("variable", 1, nolimit);
     add_lazy_function{stempl_func_set}("set", 2, 2);
     add_lazy_function{stempl_func_for}("for", 3, nolimit);
+    add_lazy_function{stempl_func_comment}("comment", 0, nolimit);
     add_strict_function{operator::eq{string, string}}("eq");
     add_strict_function{operator::ne{string, string}}("ne");
     add_strict_function{operator::not{bool}}("not");
@@ -246,6 +247,12 @@ stempl_func_for(stempl_evaluator mutable& self, stempl_cons const& cons)
   }
   self.locals.erase(vname);
   return r;
+}
+
+public threaded function string
+stempl_func_comment(stempl_evaluator mutable& self, stempl_cons const& cons)
+{
+  return string();
 }
 
 /* private */

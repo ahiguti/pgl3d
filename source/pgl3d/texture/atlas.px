@@ -5,12 +5,16 @@ public import meta m;
 public import pgl3d::texture::texture -;
 public import pgl3d::engine::util -;
 
+metafunction debug_size 1;
+
 public multithreaded struct atlas_entry {
   public glm::vec3 position; // テクスチャ座標での始点座標(padding内側)
   public glm::uvec3 uposition_pad; // タイルマップ上の始点座標(padding含む)
   public glm::vec3 size; // テクスチャ座標での大きさ(padding内側)
   public glm::uvec3 usize_pad; // タイルマップ上の大きさ(padding含む)
-  public varray{glm::vec2} boundary; // テクスチャ座標での底面ポリゴン
+  public varray{glm::vec2} boundary;
+    // テクスチャ座標でのデータ生成範囲底面ポリゴン
+  public float height; // テクスチャ座標でのデータ生成範囲高さ(TODO)
 }
 
 public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
@@ -51,6 +55,7 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
       (aabb_pad_sz - 0.0001f) * static_cast{float}(tmap_size_max)) + 1u;
       // aabb_pad_szより小さくないボクセル単位の大きさ
     atlas_entry ent;
+    ent.height = height;
     ent.boundary = boundary;
     ent.size = make_vec3(aabb0_sz2.x, aabb0_sz2.y, height);
     ent.usize_pad = uaabb_pad_sz;
@@ -62,7 +67,14 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
     for (size_t i, mutable& bnd: ent.boundary) {
       bnd += make_vec2(ent.position.x, ent.position.y);
     }
-    debug_log("atlas assign", ent);
+    if (m::is_true{debug_size}) {
+      const sc = static_cast{float}(tmap_size_max);
+      debug_log("uposition_pad(min)", ent.uposition_pad);
+      debug_log("uposition_pad(max)", ent.uposition_pad + ent.usize_pad);
+      debug_log("position nopad(min)", ent.position * sc);
+      debug_log("position nopad(max)", (ent.position + ent.size) * sc);
+    }
+    debug_log("atlas assign ent=", ent);
     entries.push_back(ent);
     return ent;
   }

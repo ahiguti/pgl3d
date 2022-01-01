@@ -638,7 +638,9 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
   mutable texscale = len / coord_len;
     // テクスチャ座標からオブジェクト座標への倍率
   if (const a: atl.some) {
-    texscale = 16.0f;
+    // const tmszmx = static_cast{float}(a->tmap_size_max);
+    texscale = 32.0f;
+    // texscaleが小さいとテクスチャの範囲は大きくなる。
     // TODO: スケールを指定できるようにする
   }
   debug_log("texscale=", texscale);
@@ -672,12 +674,14 @@ private threaded function void gf_ctx_tex3d_surf(size_t ntex,
       }
       for (const i, mutable& q: surf_quads) {
         // surf_quadsには1.0の大きさの座標が入っている。ここで割り当てられた
-        // 領域の大きさをセットする。
+        // 領域のテクスチャ座標での大きさをセットする。
         for (const j, mutable& v: q) {
           v = v * ae.size;
         }
       }
-      debug_log("boundary=", attr0.boundary);
+      // debug_log("gf_ctx_tex3d_surf atlas assigned, surf_quads", surf_quads);
+      // debug_log("gf_ctx_tex3d_surf atlas assigned, boundary=",
+      //   attr0.boundary);
     }
   }
   attr0.pos = base_pos; // 接線空間原点のオブジェクト座標。

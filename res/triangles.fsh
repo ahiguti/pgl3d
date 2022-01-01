@@ -814,7 +814,8 @@ void main(void)
       // miplevelが上がると暗く
     if (aval_me == 1.0 || aval_me == 3.0) {
       // emission
-      mate_emit = tex_val0.rgb; // FIXME これ正しいのか？
+      mate_emit = tex_val1.rgb;
+        // FIXME: texture-coding.txtに合わせて0から1に変更した。要確認。
     }
     if (aval_me == 2.0 || aval_me == 3.0) {
       // metal

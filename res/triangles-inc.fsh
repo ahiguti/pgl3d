@@ -363,7 +363,7 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
   // テクスチャ座標でのposとcamposからmiplevelを決める
   float dist_pos_campos_2 = dot(pos - campos, pos - campos) + 0.0001;
   float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
-  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 11.0);
+  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 11.5);
     // TODO: LODバイアス調整できるようにする
 }
 
@@ -495,6 +495,15 @@ int raycast_tilemap(
       distance_unit_tmap_mip = float(<%lshift>tile3_size<%>tmap_mip<%/>);
       distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
     }
+    <%comment>
+    {
+      // FIXME
+      if (tmap_mip == 2) {
+        dbgval = vec4(1.0, 0.0, 0.0, 1.0);
+        return hit;
+      }
+    }
+    <%/>
     vec3 tmap_coord = floor(curpos_i / tile3_size);
       // タイルマップ座標
     vec3 tile_coord = curpos_i - tmap_coord * tile3_size;

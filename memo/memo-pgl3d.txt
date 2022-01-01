@@ -2,13 +2,20 @@
 ---------------------------------------------------------------------------
 TODO
 
-- largeのmipmapが変？
-
-- edit_mode_largeでSHIFT+F12例外(done)
-
 - vertex attributesのlocationが不足。
   メッシュのデータはテクスチャに置くか？
   vec4tex(あとまわし)
+
+- atlasで割り当てた領域への生成はheightの高さに抑えなければならない
+
+- texture-coding.txtに合わせてシェーダやedit, mipmap作成処理を修正(done)
+  - mipmap再計算してから一度saveしないと反映されていない?
+
+- largeのmipmapが変？(done)
+  - miplevel 7と8 (tmap_miplevel 1と2)がおかしい
+  - 小さいのからリサイズしたときがおかしい?
+
+- edit_mode_largeでSHIFT+F12例外(done)
 
 - boundaryは裏面も描く
 

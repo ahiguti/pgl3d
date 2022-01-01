@@ -160,7 +160,13 @@ public function void handle_event(app_data mutable& app,
       } else {
 	app.option_value2 = ((app.option_value2) + 2) % 10 - 1;
       }
+      app.proj_pm->option_value2 = static_cast{float}(app.option_value2);
+        // app.option_value2は不要では？
       debug_log("option_value2", app.option_value2);
+      // messageを反映させるためにもう一度on_key_pressedを呼ぶ
+      glm::vec3 cursor_move;
+      app.edit_mode.some->on_key_pressed(0, 0, cursor_move,
+	app.app_status_message);
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {

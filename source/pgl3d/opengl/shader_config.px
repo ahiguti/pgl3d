@@ -7,7 +7,7 @@ public import exception -;
 public import pointer::tfuncptr -;
 // public import glresource -;
 
-metafunction dbglevel 0;
+metafunction dbglevel 1;
 metafunction dbg1 m::cond{m::ge{dbglevel, 1}, debug_log, no_operation};
 
 threaded function bool gl_version_ge(int major, int minor, int ma, int mi) {

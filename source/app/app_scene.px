@@ -131,7 +131,7 @@ public function void build_vertices(app_data mutable& app,
   atl.some = app.atl;
   atl.some->reset(voxtmap.get_size_uvec3());
     // atlasの大きさをセットして初期化
-  float tex_height = 0.1f;
+  float tex_height = 0.2f;
   // 立方体の各面にtex3d貼り付け
   pgs.make_vertex_set(tr1_0, "boxsurf-tex3d",
     regular_polygon(1.4142f * box_size, 4,
