@@ -436,24 +436,28 @@ int raycast_tilemap(
     return 3;
   }
   */
+  /*
+  if (enable_variable_miplevel) {
+    dbgval = vec4(1.0, 0.0, 0.0, 1.0);
+    return 3;
+  }
+  */
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
     // カメラからの距離が大きいとmiplevelに大きい値が指定される。
     // 0を超えるとtpatをmip、tile3_size_log2を超えるとtmapもmip。
-  bool mip_detail = true; // 詳細モードかどうか
-    // FIXME: 以前これがfalseだったのは何故？
-    // そのせいで短冊影ができてしまっていた
-  // TODO: enable_variable_miplevel = falseのままがいいか？ 重いときにさらに
-  // 重くなるのでメリット薄い。
-  // enable_variable_miplevel = false;
+  bool mip_detail = false;
+    // 詳細モードかどうか。詳細モードではmiplevelに関わらずカメラからの距離
+    // に応じたmipmapを引き、そうでないときはmiplevelの値に応じたmipmapを
+    // 引く。enable_variable_miplevelが真のときは最初はmip_detailを偽にして
+    // 大きなmipmapでraycastを進め、物体に衝突するとそこからmip_detailを真に
+    // する。mipmapをデバッグする際にはenable_variable_miplevelは偽、
+    // mip_detailは偽。
   if (enable_variable_miplevel /*&& max_vec3(aabb_max - aabb_min) > 0.125f*/) {
     // 長距離空白のイテレートを速くするために大きいmiplevelから開始する。
-    // テクスチャに余白が無いと短冊状に影ができてしまう問題があったので
-    // 大きいオブジェクトに限って適用していたが、上のmip_detail=trueに直した
-    // らおきなくなったようなので小さいオブジェクトでも適用することにした。
     miplevel = max(miplevel0, 8);
-    mip_detail = miplevel0 == miplevel;
+    mip_detail = (miplevel0 == miplevel);
   }
   int tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
   int tpat_mip = min(miplevel, tile3_size_log2);
@@ -522,7 +526,7 @@ int raycast_tilemap(
     <%/>
     node_type = int(round_255(value.a));
     // if (node_type == 255 && !mip_detail && enable_variable_miplevel) {
-    if (node_type != 0 && !mip_detail && enable_variable_miplevel) {
+    if (node_type != 0 && (!mip_detail) && enable_variable_miplevel) {
       // 詳細モードでなくてfilledと衝突したなら詳細モードに入る
       mip_detail = true;
       // if (tmap_mip == 2) { dbgval = vec4(0.0, 1.0, 1.0, 1.0); }
@@ -690,8 +694,14 @@ int raycast_tilemap(
     if (hit_flag) {
       // ボクセル内で接触した
       if (hit >= 0) {
-        // lightが衝突したので影にする
-        lstr_para = lstr_para * selfshadow_para;
+        // lightが衝突したので影にする。
+        // ただし1回のイテレートのときはaabb境界なので影にしない。
+        // そのようにしないと境界に格子状の影ができる。
+        // (TODO: この動作に問題ないか?)
+        if (hit > 1) {
+          lstr_para = lstr_para * selfshadow_para;
+          // dbgval = vec4(1.0, 1.0, 0.0, 1.0);
+        }
         break;
       }
       hit_nor = -dir;
@@ -759,6 +769,7 @@ int raycast_tilemap(
       vec3 c = curpos_i + curpos_f;
       bool hitgr = false;
       if (c.z <= aabb_min.z * virt3_size) {
+        // 地面を超えた
         float dz = c.z - aabb_min.z * virt3_size;
         c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
         // const int boundary_len = <%boundary_len/>;
@@ -876,7 +887,9 @@ int raycast_tilemap(
     */
     // ^^ どういう意味があるのか忘れた。とりあえず常にsecondaryの色をemission
     // の色にそのまま使う。
-    value0_r = value1_r;
+    value0_r = hit_value;
+      // node_typeが255(filled)のときrgb値をemission値に加算する。mipmapには
+      // value1にalbedo値、value0.rgbにemit値をそれぞれ保持しているため。
   }
   // if (hit < 0) {
   //   dbgval = vec4(1.0, 1.0, 0.0, 1.0);

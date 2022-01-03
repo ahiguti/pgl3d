@@ -459,11 +459,13 @@ public function void build_vertices(app_data mutable& app,
     regular_polygon(100.0, 4,
       bump_rec_seq(0.1, 1.0, 10, hole(), backside(ctx_poly_joint("box"))),
       hole()));
+  /*
   //// for dynamics test
   pgs.make_vertex_set(tr0_0, "rigidbody-multi",
     regular_polygon(100.0, 4,
       rectangle_split(10, 10, ctx_poly_joint("box")),
       hole()));
+  */
 
   //// save default font metrics
   downcast_mutable{app_scene_shared}(*app.scene_shared)
@@ -977,7 +979,7 @@ scene_control(node_factory const& nfac,
     "plane-multi-2",
     "box_opt1",
     "mstex3d",
-    "rigidbody-multi",
+    // "rigidbody-multi",
     "block-smtest",
     "block-multi",
     "saucer-multi",

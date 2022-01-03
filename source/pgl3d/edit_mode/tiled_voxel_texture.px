@@ -146,50 +146,53 @@ tiled_voxel_texture_save_file(tiled_voxel_texture const& vox,
 }
 
 
+function void update_mipmap_one(
+  farray{texture_reshaped, multiword_num_words} const& stex,
+  texture_data_float const& svol,
+  farray{texture_reshaped, multiword_num_words} mutable& dtex,
+  texture_data_float mutable& dvol)
+{
+  const sz = stex[0].get_size_l2_uvec3();
+  debug_log("update_mipmap_one size=", sz);
+  mutable sz2 = make_uvec3(
+    max(sz.x, 1u) - 1u,
+    max(sz.y, 1u) - 1u,
+    max(sz.z, 1u) - 1u);
+  /*
+  if (sz.x == 0u || sz.y == 0u || sz.z == 0u) {
+    // pri0がすでに短辺1のテクスチャなのでそれ以上mipmapを作れない
+    debug_log("update_mipmap_one: pri0 sz", sz);
+  }
+  */
+  // dtexは各辺がstexの半分のサイズになるようにする
+  for (const i, mutable& dtexw: dtex) {
+    dtexw.set_size_l2(sz2.x, sz2.y, sz2.z);
+  }
+  const dsz = dtex[0].get_size_uvec3();
+  for (const z: 0 .. dsz.z) {
+    for (const y: 0 .. dsz.y) {
+      for (const x: 0 .. dsz.x) {
+        ivec3 p = make_ivec3(si(x), si(y), si(z));
+        farray{texel_value, multiword_num_words} dval;
+        shrink_voxel_value{1}(stex, svol, dval, dvol, p);
+        /*
+        if (!is_space_voxel(dpri_v)) {
+          dpri_v = make_filled_voxel();
+        }
+        */
+        for (const i, mutable& dtexw: dtex) {
+          dtexw.set(ui(p.x), ui(p.y), ui(p.z), dval[i]);
+        }
+      }
+    }
+  }
+}
+
 public function void
 tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
 {
   debug_log("update_mipmap_all begin");
   const bool enable_short_circuit = true; // FIXME?
-  function void update_mipmap_one(
-    farray{texture_reshaped, multiword_num_words} mutable& stex,
-    farray{texture_reshaped, multiword_num_words} mutable& dtex)
-  {
-    const sz = stex[0].get_size_l2_uvec3();
-    debug_log("update_mipmap_one size=", sz);
-    mutable sz2 = make_uvec3(
-      max(sz.x, 1u) - 1u, 
-      max(sz.y, 1u) - 1u, 
-      max(sz.z, 1u) - 1u);
-    /*
-    if (sz.x == 0u || sz.y == 0u || sz.z == 0u) {
-      // pri0がすでに短辺1のテクスチャなのでそれ以上mipmapを作れない
-      debug_log("update_mipmap_one: pri0 sz", sz);
-    }
-    */
-    // dtexは各辺がstexの半分のサイズになるようにする
-    for (const i, mutable& dtexw: dtex) {
-      dtexw.set_size_l2(sz2.x, sz2.y, sz2.z);
-    }
-    const dsz = dtex[0].get_size_uvec3();
-    for (const z: 0 .. dsz.z) {
-      for (const y: 0 .. dsz.y) {
-        for (const x: 0 .. dsz.x) {
-          ivec3 p = make_ivec3(si(x), si(y), si(z));
-          farray{texel_value, multiword_num_words} dval;
-          shrink_voxel_value(true, stex, dval, p);
-          /*
-          if (!is_space_voxel(dpri_v)) {
-            dpri_v = make_filled_voxel();
-          }
-          */
-          for (const i, mutable& dtexw: dtex) {
-            dtexw.set(ui(p.x), ui(p.y), ui(p.z), dval[i]);
-          }
-        }
-      }
-    }
-  }
   // tpatのmipmap更新
   // vox.voxtile.get_width_l2() + 1;
     // タイルサイズが16なら16,8,4,2,1の5枚
@@ -198,19 +201,36 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
   for (const i, mutable& dataw: vox.tpat_edit->data) {
     dataw.resize(pat_mip_num, texture_reshaped());
   }
+  varray{texture_data_float} tpat_vol;
+  varray{texture_data_float} tmap_vol;
+  tpat_vol.resize(pat_mip_num, texture_data_float());
+  tmap_vol.resize(pat_mip_num, texture_data_float());
   debug_log("update_mipmap_all set_distance begin");
   set_distance(enable_short_circuit, vox.tpat_edit->data[0][0]);
     // tpatのmip0の距離を計算しなおす。(最適でないかもしれないので)
+  function {t} void calc_volume_tex(t const& tex,
+    texture_data_float mutable& voltex_r) {
+    voltex_r.set_size_l2_uvec3(tex.get_size_l2_uvec3());
+    range_foreach(tex.get_size_uvec3()) void (uint x, uint y, uint z) {
+      const v = tex.get(x, y, z);
+      float volume = texel_volume(v);
+      voltex_r.set(x, y, z, volume);
+    }
+  }
+  // tpat_vol[0]をtpat[0]から計算
+  calc_volume_tex(vox.tpat_edit->data[0][0], tpat_vol[0]);
+  // tpatのmip1以降を一つ若いmipから作る
   farray{texture_reshaped, multiword_num_words} stex;
   farray{texture_reshaped, multiword_num_words} dtex;
-  // tpatのmip1以降を一つ若いmipから作る
   for (const i: 1 .. vox.tpat_edit->data[0].size()) {
     {
       for (size_t j: 0 .. multiword_num_words) {
         stex[j].swap(vox.tpat_edit->data[j][i - 1]);
         dtex[j].swap(vox.tpat_edit->data[j][i]);
       }
-      update_mipmap_one(stex, dtex);
+      tpat_vol[i].set_size_l2_uvec3(tpat_vol[i - 1].get_size_l2_uvec3()
+        - make_uvec3(1u, 1u, 1u));
+      update_mipmap_one(stex, tpat_vol[i - 1], dtex, tpat_vol[i]);
       for (size_t j: 0 .. multiword_num_words) {
         stex[j].swap(vox.tpat_edit->data[j][i - 1]);
         dtex[j].swap(vox.tpat_edit->data[j][i]);
@@ -219,11 +239,18 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     set_distance(enable_short_circuit, vox.tpat_edit->data[0][i]);
     debug_log("update_mipmap_all tpat", i);
   }
-  // tmapのmiplevel==0の代替となるテクスチャをstexに作成する
+  // tmapのmiplevel==0の代替となるテクスチャをstexに作成する。
+  // またtmap_vol[0]を生成する。
   {
+    // stexにtmap[0]をコピーする
     for (size_t i: 0 .. multiword_num_words) {
       stex[i] = vox.tmap_edit->data[i][0]; // copy
     }
+    // tmap_vol[0]の大きさをstexからセット
+    mutable& voltex = tmap_vol[0];
+    voltex.set_size_l2_uvec3(stex[0].get_size_l2_uvec3());
+    // tmap_vol[0]をtmap[0]から計算
+    calc_volume_tex(stex[0], voltex);
     // node_reference以外の時はtmapのmip0のまま、node_referenceのときは
     // tpatの対応するmiplevelから値を拾ってきて書き込む
     const ssz = vox.tmap_edit->data[0][0].get_size_uvec3();
@@ -235,6 +262,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
           for (const i, mutable& valw: val) {
             valw = stex[i].get(x, y, z);
           }
+          float mutable volume = voltex.get(x, y, z);
           if (is_node_reference(val[0])) {
             // noderefなのでtpatから値を拾ってくる
             const p = decode_noderef_param(val[0]);
@@ -245,6 +273,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
               for (const i, mutable& valw: val) {
                 valw = vox.tpat_edit->data[i][lv].get(c.x, c.y, c.z);
               }
+              volume = tpat_vol[lv].get(c.x, c.y, c.z);
             } else {
               for (const i, mutable& valw: val) {
                 val[i] = 0;
@@ -256,6 +285,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
           for (const i, const& valw: val) {
             stex[i].set(x, y, z, valw);
           }
+          voltex.set(x, y, z, volume);
         }
       }
     }
@@ -266,7 +296,9 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
     for (size_t i: 0 .. multiword_num_words) {
       dtex[i].swap(vox.tmap_edit->data[i][1]);
     }
-    update_mipmap_one(stex, dtex);
+    tmap_vol[1].set_size_l2_uvec3(tmap_vol[0].get_size_l2_uvec3()
+      - make_uvec3(1u, 1u, 1u));
+    update_mipmap_one(stex, tmap_vol[0], dtex, tmap_vol[1]);
     for (size_t i: 0 .. multiword_num_words) {
       dtex[i].swap(vox.tmap_edit->data[i][1]);
     }
@@ -280,7 +312,9 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
       stex[j].swap(vox.tmap_edit->data[j][i - 1]);
       dtex[j].swap(vox.tmap_edit->data[j][i]);
     }
-    update_mipmap_one(stex, dtex);
+    tmap_vol[i].set_size_l2_uvec3(tmap_vol[i - 1].get_size_l2_uvec3()
+      - make_uvec3(1u, 1u, 1u));
+    update_mipmap_one(stex, tmap_vol[i - 1], dtex, tmap_vol[i]);
     for (size_t j: 0 .. multiword_num_words) {
       stex[j].swap(vox.tmap_edit->data[j][i - 1]);
       dtex[j].swap(vox.tmap_edit->data[j][i]);

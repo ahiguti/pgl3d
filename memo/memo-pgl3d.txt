@@ -2,6 +2,12 @@
 ---------------------------------------------------------------------------
 TODO
 
+- mipmap再計算してから一度saveしないと反映されていない?
+
+- update_mipmapの色をvolume比率をもとにして正確に計算する(done)
+
+- filledのときはemit色をvalue0.rgbに(done)
+
 - vertex attributesのlocationが不足。
   メッシュのデータはテクスチャに置くか？
   vec4tex(あとまわし)
@@ -9,7 +15,6 @@ TODO
 - atlasで割り当てた領域への生成はheightの高さに抑えなければならない
 
 - texture-coding.txtに合わせてシェーダやedit, mipmap作成処理を修正(done)
-  - mipmap再計算してから一度saveしないと反映されていない?
 
 - largeのmipmapが変？(done)
   - miplevel 7と8 (tmap_miplevel 1と2)がおかしい

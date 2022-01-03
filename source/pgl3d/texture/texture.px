@@ -20,6 +20,7 @@ private import sdl2::misc -;
 
 public metafunction texture_data array3_pot{varray{uint}, 0};
 public metafunction texture_data_vec4 array3_pot{varray{glm::vec4}, 0};
+public metafunction texture_data_float array3_pot{varray{float}, 0};
 
 public tsvaluetype struct {t, b} array3_pot() private
 {

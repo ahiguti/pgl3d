@@ -824,6 +824,11 @@ void main(void)
       // 0か3なら非金属
       mate_diffuse = tex_val1.rgb;
     }
+    int node_type = int(round_255(tex_val0.a));
+    if (node_type == 255) {
+      // filledのときはval0.rgbにemit値がセットされている
+      mate_emit += tex_val0.rgb;
+    }
     /*
     float aval_roughness = floor(aval / 16.0);
     aval = aval - aval_roughness * 16.0;

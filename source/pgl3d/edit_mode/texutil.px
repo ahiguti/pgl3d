@@ -2,6 +2,7 @@ private threaded namespace pgl3d::edit_mode::texutil "use-unsafe";
 private import common -;
 private import meta m;
 private import glm -;
+private import pgl3d::texture::texture -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::editable_voxel -;
 private import pgl3d::engine::util -;
@@ -10,31 +11,42 @@ private import pgl3d::edit_mode::vecutil -;
 private metafunction dbg_rotate{f} f; // no_operation;
 private metafunction dbg_scale{f} no_operation;
 
-public function {t} void
-shrink_voxel_value(bool for_mipmap, t const& stex,
-  farray{texel_value, multiword_num_words} mutable& dval, ivec3 const& p)
+public function float
+texel_volume(texel_value v)
 {
+  if (is_space_voxel(v)) {
+    return 0.0f;
+  }
+  if (is_filled(v)) {
+    return 1.0f;
+  }
+  return 0.5f;
+}
+
+public function {for_mipmap, tsrc} void
+shrink_voxel_value(tsrc const& stex, texture_data_float const& svol,
+  farray{texel_value, multiword_num_words} mutable& dtex,
+  texture_data_float mutable& dvol, ivec3 const& p)
+{
+  // dtexに、stexの各辺二倍の大きさのstexの位置(p*2)から縮小したテクセル値を
+  // 計算してセットする。for_mipmapが真のときはmipmap計算の処理から呼ばれ、
+  // そうでないときはedit_modeの編集処理から呼ばれる。
+  // for_mipmapが真のときはついでにdvolの位置pにボリューム値を計算して書き込む。
   uint count_ref;
   uint count_filled;
   uint count_plane;
   uint count_sphere;
   uint count_color;
+  float volume;
   uint count_color_emit;
+  float volume_emit;
   plane_param pp;
   sphere_param sp;
-  uint color_r;
-  uint color_g;
-  uint color_b;
-  uint color_r_emit;
-  uint color_g_emit;
-  uint color_b_emit;
+  vec3 color;
+  vec3 color_emit;
   uint color_metalness;
   uint color_emission;
   uint color_roughness;
-  /*
-  color_param cp; // emitであるかにかかわらず8つのrgb値を足し合わせたもの
-  color_param cp_emit; // emitのrgb値を足し合わせたもの
-  */
   const x0 = p.x;
   const y0 = p.y;
   const z0 = p.z;
@@ -44,6 +56,10 @@ shrink_voxel_value(bool for_mipmap, t const& stex,
         const offset = make_ivec3(x * 2 - 1, y * 2 - 1, z * 2 - 1);
         const v = stex[0].get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
         const vs = stex[1].get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
+        float tvol = 1.0f;
+        if (m::is_true{for_mipmap}) {
+          tvol = svol.get(ui(x0 * 2 + x), ui(y0 * 2 + y), ui(z0 * 2 + z));
+        }
         if (is_space_voxel(v)) {
           continue; // 色決定の分母に含めない
         } else if (is_node_reference(v)) {
@@ -67,80 +83,89 @@ shrink_voxel_value(bool for_mipmap, t const& stex,
           sp = p;
         }
         ++count_color;
+        volume += tvol;
         const cpc = decode_color_param(vs);
-        color_r += cpc.rgb.r;
-        color_g += cpc.rgb.g;
-        color_b += cpc.rgb.b;
+        vec3 col;
+        col.x = static_cast{float}(cpc.rgb.r);
+        col.y = static_cast{float}(cpc.rgb.g);
+        col.z = static_cast{float}(cpc.rgb.b);
+        color += col * tvol;
         color_metalness += cpc.metalness;
         color_emission += cpc.emission;
         color_roughness += cpc.roughness;
         if (cpc.emission != 0) {
-          color_r_emit += cpc.rgb.r;
-          color_g_emit += cpc.rgb.g;
-          color_b_emit += cpc.rgb.b;
+          vec3 ecol;
+          ecol.x = static_cast{float}(cpc.rgb.r);
+          ecol.y = static_cast{float}(cpc.rgb.g);
+          ecol.z = static_cast{float}(cpc.rgb.b);
+          color_emit += ecol * tvol;
+          volume_emit += tvol;
+        } else if (is_filled(v)) {
+          // filledのときはprimaryのrgbに
+          const cpe = decode_color_param(v);
+          vec3 ecol;
+          ecol.x = static_cast{float}(cpe.rgb.r);
+          ecol.y = static_cast{float}(cpe.rgb.g);
+          ecol.z = static_cast{float}(cpe.rgb.b);
+          color_emit += ecol * tvol;
+          volume_emit += tvol;
         }
       }
     }
   }
   uint nv = make_space_voxel();
   if (count_color > 0) {
-    if (for_mipmap) {
+    if (m::is_true{for_mipmap}) {
       nv = make_filled_voxel();
-    } else if (count_plane > 0) {
-      nv = make_plane_node(pp, ivec3(), 1);
-    } else if (count_sphere > 0) {
-      sp /= count_sphere;
-      nv = make_sphere_node(sp, ivec3(), 1, 0u);
     } else {
-      nv = make_filled_voxel();
+      if (count_plane > 0) {
+        nv = make_plane_node(pp, ivec3(), 1);
+      } else if (count_sphere > 0) {
+        sp /= count_sphere;
+        nv = make_sphere_node(sp, ivec3(), 1, 0u);
+      } else {
+        nv = make_filled_voxel();
+      }
     }
   }
   uint nc = 0;
   if (count_color > 0) {
-    color_param cp;
-    if (count_color_emit > 2) {
-      uint denom = max(4u, count_color_emit);
-      cp.emission = 1;
-      cp.rgb.r = color_r_emit / denom;
-      cp.rgb.g = color_g_emit / denom;
-      cp.rgb.b = color_b_emit / denom;
+    color_param cp_emit;
+    color_param cp_albedo;
+    if (volume_emit > 0.0f) {
+      const denom = volume; // volume_emit;
+      uvec3 uce = map{uvec3, static_cast{uint, float}}(color_emit / denom);
+      cp_emit.emission = 1;
+      cp_emit.rgb.r = static_cast{uchar}(uce.x);
+      cp_emit.rgb.g = static_cast{uchar}(uce.y);
+      cp_emit.rgb.b = static_cast{uchar}(uce.z);
+    }
+    {
+      const denom = volume;
+      uvec3 uc = map{uvec3, static_cast{uint, float}}(color / denom);
+      cp_albedo.roughness = min(color_roughness, 15u);
+      cp_albedo.metalness =
+        static_cast{uchar}(color_metalness >= 4u ? 1u : 0u);
+      cp_albedo.rgb.r = static_cast{uchar}(uc.x);
+      cp_albedo.rgb.g = static_cast{uchar}(uc.y);
+      cp_albedo.rgb.b = static_cast{uchar}(uc.z);
+    }
+    if (is_filled(nv) && volume_emit > 0.0f) {
+      nv |= (encode_color_param(cp_emit) & 0x00ffffffu);
+      // debug_log("nv emit ", to_hexstring(nv));
+      nc = encode_color_param(cp_albedo);
     } else {
-      uint denom = count_color;
-      cp.roughness = color_roughness / denom;
-      cp.metalness = static_cast{uchar}(color_metalness >= 4u ? 1u : 0u);
-      cp.rgb.r = color_r / denom;
-      cp.rgb.g = color_g / denom;
-      cp.rgb.b = color_b / denom;
+      nc = encode_color_param(cp_albedo);
     }
-    /*
-    cp /= count_color;
-    uint nc = encode_color_param(cp);
-    if (count_color_emit > 0) {
-      nv = make_filled_voxel();
-      cp_emit /= 6u; // 8u;
-      uint nc_emit = encode_color_param(cp_emit);
-      nv |= (nc_emit & 0x00ffffffu);
-    }
-    */
-    nc = encode_color_param(cp);
   }
-  /*
-  {
-    nv = make_filled_voxel();
-    nc = 0x00808080u;
+  for (const i, mutable& dtexe : dtex) {
+    dtexe = 0;
   }
-  */
-  /*
-  if (is_filled(nv)) {
-    nv |= nc & 0x00ffffffu;
+  dtex[0] = nv;
+  dtex[1] = nc;
+  if (m::is_true{for_mipmap}) {
+    dvol.set(ui(x0), ui(y0), ui(z0), volume / 8.0f);
   }
-  */
-  // debug_log("set", x0, y0, z0);
-  for (const i, mutable& dvale: dval) {
-    dvale = 0;
-  }
-  dval[0] = nv;
-  dval[1] = nc;
 }
 
 public function {f, t} bool

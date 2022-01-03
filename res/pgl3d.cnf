@@ -1,7 +1,6 @@
 datadir=..
 # enable_heartbeat_thread=1
 # async_motion_thread=1
-dbgval=0
 gldebug=0
 
 edit_mode=0

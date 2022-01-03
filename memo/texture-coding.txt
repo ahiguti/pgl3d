@@ -23,8 +23,10 @@ primaryの値の意味(32bit rgba)
     node_type = int(value.a)
   node_type == 0 空白
     distval = value.xyzの何か。空白距離をエンコードしている。
-  node_type == 255 壁
-    value.rgbは未使用
+  node_type == 255 壁(flled)
+    value.rgbはemit色に加算される。
+    mipmap level > 0ではここにemit色を(secondaryにはalbedo色を)セットし、
+    mipmap level == 0ではsecondaryにemit色をセットしている。
   node_type >= 160 && node_type <= 254 平面切断
     param_d = node_type - 208 (-48, +46)
     param_abc = distvalの上位4bit - 8
@@ -40,31 +42,29 @@ primaryの値の意味(32bit rgba)
 
 
 secondaryの値の意味(32bit rgba)
-  primaryのnode_typeが2以上(壁、平面切断、球面切断)のとき
-    aval := tex_val.a
-      aval_me := avalの上位2bit
-        aval_me == 0: 非金属
-          mate_diffuse = tex_val.rgb
-        aval_me == 1: emissionあり
-          mate_emit = tex_val.rgb
-        aval_me == 2: 金属
-          mate_specular = tex_val.rgb
-        aval_me == 3: 金属、emissionあり (これをvoxsurf参照に変更予定)
-        既定値
-          mate_specular = vec3(0.04)
-          mate_diffuse = vec3(0.0)
-          mate_emit = vec3(0.0)
+  aval := tex_val.a
+    aval_me := avalの上位2bit
+      aval_me == 0: 非金属
+        mate_diffuse = tex_val.rgb
+      aval_me == 1: emissionあり
+        mate_emit = tex_val.rgb
+        ただしmipmap level > 0(そのときnode_typeはつねに255)については
+        ここにはemit色は入れず、primaryのrgbにemit色を入れる。
+      aval_me == 2: 金属
+        mate_specular = tex_val.rgb
+      aval_me == 3: 金属、emissionあり (これをvoxsurf参照に変更予定)
+      既定値
+        mate_specular = vec3(0.04)
+        mate_diffuse = vec3(0.0)
+        mate_emit = vec3(0.0)
 
+-----------------------------------------------------------------------
+mipmapの生成方法
 
-(予定)voxsurf参照
-  secondaryのaval_me == 3のときにvoxsurfを引く
-  value.rgがタイル番号 256x256
-
-
-raycast_tilemap()
-  raycastのジオメトリはsampler_voxtmap, sampler_voxtpatを読む。
-  衝突したときにsampler_voxtmax, sampler_voxtpaxを読む。
-    value_r = texelFetch(sampler_voxtmax)
-    value_r = texelFetch(sampler_voxtpax)
-  voxtmax, voxtpaxのテクスチャデータはそれぞれtmap_secとtpat_sec
+- level > 0のmipmapは常にnode_typeは255(filled)か0(space)にする。
+- 8ボクセルのうち一つでも空白以外があればfilledにする。これは、大きな
+  levelのmipmapを読んでraycastし、衝突したらmipmap levelを下げて詳細に
+  raycastすることができるようにしている。
+- 色はalbedo色を8ボクセル平均したものをsecondaryに、emit色を平均した
+  ものをprimary.rgbに入れる。
 

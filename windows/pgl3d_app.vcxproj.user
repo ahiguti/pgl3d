@@ -8,10 +8,10 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LocalDebuggerWorkingDirectory>$(ProjectDir)/..</LocalDebuggerWorkingDirectory>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments>./res/pgl3d.cnf</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>./res/pgl3d-edit.cnf</LocalDebuggerCommandArguments>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LocalDebuggerCommandArguments>./res/pgl3d.cnf</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments>./res/pgl3d-edit.cnf</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
     <LocalDebuggerWorkingDirectory>$(ProjectDir)/..</LocalDebuggerWorkingDirectory>
   </PropertyGroup>

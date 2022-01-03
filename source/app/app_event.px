@@ -37,6 +37,7 @@ public function void handle_event(app_data mutable& app,
     const by = cast_float(ev.button.y) / cast_float(pj.window_height);
     debug_log("down", bx, by, ev.button.x, ev.button.y,
       pj.window_width, pj.window_height);
+    /*
     if (bx < 0.1 && by < 0.1) {
       app.scene_next = 1;
       debug_log("next", app.scene_next);
@@ -52,6 +53,7 @@ public function void handle_event(app_data mutable& app,
       debug_log("option_value", app.option_value);
       return;
     }
+    */
   } else if (etype == SDL_FINGERDOWN) {
     if (ev.tfinger.x < 0.1 && ev.tfinger.y < 0.1) {
       app.scene_next = 1;
@@ -111,6 +113,12 @@ public function void handle_event(app_data mutable& app,
     if (ev.key.keysym.scancode == SDL_SCANCODE_F11) {
       actrl.set_param("fullscreen", "1");
       return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_RETURN) {
+      if ((app.modmask & (16u | 32u)) != 0u) {
+        actrl.set_param("fullscreen", "1");
+        return;
+      }
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F5) {
       actrl.set_param("reload", "1");

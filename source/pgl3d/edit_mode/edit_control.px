@@ -374,6 +374,11 @@ public struct edit_control(string const& datadir0,
       if (!is_space_voxel(vp) && !is_node_reference(vp)) {
         const cp = decode_color_param(vs);
         message += " " + to_string(cp);
+        if (is_filled(vp)) {
+          mutable cp = decode_color_param(vp & 0x00ffffff);
+          cp.emission = 1;
+          message += " " + to_string(cp);
+        }
       }
       const fi = ttev->get_filling(ttev->get_cursor_pos().first);
       // debug_log("fi=", fi);
@@ -1124,12 +1129,13 @@ public struct edit_control(string const& datadir0,
       dbase.x = (copy_data.cursor_offset.x == 0) ? 0 : si(sz.x);
       dbase.y = (copy_data.cursor_offset.y == 0) ? 0 : si(sz.y);
       dbase.z = (copy_data.cursor_offset.z == 0) ? 0 : si(sz.z);
+      texture_data_float dummy;
       for (const z: 0 .. sz.z) {
         for (const y: 0 .. sz.y) {
           for (const x: 0 .. sz.x) {
             const p = make_ivec3(si(x), si(y), si(z));
             farray{texel_value, multiword_num_words} val;
-            shrink_voxel_value(false, copy_data.tex, val, p);
+            shrink_voxel_value{0}(copy_data.tex, dummy, val, dummy, p);
             for (const i, const& valw: val) {
               dtex[i].set(ui(p.x + dbase.x), ui(p.y + dbase.y),
                 ui(p.z + dbase.z), valw);
