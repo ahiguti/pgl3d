@@ -363,10 +363,8 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
   // テクスチャ座標でのposとcamposからmiplevelを決める
   float dist_pos_campos_2 = dot(pos - campos, pos - campos) + 0.0001;
   float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
-  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 11.5);
+  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 12.0);
     // TODO: LODバイアス調整できるようにする
-    // 10_12_7_10_9_9の時11.5くらい
-    // 7_8_6_9_9_9の時9.5くらい
 }
 
 vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
@@ -697,8 +695,9 @@ int raycast_tilemap(
         // lightが衝突したので影にする。
         // ただし1回のイテレートのときはaabb境界なので影にしない。
         // そのようにしないと境界に格子状の影ができる。
-        // (TODO: この動作に問題ないか?)
-        if (hit > 1) {
+        // 底面に1回hitしたとき影が差すようにする。
+        // (TODO: この動作でほかに問題ないか?)
+        if (hit > 1 || hit_ground) {
           lstr_para = lstr_para * selfshadow_para;
           // dbgval = vec4(1.0, 1.0, 0.0, 1.0);
         }
