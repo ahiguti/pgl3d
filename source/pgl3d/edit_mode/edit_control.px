@@ -19,6 +19,7 @@ private import pgl3d::edit_mode::sync_gl -;
 private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::generate_filling -;
 private import pgl3d::edit_mode::fill_fillings -;
+private import pgl3d::edit_mode::pattern_save_data -;
 
 private metafunction dbg_editmode{f} no_operation;
 private metafunction dbg_conv{f} f;
@@ -569,35 +570,61 @@ public struct edit_control(string const& datadir0,
     const& cmd = toks[0];
     debug_log("console_command:", cmd);
     if (cmd == "save" && toks.size() == 2) {
-      // コピーバッファをファイルに保存する。
+      // fillingsまたはコピーバッファをファイルに保存する。3種類の形式で
+      // 保存する。
       const fn = datadir + save_subdir + toks[1];
       {
-        // コピーバッファを保存する。noderefの参照先は保存されない。
+        // コピーバッファを保存する。noderefの参照先は保存されない。(.pat)
         if (!sdl_save_file(fn + ".pat", to_string(copy_data))) {
           debug_log("failed to save", fn + ".pat");
           return;
         }
       }
       {
-        // コピーバッファとnoderef参照先を保存する。
+        // コピーバッファとnoderef参照先を保存する。(.psd)
         pattern_save_data psd;
-        if (!convert_to_pattern_save_data(psd, copy_data, *ttev)) {
-          debug_log("get_pattern_save_data failed");
-          return;
-        }
+        convert_to_pattern_save_data(psd, copy_data, *ttev);
         if (!sdl_save_file(fn + ".psd", to_string(psd))) {
           debug_log("failed to save", fn + ".psd");
           return;
         }
       }
+      {
+        // fillings登録されたすべてのデータを保存する。(.mpsd)
+        multi_pattern_save_data mpsd;
+        fillings_to_multi_pattern_save_data(mpsd, *ttev);
+        if (!sdl_save_file(fn + ".mpsd", to_string(mpsd))) {
+          debug_log("failed to save", fn + ".mpsd");
+          return;
+        }
+      }
       debug_log("saved", fn);
     } else if (cmd == "load" && toks.size() == 2) {
-      // パターンデータを読み込んでコピーバッファに入れる
+      // ファイルを読み込んでfillingsまたはコピーバッファに入れる。
+      // 3つの形式のいずれかを読み込む。
       string buf;
       const fn = datadir + save_subdir + toks[1];
+      sdl_load_file(fn + ".mpsd", buf);
+      if (!buf.empty()) {
+        // すべてのfillingsについてのデータを読み込む。(.mpsd)
+        const mpsd = from_string{multi_pattern_save_data}(buf);
+        uvec3 sppos; // tmapの書き込み範囲始点
+        uvec3 spsz = ttev->tmap_size; // tmapの書き込み範囲の大きさ
+        if (!get_cursor_tpat()) {
+          const curpos_sz = ttev->get_cursor_range();
+          if (!le_all_uvec3(curpos_sz.second, make_uvec3(1u, 1u, 1u))) {
+            // カーソルがtmap範囲指定状態であるとき、その範囲内へロードする。
+            sppos = curpos_sz.first;
+            spsz = curpos_sz.second;
+          }
+        }
+        fillings_from_multi_pattern_save_data(mpsd, *ttev, sppos, spsz);
+        debug_log("loaded", fn + ".mpsd");
+        return;
+      }
       sdl_load_file(fn + ".psd", buf);
       if (!buf.empty()) {
-        // noderef参照先を含めたパターンデータを読み込む。
+        // noderef参照先を含めたパターンデータを読み込む。(.psd)
         const psd = from_string{pattern_save_data}(buf);
         convert_from_pattern_save_data(psd, copy_data,
           ttev->get_max_tile_scale_log2(), *ttev);
@@ -606,7 +633,7 @@ public struct edit_control(string const& datadir0,
       }
       sdl_load_file(fn + ".pat", buf);
       if (!buf.empty()) {
-        // パターンデータを読み込む。noderef参照先は含まれない。
+        // パターンデータを読み込む。noderef参照先は含まれない。(.pat)
         copy_data = subtexture_compat_deserialize(buf);
         mark_set = true;
         copied = true;
@@ -631,7 +658,17 @@ public struct edit_control(string const& datadir0,
         message = "setting scale=" + to_string(cur_tile_scale_log2);
       }
     } else if (cmd == "maxscale" && toks.size() == 1) {
-      // 最大タイルサイズを取得する。
+      // 最大タイルサイズを取得する。最大タイルサイズとtpatテクスチャのサイズ
+      // によって割り当て可能なタイル数が決まる。tpatテクスチャのうちxyz軸が
+      // 前半であるような1/8の領域は最大タイルサイズより小さいタイルサイズを
+      // 割り当てるための領域として使うため、最大タイルサイズのタイルを割り
+      // 当てる領域としては使えない。各タイルサイズについても同様に1/8の
+      // 領域を一つ小さいタイルサイズのために使うため、各タイルサイズのために
+      // 割り当て可能な数はいずれのタイルサイズについても同じ数
+      // (get_num_assignable_tileの返す数)になる。この割り当て方法がttevの
+      // 標準的なタイルの使いかただが、ttevはそれ以外の割り当て方法のテクスチャ
+      // も読み書きできる。標準的な割り当て方法へ再配置するにはdedupを実行
+      // する。
       debug_log("maxscale", ttev->get_max_tile_scale_log2());
       debug_log("tpat_size", ttev->tpat_size);
       const s = ttev->get_max_tile_scale_log2();
@@ -666,7 +703,8 @@ public struct edit_control(string const& datadir0,
         // 引数としてtpatの範囲を取る。既定ではtpat全体。この引数を
         // 指定すると、そのデータをセーブ後にファイルを改名して縮小後の
         // tpatサイズのデータとして(tpatの内容を失わずに)読み込めるように
-        // なる。読み込むコードはtiled_voxel_texture_load_file()を参照。
+        // なるので、テクスチャをリサイズしたいときに使うことができる。
+        // 読み込むコードはtiled_voxel_texture_load_file()を参照。
         farray{uint, 3} szl2a;
         szl2a[0] = szl2.x;
         szl2a[1] = szl2.y;

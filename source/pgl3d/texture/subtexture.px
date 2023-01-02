@@ -5,17 +5,21 @@ public import glm -;
 public import sdl2::api_types -;
 public import text::serialize::compact_pod -;
 public import pgl3d::texture::texture -;
+public import pgl3d::texture::editable_voxel -;
 public import pgl3d::texture::voxel -;
 public import pgl3d::texture::filling -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
 
 public valuetype struct subtexture {
-  public metafunction num_tex 2;
+  // テクスチャの一部をコピーペーストするために保持するデータ
+  public metafunction num_tex multiword_num_words;
   public farray{texture_data, num_tex} tex;
   public uvec3 copy_size; // can be smaller than tex[0].
   public uvec3 cursor_offset;
+    // カーソル位置がsubtextureの原点でないことがあるのでここに保持する
   public filling_texture filling_tex;
+    // コピー元がfilling登録されているときにここにその情報を保持する
 }
 
 public valuetype struct subtexture_v1 {

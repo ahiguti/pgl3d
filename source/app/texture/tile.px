@@ -85,7 +85,9 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
 	  mutable rv = rnd->generate();
 	  const px = rv & ui(pat_mask.x);
 	  rv >>= ui(voxtpat_size_l2.x);
-	  const py = rv & ui(pat_mask.y);
+	  const py = 0u; // rv & ui(pat_mask.y);
+            // memo: パターンの一部しか使わないようにするために(dedupで標準割り
+            // 当て可能にするために)pyを0に固定
 	  const tpat_rot_sgn = rnd->generate() & 0x00c0c0c0;
 	    // tpatの回転反転の値をランダムに指定
           const rndval = rnd->generate();
@@ -212,7 +214,8 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
   if (edit_mode) {
     const sz = map{ivec3, min}(pat_size, map_size);
     for (const z: 0 .. sz.z) {
-      for (const y: 0 .. sz.y) {
+      // for (const y: 0 .. sz.y) {
+      for (const y: 0 .. 1) {
 	for (const x: 0 .. sz.x) {
 	  // const v = (ui(z) << 16u) | (ui(y) << 8u) | ui(x);
           noderef_param np;
@@ -401,7 +404,7 @@ public function void prepare_texture_data_3d_tpat(bool edit_mode,
       throw runtime_error_template{"3d_tpat"}("usz is too small");
     }
     for (const bz: 0 .. 6u) {
-      for (const by: 0 .. 1u << ui(pat_size_l2.y)) {
+      for (const by: 0 .. 1u) {
 	for (const bx: 0 .. 1u << ui(pat_size_l2.x)) {
 	  // debug_log("bump xyz", x, y, z);
 	  uint const loop_lim = 10u;

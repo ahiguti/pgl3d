@@ -163,6 +163,7 @@ public threaded struct joystick_info {
 }
 
 public threaded struct joystick_state {
+  public varray{bool} enable_axes;
   public varray{short} axes;
   public varray{bool} buttons;
   public varray{ushort} hats;

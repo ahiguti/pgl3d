@@ -9,10 +9,25 @@ private import pgl3d::engine::util -;
 metafunction dbg_filling{f} f; // no_operation;
 
 public metafunction filling_texture array3_pot{varray{ushort}, 0};
+  // tmapと同じ大きさの配列。その位置にfillingが登録されているかどうかを
+  // 記録する。
 
-public threaded struct filling {
+// filling_sortはfillingの種類を保持する列挙型。
+public valuetype enum filling_sort {
+  filling_sort_none = 0,
+  filling_sort_cuboid = 1,
+  filling_sort_wire = 2,
+}
+
+// fillingはtmap上の範囲を表すデータで、fillingとして登録されたものは
+// ランダムなテクスチャパターン生成のもととして使われる。
+public valuetype struct filling {
   public uvec3 offset; // パターンの起点がtmapのどのオフセットにあるか
-  public farray{uint, 9} sizes; // x0, x1, x2, y0, y1, y2, z0, z1, z2
+  public farray{uint, 9} sizes;
+    // x0, x1, x2, y0, y1, y2, z0, z1, z2 の順。XYZそれぞれの軸方向の大きさを
+    // 3分割したもの。XYZそれぞれの中央部分を繰り返すことによってfillingの
+    // 大きさを拡大したパターンを生成するときに、このデータが参照される。
+  public filling_sort fsort;
   public function uvec3 size() const {
     uvec3 r;
     r.x = sizes[0] + sizes[1] + sizes[2];
@@ -341,7 +356,7 @@ private threaded function uint decode_filling_dir(ushort v, uint d)
   }
   v &= 15u;
   // 下位2bit: 1=左, 2=中, 3=右
-  // 上位1bit: fillingのその方向の始点
+  // 上位1bit: fillingのその方向の始点のとき1
   return v;
 }
 

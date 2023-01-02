@@ -457,8 +457,10 @@ dynamics_world(size_t num_grid_bp_tasks0, tptr{texture_edit} const& tex0,
     const t2 = io::debug_system().high_resolution_timer_double();
     finish_grid_collision();
     const t3 = io::debug_system().high_resolution_timer_double();
-    // debug_log("step_simulation", t1 - t0, t2 - t1, t3 - t2);
-    // if (t3 - t0 > 0.001) { debug_log("slow", t1 - t0, t2 - t1, t3 - t2); }
+    /*
+    debug_log("step_simulation", t1 - t0, t2 - t1, t3 - t2);
+    if (t3 - t0 > 0.001) { debug_log("slow", t1 - t0, t2 - t1, t3 - t2); }
+    */
   }
   private function void start_grid_collision()
   {

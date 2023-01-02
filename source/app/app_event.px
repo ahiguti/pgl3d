@@ -225,7 +225,7 @@ public function void handle_keys(app_data mutable& app,
       no_move = true;
     }
   }
-  // debug_log("handle_keys 1");
+  // debug_log("handle_keys 1", no_move);
   if (!no_move) {
     update_joystick(app, joysticks);
     app.ictl.handle_keys(app.player, keys, app.player_joystick, frame_speed,
@@ -406,6 +406,8 @@ function void update_joystick(app_data mutable& app,
     btns[13] = ji.buttons[4];
     btns[14] = ji.buttons[16];
   }
-  // debug_log(joysticks);
+  debug_mask(0) {
+    debug_log(joysticks);
+  }
 }
 

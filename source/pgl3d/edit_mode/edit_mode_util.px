@@ -5,6 +5,7 @@ private import pgl3d::texture::texture -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::subtexture -;
 private import pgl3d::texture::editable_voxel -;
+private import pgl3d::texture::filling -;
 private import pgl3d::edit_mode::tiled_texture_edit_view -;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
@@ -17,17 +18,6 @@ public metafunction absmax_tile_scale_log2 6;
 */
 
 private metafunction dbg_conv{f} no_operation;
-
-public valuetype struct tpat_data {
-  public uint scale;
-  public uvec3 coord;
-  public farray{texture_data, 2} data;
-}
-
-public valuetype struct pattern_save_data {
-  public subtexture copy_data;
-  public varray{tpat_data} patterns;
-}
 
 /*
 public function void
@@ -64,6 +54,52 @@ get_num_assignable_tile(uvec3 const& tpat_size, uint max_tile_scale_log2)
   return v * 7 / 8; // 前半1/8の領域は一つ小さいタイル用に使うので7/8倍する
 }
 
+public function bool
+find_empty_tmap(tiled_texture_edit_view mutable& ttev, uvec3 const& sppos,
+  uvec3 const& spsz, uvec3 mutable& find_empty_cur, uvec3 const& blksz)
+{
+  // tmapから空きを探し、成功したらtrueを返す。spposは空きを探すtmap範囲の
+  // 始点、spszが範囲の大きさ。find_empty_curは探す始点のヒントで、成功した
+  // 場合には見つけた場所を返す。find_empty_curはspsz以下で、見つかった場所
+  // はtmapのsppos+find_empty_curの位置からblkszの大きさ。
+  debug_log("find_empty_tmap sppos=", sppos, "spsz=", spsz, "blksz=", blksz);
+  if (!le_all_uvec3(blksz, spsz)) {
+    return false; // blkszが大きすぎるので決して見つからない
+  }
+  const p0 = find_empty_cur;
+  debug_log("find_empty_tmap p0=", p0);
+  mutable p = p0;
+  while (true) {
+    if (++p.x + blksz.x > spsz.x) {
+      p.x = 0;
+      if (++p.y + blksz.y > spsz.y) {
+	p.y = 0;
+	if (++p.z + blksz.z > spsz.z) {
+	  p.z = 0;
+	}
+      }
+    }
+    if (p == p0) {
+      // 全位置を探したが見つからなかった
+      debug_log("find_empty_tmap notfound");
+      break;
+    }
+    const bp = sppos + p;
+    bool is_space = true;
+    range_foreach(blksz) bool (uint x, uint y, uint z) {
+      const cp = make_uvec3(bp.x + x, bp.y + y, bp.z + z);
+      const v = ttev.tmap_edit_get(cp, 0, 0u);
+      is_space &= is_space_voxel(v);
+      return is_space;
+    }
+    if (is_space) {
+      find_empty_cur = p;
+      return true;
+    }
+  }
+  return false;
+}
+
 public function {t} texel_value
 find_empty_tpat(t mutable& ttev, uvec3 const& tpat_range,
   uvec3 mutable& find_empty_cur, uint cur_tile_scale_log2,
@@ -80,14 +116,6 @@ find_empty_tpat(t mutable& ttev, uvec3 const& tpat_range,
   const tsz = 1u << cur_tile_scale_log2; // タイルの大きさ
   const mxtsz = 1u << max_tile_scale_log2; // 最大タイルの大きさ
   uvec3 tpsz = tpat_range / mxtsz;
-    // tpatはタイル番号の範囲。標準レイアウトで割り当て可能な範囲。
-  /*
-  if (m::eq{t, tiled_texture_edit_view}) {
-    tpsz = ttev.tpat_size / mxtsz;
-  } else {
-    tpsz = ttev.get_size_uvec3() / mxtsz; // 単なるテクスチャのとき
-  }
-  */
     // tpszはタイル番号の範囲。ttev.tpat_sizeはタイルテクスチャの大きさ。
     // 最大サイズのタイルを保持できる範囲のタイル番号が、最大サイズ以外の
     // タイルについてもタイル番号の範囲になる。各サイズのタイル番号のうち
@@ -117,11 +145,6 @@ find_empty_tpat(t mutable& ttev, uvec3 const& tpat_range,
       // 全位置を探したが見つからなかった
       break;
     }
-    /*
-    if (!le_all_uvec3(p + blksz, tpsz)) {
-      continue;
-    }
-    */
     function bool is_space_pat(uvec3 p) {
       const pbase = p * tsz;
       bool r = true;
@@ -159,6 +182,30 @@ find_empty_tpat(t mutable& ttev, uvec3 const& tpat_range,
   }
   return make_space_voxel();
 }
+
+/*
+public function string
+erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
+{
+  string msg;
+  uint const maxsc = ttev.get_max_tile_scale_log2();
+  for (uint sc: 0u .. maxsc) {
+    erase_unused_tpat_scale(ttev, sc);
+  }
+  return msg;
+}
+
+private function void
+erase_unused_tpat_scale(tiled_texture_edit_view mutable& ttev,
+  uint const sc)
+{
+  uvec3 const tpat_size_l2 = ttev.tpat_size_l2;
+  uvec3 const tsl2 = map{uvec3, integral_log2{uint}}(tpat_size);
+  em.set_size_l2(tsl2.x - scale_log2, tsl2.y - scale_log2,
+    tsl2.z - scale_log2);
+}
+*/
+// FIXME
 
 public function string
 erase_unused_tpat(tiled_texture_edit_view mutable& ttev)
@@ -283,10 +330,8 @@ erase_unused_tpat_scale(tiled_texture_edit_view mutable& ttev,
       } else {
         ++cnt_clear;
         const pos = make_uvec3(x, y, z) * tile_size;
-        /*
-        debug_log("clear tpat scale", scale_log2, "offset",
-          make_uvec3(x, y, z));
-        */
+        // debug_log("clear tpat scale", scale_log2, "offset",
+        //   make_uvec3(x, y, z));
         ttev.tpat_edit_paste_range(pos, tile_size3, tex, uvec3(),
           0xffu, merge_mode_opaque());
       }
@@ -297,6 +342,8 @@ erase_unused_tpat_scale(tiled_texture_edit_view mutable& ttev,
   }
   return msg;
 }
+/*
+*/
 
 public function string
 dedup_normalize_tpat(tiled_texture_edit_view mutable& ttev,
@@ -422,15 +469,17 @@ dedup_normalize_tpat(tiled_texture_edit_view mutable& ttev,
           nv = find_empty_tpat(tptex[0], tpat_range, find_empty_cur_a[s],
             scale_log2, max_tile_scale_log2, make_uvec3(1u, 1u, 1u));
           if (!is_node_reference(nv)) {
-            debug_log("dedup_tpat: WARNING: failed to assign tile pattern");
             if (errmsg.empty()) {
+              debug_log("dedup_tpat: WARNING: failed to assign tile pattern");
               errmsg = "dedup_tpat: failed to assign tile pattern";
             }
           }
         } else {
           // 現在のmax_tile_scale_log2では保持できないタイルパターン参照
-          debug_log("dedup_tpat: WARNING: scale value too large");
-          errmsg = "dedup_tpat: scale value too large";
+          if (errmsg.empty()) {
+            debug_log("dedup_tpat: WARNING: scale value too large");
+            errmsg = "dedup_tpat: scale value too large";
+          }
         }
         e.nref_value = nv;
         if (is_node_reference(nv)) {
@@ -493,127 +542,6 @@ dedup_normalize_tpat(tiled_texture_edit_view mutable& ttev,
   }
   debug_log("dedup_tpat done");
   return "dedup_tpat:" + statmsg;
-}
-
-public function bool
-convert_from_pattern_save_data(pattern_save_data const& psd,
-  subtexture mutable& cd, uint max_tile_scale_log2,
-  tiled_texture_edit_view mutable& ttev)
-{
-  function {t} uint pat_to_uint(t const& nd) {
-    const& c = nd.coord;
-    uint r = (nd.scale << 24u) | (c.z << 16u) | (c.y << 8u) | (c.x << 0u);
-    return r;
-  }
-  function {t} t uint_to_pat(uint v) {
-    t nd;
-    nd.scale = (v >> 24u) & 0xffu;
-    nd.coord.z = (v >> 16u) & 0xffu;
-    nd.coord.y = (v >>  8u) & 0xffu;
-    nd.coord.x = (v >>  0u) & 0xffu;
-    return nd;
-  }
-  bool err = false;
-  cd = psd.copy_data;
-  uvec3 fecur;
-  uint cur_tile_scale_log2;
-  tree_map{uint, uint} patconv;
-  for (const i, const& pat: psd.patterns) {
-    if (cur_tile_scale_log2 != pat.scale + 1u) {
-      cur_tile_scale_log2 = pat.scale + 1u;
-      fecur = uvec3();
-    }
-    const tv = find_empty_tpat(ttev, ttev.tpat_size, fecur,
-      cur_tile_scale_log2, max_tile_scale_log2, make_uvec3(1u, 1u, 1u));
-    if (!is_node_reference(tv)) {
-      err = true;
-      break;
-    }
-    const nrp = decode_noderef_param(tv);
-    patconv[pat_to_uint(pat)] = pat_to_uint(nrp);
-    const pos = nrp.coord * (1u << (pat.scale + 1u));
-    const sz = make_uvec3(1u, 1u, 1u) * (1u << (pat.scale + 1u));
-    ttev.tpat_edit_paste_range(pos, sz, pat.data, uvec3(),
-      0xffu, merge_mode_opaque());
-  }
-  if (err) {
-    cd = subtexture();
-    return false;
-  }
-  mutable& tex_pri = cd.tex[0];
-  range_foreach(cd.copy_size) void (uint x, uint y, uint z) {
-    const v = tex_pri.get(x, y, z);
-    if (!is_node_reference(v)) {
-      return;
-    }
-    mutable nr = decode_noderef_param(v);
-    if (const p: patconv[pat_to_uint(nr)]) {
-      const cnr = uint_to_pat{noderef_param}(p);
-      nr.coord = cnr.coord;
-      tex_pri.set(x, y, z, encode_noderef_param(nr));
-    } else {
-      debug_log("failed to convert noderef (internal error)");
-      err = true;
-    }
-  }
-  return !err;
-}
-
-public function bool
-convert_to_pattern_save_data(pattern_save_data mutable& psd,
-  subtexture const& cd, tiled_texture_edit_view mutable& ttev)
-{
-  psd = pattern_save_data();
-  psd.copy_data = cd;
-  if (!get_tpat_refs(psd.patterns, cd, ttev)) {
-    return false;
-  }
-  return true;
-}
-
-private function bool
-get_tpat_refs(varray{tpat_data} mutable& tpd, subtexture const& cd,
-  tiled_texture_edit_view mutable& ttev)
-{
-  /* 現状16倍以外はサポートしていない。それ以外のscaleでのsave/loadは
-   * いったん16倍でおこなうこと。*/
-  const scale_val = 4u - 1u;
-  bool err = false;
-  tree_set{uvec3} refs;
-  const sz = cd.copy_size;
-  for (const z: 0 .. sz.z) {
-    for (const y: 0 .. sz.y) {
-      for (const x: 0 .. sz.x) {
-        const v = cd.tex[0].get(x, y, z);
-        if (!is_node_reference(v)) {
-          continue;
-        }
-        const nrp = decode_noderef_param(v);
-        if (nrp.scale != scale_val) {
-          err = true;
-          debug_log("not supported", nrp);
-          continue;
-        }
-        refs[nrp.coord] = unit();
-      }
-    }
-  }
-  for (const c, const u: refs) {
-    const scale_val_p1 = scale_val + 1u;
-    const scale = 1u << scale_val_p1;
-    const pos = c * scale;
-    const sz = make_uvec3(scale, scale, scale);
-    debug_log("coord", c, "scale", scale, "sz", sz);
-    tpat_data v;
-    v.scale = scale_val;
-    v.coord = c;
-    for (const i, mutable& dataw: v.data) {
-      dataw.set_size_l2(scale_val_p1, scale_val_p1, scale_val_p1);
-    }
-    ttev.tpat_edit_copy_range(pos, sz, v.data, uvec3());
-    tpd.push_back_move(v);
-  }
-  return !err;
 }
 
 public function void

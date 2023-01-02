@@ -46,6 +46,8 @@ public struct sdlcontext(pgl3d_config const& config0)
     SDL_SetHint("SDL_ACCELEROMETER_AS_JOYSTICK",
       accelerometer_as_joystick != 0 ? "1" : "0");
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
+    const n = SDL_NumJoysticks();
+    debug_log("num joystick", n);
     TTF_Init();
     init_video();
     update_joystick_info();
@@ -80,8 +82,11 @@ public struct sdlcontext(pgl3d_config const& config0)
     if (config.get("fullscreen", 0, 0, 2) == 2) {
       wflags |= SDL_WINDOW_FULLSCREEN;
     }
-    vsync = config.get("vsync", 2, 0, 2);
-    SDL_GL_SetSwapInterval(vsync);
+    vsync = config.get("vsync", -1, -1, 1);
+    if (SDL_GL_SetSwapInterval(vsync) != 0 && vsync < 0) {
+      vsync = 1;
+      SDL_GL_SetSwapInterval(vsync);
+    }
     if (m::ne{is_gles, 0}) {
       wflags |= SDL_WINDOW_FULLSCREEN | SDL_WINDOW_BORDERLESS;
     }
@@ -249,7 +254,7 @@ public struct sdlcontext(pgl3d_config const& config0)
     const n = SDL_NumJoysticks();
     for (const i: 0 .. n) {
       const j = SDL_JoystickOpen(i);
-      // debug_log("joystick", i, ccharptr_to_string(SDL_JoystickName(j)));
+      debug_log("joystick", i, ccharptr_to_string(SDL_JoystickName(j)));
       const hndp = make_handle_type();
       joystick_info inf;
       hndp->reset(j);
@@ -258,7 +263,7 @@ public struct sdlcontext(pgl3d_config const& config0)
       inf.num_buttons = static_cast{uint}(max(SDL_JoystickNumButtons(j), 0));
       inf.num_hats = static_cast{uint}(max(SDL_JoystickNumHats(j), 0));
       inf.num_balls = static_cast{uint}(max(SDL_JoystickNumBalls(j), 0));
-      // debug_log(inf);
+      debug_log(inf);
       joystick_handles.push_back(hndp);
       joysticks.push_back(inf);
     }

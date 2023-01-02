@@ -1,0 +1,84 @@
+public threaded namespace pgl3d::engine::debug_mask "use-unsafe";
+public import common -;
+
+// デバッグ用マスク値を読み書きする。
+// マスク値はグローバル変数だが各スレッドから排他制御なしに読み書きしてよい。
+
+public threaded function extern "::pxcrt::set_debug_mask" void
+set_debug_mask(uint word_index, ulonglong value);
+
+public threaded function extern "::pxcrt::get_debug_mask" bool
+get_debug_mask(uint bit_index);
+
+public threaded function {f} void
+debug_mask(uint bit_index)
+{
+  if (get_debug_mask(bit_index)) {
+    f();
+  }
+}
+
+public threaded function void
+set_debug_mask_hexstr(cstrref const& s)
+{
+  uint word_index = 0;
+  uint bit_index = 0;
+  ulonglong w = 0;
+  for (const i, const ch: s) {
+    uchar v = 0;
+    if (ch >= '0' && ch <= '9') {
+      v = ch - '0';
+    } else if (ch >= 'a' && ch <= 'f') {
+      v = ch - 'a' + 10;
+    } else if (ch >= 'A' && ch <= 'F') {
+      v = ch - 'A' + 10;
+    }
+    w |= (static_cast{ulonglong}(v) << bit_index);
+    bit_index += 4;
+    if (bit_index == 64) {
+      set_debug_mask(word_index, w);
+      bit_index = 0;
+      w = 0;
+      word_index += 1;
+    }
+  }
+  if (bit_index != 0) {
+    set_debug_mask(word_index, w);
+  }
+}
+
+extern "functions" inline
+
+namespace pxcrt {
+
+extern bt_ulonglong debug_mask[16];
+
+inline void set_debug_mask(bt_uint word_index, bt_ulonglong value) {
+  if (word_index < sizeof(debug_mask) / sizeof(debug_mask[0])) {
+    debug_mask[word_index] = value;
+  }
+}
+
+inline bool get_debug_mask(bt_uint bit_index) {
+  bt_uint word_index = bit_index >> 6;
+  bt_uint i = bit_index & 63;
+  if (word_index < sizeof(debug_mask) / sizeof(debug_mask[0])) {
+    return ((1ull << i) & debug_mask[word_index]) != 0;
+  }
+  return false;
+}
+
+};
+
+;
+
+extern "implementation" inline
+
+namespace pxcrt {
+
+bt_ulonglong debug_mask[16];
+
+};
+
+;
+

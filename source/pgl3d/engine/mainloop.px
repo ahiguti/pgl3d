@@ -11,6 +11,7 @@ public import meta m;
 public import pgl3d::geometry::funcs -;
 public import pgl3d::engine::pglmotion -;
 public import pgl3d::engine::pglbase -;
+public import pgl3d::engine::debug_mask -;
 public import pgl3d::engine::util -;
 public import pgl3d::engine::application -;
 public import pgl3d::engine::pglconfig -;
@@ -39,6 +40,7 @@ public function {tapp} void mainloop(cstrref const& conf_filename)
   sdl_load_file(conf_filename, confstr);
   const conf = pgl3d_config(confstr);
   opengl::base::set_check_error_enabled(conf.get("gldebug", 0, 0, 1));
+  set_debug_mask_hexstr(conf.get("debug_mask", string(), string(), string()));
   const ml = make_ptr{mainloop_internal}(oapp.some, conf);
   oapp = option{ptr{pgl3d_application}}();
     // mainloop_internalに渡したappが唯一の参照となるようにするために、
@@ -162,7 +164,15 @@ frame_stat_log(double threshold0)
 
 private function int set_swap_interval(int vsync)
 {
-  return SDL_GL_SetSwapInterval(vsync);
+  if (vsync != 0) {
+    // 可能ならadaptive vsync
+    const r = SDL_GL_SetSwapInterval(-1);
+    if (r != 0) {
+      return 0;
+    }
+    return SDL_GL_SetSwapInterval(1);
+  }
+  return SDL_GL_SetSwapInterval(0);
 }
 
 struct
@@ -543,7 +553,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     if (is_windows) {
       // FIXME: windowsでjoystick効いてない? sdl2のversionによると思われる
       // TODO: linux?
-      sdlc.update_joystick_info();
+      // sdlc.update_joystick_info();
       SDL_JoystickUpdate();
       if (sdlc.joysticks.size() != joysticks.size()) {
 	joysticks.resize(sdlc.joysticks.size(), joystick_state());
@@ -555,6 +565,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       const& inf = sdlc.joysticks[i];
       mutable& st = joysticks[i];
       if (st.axes.size() != inf.num_axes) {
+	st.enable_axes.resize(inf.num_axes, 0);
 	st.axes.resize(inf.num_axes, 0);
         // debug_log("joystick", i, "axes", st.axes.size());
       }
@@ -568,7 +579,12 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       }
       for (const j: 0 .. inf.num_axes) {
 	const v = SDL_JoystickGetAxis(hnd.get(), static_cast{int}(j));
-	st.axes[j] = v;
+        if (v != 0 && v != -32768) {
+          st.enable_axes[j] = true;
+        }
+        if (st.enable_axes[j]) {
+          st.axes[j] = v;
+        }
       }
       for (const j: 0 .. inf.num_buttons) {
 	const v = SDL_JoystickGetButton(hnd.get(), static_cast{int}(j));
@@ -598,10 +614,16 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     /* motion and prepare instance data */
     {
       //debug_log(fr.fps, "fps");
+      fr.save_ticks("motion00");
+      const v = 0; // nvapi_gpu_usage(0);
+        // TODO: nvapi_gpu_usageは10ms以上かかることがある
+      fr.save_ticks("motion01");
       const mess = string_join{" "}(fr.fps, frctl.frame_speed_mul,
-	0.0f, saved_stat_num_objects, nvapi_gpu_usage(0));
+	0.0f, saved_stat_num_objects, v);
       if (async_motion_thread) {
+        fr.save_ticks("motion02");
 	motion_thr.some->finish();
+        fr.save_ticks("motion1");
         const mo_time = SDL_GetTicks() - motion_thr_start_time;
         // debug_log("motion_thr time", mo_time);
 	{
@@ -614,7 +636,9 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
           app->on_motion_post();
           app->on_motion_pre();
 	}
+        fr.save_ticks("motion2");
 	motion_thr.some->start();
+        fr.save_ticks("motion3");
         motion_thr_start_time = SDL_GetTicks();
       } else {
 	{
@@ -703,6 +727,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     app->on_draw_finished();
     SDL_GL_SwapWindow(sdlc.sdl_window);
     fr.save_ticks("swapwindow");
+    /*
     if (frctl.vsync != 0 && dummy_flip == 0) {
       // vsync有効でdummy_flipが0のときは自動でdummy_flipを入れる
       ++cur_dummy_flip_count;
@@ -744,6 +769,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
 	SDL_GL_SwapWindow(sdlc.sdl_window);
       }
     }
+    */
     if (glfinish) {
       // debug_log("glfinish");
       // glFlush();

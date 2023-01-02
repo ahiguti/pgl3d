@@ -2,7 +2,6 @@ datadir=..
 # enable_heartbeat_thread=1
 # async_motion_thread=1
 gldebug=0
-debug_mask=0
 
 edit_mode=0
 option_value2=-1
@@ -13,7 +12,7 @@ auto_reload=1
 capture_filter=0
 aberration_filter=0
 
-virt_scale=1.0
+virt_scale=0.6666667
 
 # motion_serial=Arduino Due
 
@@ -22,7 +21,7 @@ raycast_layer=32
 glfinish=0
 enable_raycast_zprepass=0
 enable_dbgui=1
-vsync=-1
+vsync=1
 fullscreen=0
 width=1280
 height=720
@@ -55,7 +54,6 @@ voxel_pat_d=9
 #large_shadow=1
 
 #framestat_threshold=2.0
-
 dummy_flip=1
 update_frag_depth=1
 shadow=1

@@ -2,6 +2,14 @@
 ---------------------------------------------------------------------------
 TODO
 
+- edit_mode_util::get_tpat_refsが16倍以外をサポートしないのを修正
+
+- fillingsに登録したパターンをedit対象テクスチャから独立した形で保存
+
+- メモ: 165Hz vsync windowsで少しカクつく。ubuntuではマルチディスプレイだと
+  テアリングが出るがシングルだとなめらか。(done)
+  - windowsでかくつくのはnvapi_gpu_usageが原因
+
 - mipmap再計算してから一度saveしないと反映されていない?
 
 - update_mipmapの色をvolume比率をもとにして正確に計算する(done)
