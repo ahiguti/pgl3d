@@ -1,21 +1,22 @@
 public namespace app::app_event;
-public import common -;
-public import exception -;
-public import numeric::fpmath -;
-public import pointer::raw -;
-public import text::positional -;
-public import io::time -;
-public import fundamental::mainloop -;
-public import io::environ;
-public import pgl3d::ext::debug_helper -;
-public import pgl3d::exports -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::numeric::fpmath -;
+public import core::pointer::raw -;
+public import core::text::positional -;
+public import core::io::time -;
+public import core::fundamental::mainloop -;
+public import core::io::environ;
+public import sdl2::api_types -;
+public import pgl3d::exports pgl;
+public import pgl3d::ext::debug_helper pgl;
+public import core::meta m;
 public import glm;
 public import app::app_data -;
 public import app::app_scene -;
 
 public function void handle_event(app_data mutable& app,
-  app_ctrl_i mutable& actrl, SDL_Event const& ev, float frame_speed)
+  pgl::app_ctrl_i mutable& actrl, SDL_Event const& ev, float frame_speed)
 {
   const etype = ev.type;
   if (etype == SDL_WINDOWEVENT) {
@@ -33,8 +34,10 @@ public function void handle_event(app_data mutable& app,
     }
   } else if (etype == SDL_MOUSEBUTTONDOWN) {
     const& pj = *app.proj_pm;
-    const bx = cast_float(ev.button.x) / cast_float(pj.window_width);
-    const by = cast_float(ev.button.y) / cast_float(pj.window_height);
+    const bx = pgl::cast_float(ev.button.x)
+      / pgl::cast_float(pj.window_width);
+    const by = pgl::cast_float(ev.button.y)
+      / pgl::cast_float(pj.window_height);
     debug_log("down", bx, by, ev.button.x, ev.button.y,
       pj.window_width, pj.window_height);
     /*
@@ -45,7 +48,7 @@ public function void handle_event(app_data mutable& app,
     } else if (bx > 0.9 && by > 0.9) {
       app.exposure *= 2.0;
       if (app.exposure > 16.0f) {
-	app.exposure = 1.0f / 16.0f;
+        app.exposure = 1.0f / 16.0f;
       }
       return;
     } else if (bx > 0.9 && by < 0.1) {
@@ -65,12 +68,13 @@ public function void handle_event(app_data mutable& app,
     } else if (ev.tfinger.x < 0.1 && ev.tfinger.y > 0.9) {
       app.exposure *= 2.0;
       if (app.exposure > 16.0f) {
-	app.exposure = 1.0f / 16.0f;
+        app.exposure = 1.0f / 16.0f;
       }
       return;
     } else if (ev.tfinger.x > 0.9 && ev.tfinger.y < 0.1) {
-      app.option_value = app.option_value + 1;
-      debug_log("option_value", app.option_value);
+      const v = app.option_value + 1;
+      app.option_value = v;
+      debug_log("option_value", v);
       return;
     }
   } else if (etype == SDL_KEYDOWN) {
@@ -78,18 +82,18 @@ public function void handle_event(app_data mutable& app,
       app.edit_mode.some->set_camera_angle(app.player.angle);
       glm::vec3 cursor_move;
       app.edit_mode.some->on_key_pressed(
-	static_cast{int}(ev.key.keysym.scancode), app.modmask, cursor_move,
-	app.app_status_message);
+        static_cast{int}(ev.key.keysym.scancode), app.modmask, cursor_move,
+        app.app_status_message);
       // debug_log("keydown stmsg", app.app_status_message);
       const glm::vec3 m =
-	cursor_move * app.edit_mode_vattr.aabb_or_tconv.w;
-	// 接線空間座標に変換
+        cursor_move * app.edit_mode_vattr.aabb_or_tconv.w;
+        // 接線空間座標に変換
       // debug_log("cursor_move", cursor_move, "m", m);
       mutable mo0 = app.edit_mode_trans * glm::make_vec4(
-	0.0f, 0.0f, 0.0f, 1.0f);
+        0.0f, 0.0f, 0.0f, 1.0f);
       mutable mo1 = app.edit_mode_trans * glm::make_vec4(
-	m.x, m.y, m.z, 1.0f);
-	// オブジェクト座標に変換
+        m.x, m.y, m.z, 1.0f);
+        // オブジェクト座標に変換
       mo0 /= mo0.w;
       mo1 /= mo1.w;
       const mo = mo1 - mo0;
@@ -153,28 +157,29 @@ public function void handle_event(app_data mutable& app,
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F2) {
-      app.option_value = app.option_value + 1;
+      app.option_value = (app.modmask & 1) == 0 ? app.option_value + 1 : 0;
       debug_log("option_value", app.option_value);
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F3) {
-      app.option_value = 0;
-      debug_log("option_value", app.option_value);
+      app.option_value3 = (app.modmask & 1) == 0 ? app.option_value3 + 1 : 0;
+      debug_log("option_value3", app.option_value3);
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F4) {
       if ((app.modmask & 1) != 0) {
-	app.option_value2 = -1;
+        app.option_value2 = -1;
       } else {
-	app.option_value2 = ((app.option_value2) + 2) % 10 - 1;
+        app.option_value2 = ((app.option_value2) + 2) % 10 - 1;
       }
       app.proj_pm->option_value2 = static_cast{float}(app.option_value2);
         // app.option_value2は不要では？
-      debug_log("option_value2", app.option_value2);
+      const ov2 = app.option_value2;
+      debug_log("option_value2", ov2);
       // messageを反映させるためにもう一度on_key_pressedを呼ぶ
       glm::vec3 cursor_move;
       app.edit_mode.some->on_key_pressed(0, 0, cursor_move,
-	app.app_status_message);
+        app.app_status_message);
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
@@ -183,17 +188,17 @@ public function void handle_event(app_data mutable& app,
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_PAGEDOWN) {
       if ((app.modmask & 1) != 0) {
-	app.light.y -= 0.01f;
+        app.light.y -= 0.01f;
       } else {
-	app.light.x -= 0.01f;
+        app.light.x -= 0.01f;
       }
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_PAGEUP) {
       if ((app.modmask & 1) != 0) {
-	app.light.y += 0.01f;
+        app.light.y += 0.01f;
       } else {
-	app.light.x += 0.01f;
+        app.light.x += 0.01f;
       }
       return;
     }
@@ -203,7 +208,7 @@ public function void handle_event(app_data mutable& app,
     // const len = find_mapped(sli, 0, 0);
     // const s = string(sli[0 .. len]);
     if (const edit_mode: app.edit_mode.some) {
-      edit_mode->on_textinput(sdl_textevent_text(ev.text),
+      edit_mode->on_textinput(pgl::sdl_textevent_text(ev.text),
         app.app_status_message);
       // debug_log("ti stmsg", app.app_status_message);
     }
@@ -215,7 +220,7 @@ public function void handle_event(app_data mutable& app,
 }
 
 public function void handle_keys(app_data mutable& app,
-  cslice{uchar} const& keys, cslice{joystick_state} const& joysticks,
+  cslice{uchar} const& keys, cslice{pgl::joystick_state} const& joysticks,
   float frame_speed)
 {
   bool no_move = false;
@@ -258,6 +263,7 @@ public function void handle_keys(app_data mutable& app,
     ss.exposure = sqrt(app.exposure); // 半段単位
     ss.option_value = app.option_value;
     ss.option_value2 = app.option_value2;
+    ss.option_value3 = app.option_value3;
     ss.scene_next = app.scene_next;
     ss.posang.position = app.player.position;
     ss.posang.angle = app.player.angle * mctrl_angle * camera_rel;
@@ -279,7 +285,7 @@ function void save_state(app_data const& app)
   st.light = app.light;
   const s = to_string(st);
   debug_log("save", s);
-  sdl_save_file(app.datadir + "/camera_state.raw", s);
+  pgl::sdl_save_file(app.datadir + "/camera_state.raw", s);
 }
 
 function bool update_window_geometry(app_data mutable& app,
@@ -295,14 +301,14 @@ function bool update_window_geometry(app_data mutable& app,
   {
     return false;
   }
-  sdl_log("display geometry changed");
+  debug_log("display geometry changed");
   const virt_width = static_cast{int}(static_cast{float}(drsz.x)
     / app.virt_scale);
   const virt_height = static_cast{int}(static_cast{float}(drsz.y)
     / app.virt_scale);
   const sm_size = glc.shadowmap_resolution;
-  sdl_log("disp size", drsz.x, drsz.y);
-  sdl_log("virt size", virt_width, virt_height);
+  debug_log("disp size", drsz.x, drsz.y);
+  debug_log("virt size", virt_width, virt_height);
   cam.virt_width = virt_width;
   cam.virt_height = virt_height;
   cam.display_width = static_cast{int}(drsz.x);
@@ -327,18 +333,18 @@ function bool update_window_geometry(app_data mutable& app,
   float const perspective_wh =
     glc.conf.get("perspective_wh", 1.0f, 0.001f, 100.0f);
   const ssbase = max(cam.virt_height, cam.virt_width);
-  const h = perspective_wh * cast_float(cam.virt_height)
-    / cast_float(ssbase);
-  const w = perspective_wh * cast_float(cam.virt_width)
-    / cast_float(ssbase);
+  const h = perspective_wh * pgl::cast_float(cam.virt_height)
+    / pgl::cast_float(ssbase);
+  const w = perspective_wh * pgl::cast_float(cam.virt_width)
+    / pgl::cast_float(ssbase);
   {
     // camera projection
     const near = perspective_near;
     const far = perspective_far;
-    const left = cast_float(-w);
-    const right = cast_float(w);
-    const bottom = cast_float(-h);
-    const top = cast_float(h);
+    const left = pgl::cast_float(-w);
+    const right = pgl::cast_float(w);
+    const bottom = pgl::cast_float(-h);
+    const top = pgl::cast_float(h);
     cam.camera_pers.near = near;
     cam.camera_pers.far = far;
     cam.camera_pers.width = w;
@@ -370,7 +376,7 @@ function bool update_window_geometry(app_data mutable& app,
 }
 
 function void update_joystick(app_data mutable& app,
-  cslice{joystick_state} const& joysticks)
+  cslice{pgl::joystick_state} const& joysticks)
 {
   // TODO: マップできるようにする
   if (joysticks.empty()) {
@@ -406,7 +412,7 @@ function void update_joystick(app_data mutable& app,
     btns[13] = ji.buttons[4];
     btns[14] = ji.buttons[16];
   }
-  debug_mask(0) {
+  pgl::debug_mask(0) {
     debug_log(joysticks);
   }
 }

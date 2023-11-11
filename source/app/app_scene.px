@@ -1,26 +1,29 @@
 public namespace app::app_scene;
-public import common -;
-public import exception -;
-public import numeric::fpmath -;
-public import pointer::raw -;
-public import text::positional -;
-public import io::time -;
-public import fundamental::mainloop -;
-public import io::environ;
-public import pgl3d::ext::debug_helper -;
-public import pgl3d::exports -;
-public import pgl3d::texture::atlas -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::numeric::fpmath -;
+public import core::pointer::raw -;
+public import core::text::positional -;
+public import core::io::time -;
+public import core::fundamental::mainloop -;
+public import core::io::environ;
+public import pgl3d::exports pgl;
+public import pgl3d::ext::debug_helper pgl;
+public import pgl3d::texture::atlas pgl;
+public import pgl3d::geometry::funcs g;
+public import core::meta m;
 public import glm;
 public import app::app_data -;
 public import app::app_raycast_object -;
 public import app::app_collision_shape -;
 public import app::texture::triangles_texture -;
 
-public multithreaded struct app_scene_shared(io const& sys0)
-  <pgl3d_scene_shared>
+private metafunction debug_instance no_operation;
+
+public multithreaded struct app_scene_shared(core::io::io const& sys0)
+  <pgl::pgl3d_scene_shared>
 {
-  public position_angle posang;
+  public pgl::position_angle posang;
   public glm::vec3 pos_delta;
   public int scene_next;
   public int raycast_layer;
@@ -30,23 +33,24 @@ public multithreaded struct app_scene_shared(io const& sys0)
   public float exposure = 1.0f;
   public int option_value = 0;
   public int option_value2 = -1;
-  public texture_info default_font_texture_info;
-  public string_map app_commands;
+  public int option_value3 = 0;
+  public pgl::texture_info default_font_texture_info;
+  public pgl::string_map app_commands;
   public string app_status_message;
-  public io::io sys = sys0;
+  public core::io::io sys = sys0;
   public raycast_drawers_info rdi;
-  public option{tptr{tiled_voxel_texture}} tvt;
-  public option{tptr{texture_updates}} tup;
+  public option{tptr{pgl::tiled_voxel_texture}} tvt;
+  public option{tptr{pgl::texture_updates}} tup;
   public collision_shape_data_array shapes;
-  public projection_info pj_drawing_frame;
+  public pgl::projection_info pj_drawing_frame;
     // motion stepで書き込み、motion swapでこれをdrawerに渡す
-  function ptr{pgl3d_scene} make_scene(node_factory const& nodefac) {
+  function ptr{pgl::pgl3d_scene} make_scene(pgl::node_factory const& nodefac) {
     return make_ptr{app_scene}(nodefac, shapes, tvt.some, tup.some, sys);
   }
 }
 
 public function void build_vertices(app_data mutable& app,
-  make_vertices_i mutable& pgs)
+  pgl::make_vertices_i mutable& pgs)
 {
   debug_log("build_vertices");
   const& voxtmap = app.tvt->tmap_edit->data[0][0];
@@ -54,6 +58,7 @@ public function void build_vertices(app_data mutable& app,
     voxtmap.get_size_uvec3());
   const voxtmap_size_max = fold_list{max}(0.0f, voxtmap_size);
   const voxtmap_whd = voxtmap_size / voxtmap_size_max;
+    // テクスチャ座標値の各軸の範囲。一番長い軸が1.0までの値をとる。
   debug_log("voxtmap_whd", voxtmap_whd);
 
   // import
@@ -66,9 +71,13 @@ public function void build_vertices(app_data mutable& app,
       // "airboat"
       );
   const tr0_0 = make_varray{string}("vbid_triangles_0_0");
-      // ポリゴンをparallax mappingで描画 (stype==0, ssubtype==0)
+    // ポリゴンをparallax mappingで描画 (stype==0, ssubtype==0)
   const tr1_0 = make_varray{string}("vbid_triangles_1_0");
-      // 直方体をraycastingで描画 (stype==1, ssubtype==0)
+    // 直方体をraycastingで描画 (stype==1, ssubtype==0)
+  const tr_mix10 = make_varray{string}(
+    "vbid_triangles_1_0", // 直方体をraycastingで描画 (stype==1, ssubtype==0)
+    "vbid_triangles_0_0"  // parallax mappingで描画 (stype==0, ssubtype==0)
+    );
   // const tr1_0 = make_varray{string}(
   //   "vbid_triangles_1_0",
   //   "vbid_triangles_2_0");
@@ -83,64 +92,65 @@ public function void build_vertices(app_data mutable& app,
   for (const i, const name: objs) {
     string fn = "res/" + name + ".obj";
     string fcontent;
-    sdl_load_file(fn, fcontent);
-    sdl_log("load", fn, fcontent.size());
-    const wfobjp = wfobject_read(fcontent);
+    pgl::sdl_load_file(fn, fcontent);
+    debug_log("load", fn, fcontent.size());
+    const wfobjp = pgl::wfobject_read(fcontent);
     for (const j, mutable& v: wfobjp->v) {
       // v *= 10.0f;
     }
     for (const k, const g: wfobjp->groups) {
       pgs.make_vertex_set(tr0_0, name,
-	import_wfobj(*wfobjp, *g, ctx_fill(0)));
+        pgl::import_wfobj(*wfobjp, *g, g::ctx_fill(0)));
     }
   }
-  sdl_log("load prebuild");
-  mutable rnd = make_rand_generator(1U);
-  pgs.make_vertex_set(tr1_0, "empty-scene", hole());
+  debug_log("load prebuild");
+  mutable rnd = pgl::make_rand_generator(1U);
+  pgs.make_vertex_set(tr1_0, "empty-scene", g::hole());
   pgs.make_vertex_set(tr0_0, "tuto2-multi2s8",
-    rand_sphere(200.0, 9000, false, true, rnd,
-      ctx_point_joint("tuto2")));
-  mutable m = mat4_identity();
+    g::rand_sphere(200.0, 1, false, true, rnd,
+      g::ctx_point_joint("tuto2")));
+  mutable m = pgl::mat4_identity();
   mutable m0 = m;
   mutable m1 = m;
   float box_size = 32.0f;
   debug_log("init m,m0,m1", m.to_farray(), m0.to_farray(), m1.to_farray());
   // float box_size = 1.0f;
-  m = mat4_identity()
+  m = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, box_size * 2.0f));
-  m0 = mat4_identity()
-    .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
-  m1 = mat4_identity()
+  m0 = pgl::mat4_identity()
+    .rotate(pgl::to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
+  m1 = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, box_size * (-1.0f)))
-    .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
+    .rotate(pgl::to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
   debug_log("m,m0,m1", m.to_farray(), m0.to_farray(), m1.to_farray());
   const mi = glm::make_vec3(0.0, 0.0, 0.0);
   const mx = voxtmap_whd;
     // mi, mxはテクスチャ全体を貼り付けるときに指定する
   const mi_atl = mi;
-  const mx_atl = mx / 4.0f;
+  const mx_atl = mx / 2.0f;
     // mi_atl, mx_atlはテクスチャをatlasで割り当てるときに指定する。
-    // テクスチャ全体の1/64の大きさ。
+    // テクスチャ全体の1/8の大きさ。ただし高さはtex_heightで決まる。
   float small_box_size = 1.0f;
-  glm::mat4 small_m1 = mat4_identity()
+  glm::mat4 small_m1 = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, small_box_size * (-1.0f)))
-    .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
+    .rotate(pgl::to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
   debug_log("make box");
-  option{ptr{atlas}} noatl;
-  option{ptr{atlas}} atl;
+  option{ptr{pgl::atlas}} noatl;
+  option{ptr{pgl::atlas}} atl;
   atl.some = app.atl;
   atl.some->reset(voxtmap.get_size_uvec3());
     // atlasの大きさをセットして初期化
-  float tex_height = 0.2f;
-  // 立方体の各面にtex3d貼り付け
-  pgs.make_vertex_set(tr1_0, "boxsurf-tex3d",
-    regular_polygon(1.4142f * box_size, 4,
-      apply(m1,
-	bump_apply(m, true,
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height))),
-      apply(m1,
-	ctx_tex3d(1, 0, mi, mx, noatl, tex_height))));
+  float tex_height = 0.25f;
+  // 立方体の各面にtex3d貼り付け、裏にparallax、底面だけ表面parallax
+  pgs.make_vertex_set(tr_mix10, "boxsurf-tex3d",
+    g::regular_polygon(1.4142f * box_size, 4,
+      g::apply(m1,
+        g::bump_apply(m, true,
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height))),
+      g::apply(m1,
+        g::ctx_fill(1))));
+        // g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height))));
   // pgs.make_vertex_set(tr1_0, "box", cuboid_tex3d(mi, mx, glm::vec3(),
   //   32.0f));
   // debug_log("box", box_size, mi, mx, m0);
@@ -151,18 +161,18 @@ public function void build_vertices(app_data mutable& app,
   //     apply(m0,
   //       ctx_fill(0))));
   pgs.make_vertex_set(tr1_0, "box",
-    regular_polygon(1.4142f * box_size, 4,
-      apply(m0, hole()),
-      apply(m0,
-	ctx_tex3d(0, 0, mi, mx, noatl, tex_height))));
+    g::regular_polygon(1.4142f * box_size, 4,
+      g::apply(m0, g::hole()),
+      g::apply(m0,
+        g::ctx_tex3d(0, 0, mi, mx, noatl, tex_height))));
           // テクスチャ全体をmapする
   // debug_log("main reg box end");
   // debug_log("make box_opt1");
   pgs.make_vertex_set(tr1_0, "box_opt1",
-    regular_polygon(1.4142f * box_size, 4,
-      apply(m0, hole()),
-      apply(m0,
-	ctx_tex3d(0, 0, mi, mx, noatl, tex_height))));
+    g::regular_polygon(1.4142f * box_size, 4,
+      g::apply(m0, g::hole()),
+      g::apply(m0,
+        g::ctx_tex3d(0, 0, mi, mx, noatl, tex_height))));
   // (80, 0, 35), (16, 21, 2) 全体は(2048x2048x64)
   // const tmi = glm::make_vec3(80.0f, 0.0f, 35.0f);
   // const tsz = glm::make_vec3(16.0f, 21.0f, 2.0f);
@@ -174,7 +184,7 @@ public function void build_vertices(app_data mutable& app,
   const smallmx = (tmi + tsz) / voxtmap_size_max;
     // map{glm::vec3, operator::div}(tmi + tsz, voxtmap_size);
   debug_log("make smallbox");
-  pgs.make_vertex_set(tr1_0, "smallbox", cuboid_tex3d(smallmi, smallmx,
+  pgs.make_vertex_set(tr1_0, "smallbox", g::cuboid_tex3d(smallmi, smallmx,
     glm::vec3(), 1.0f));
   // pgs.make_vertex_set(tr1_0, "smallbox",
   //   regular_polygon(1.4142f * small_box_size, 4,
@@ -182,289 +192,311 @@ public function void build_vertices(app_data mutable& app,
   //       ctx_tex3d(0, 0, smallmi, smallmx, noatl, tex_height)),
   //     hole()));
   pgs.make_vertex_set(tr1_0, "mstex3d",
-    regular_polygon(300.0f, 100,
-      apply(m1,
-	bump_rec(1.0, 1.0, 16,
-	  lid(
-	    ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-	    bump_rec(0.01, 1.0, 1,
-	      hole(),
-	      hole()
-	    )
-	  ),
-	  hole()
-	)
+    g::regular_polygon(300.0f, 100,
+      g::apply(m1,
+        g::bump_rec(1.0, 1.0, 16,
+          g::lid(
+            g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+            g::bump_rec(0.01, 1.0, 1,
+              g::hole(),
+              g::hole()
+            )
+          ),
+          g::hole()
+        )
       ),
-      hole()
+      g::hole()
     )
   );
   if (false) {
     pgs.make_vertex_set(tr1_0, "mstex3d",
-      regular_polygon(300.0f, 100,
-        apply(m1,
-          bump_rec(1.0, 1.0, 16,
-            lid(
-              ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-              bump_rec(0.01, 1.0, 1,
-                ctx_fill(0),
-                ctx_tex3d(1, 0, mi, mx, noatl, tex_height)
+      g::regular_polygon(300.0f, 100,
+        g::apply(m1,
+          g::bump_rec(1.0, 1.0, 16,
+            g::lid(
+              g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+              g::bump_rec(0.01, 1.0, 1,
+                g::ctx_fill(0),
+                g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height)
               )
             ),
-            hole()
+            g::hole()
           )
         ),
-        hole()
+        g::hole()
       )
     );
   }
-  m = mat4_identity()
+  m = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, 64.0));
-  m1 = mat4_identity()
+  m1 = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, -32.0))
-    .rotate(to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
+    .rotate(pgl::to_radians(45.0), glm::make_vec3(0.0, 0.0, 1.0));
   pgs.make_vertex_set(tr0_0, "box50",
-    regular_polygon(1.4142f * 50.0f, 4,
-      apply(m1,
-	bump_apply(m, true, ctx_fill(0), ctx_fill(0))),
-      apply(m1,
-	ctx_fill(0))));
+    g::regular_polygon(1.4142f * 50.0f, 4,
+      g::apply(m1,
+        g::bump_apply(m, true, g::ctx_fill(0), g::ctx_fill(0))),
+      g::apply(m1,
+        g::ctx_fill(0))));
   if (false) {
     pgs.make_vertex_set(tr1_0, "saucer",
-      regular_polygon(150.0, 40,
-        bump_rec(1.8, 0.5, 1, ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height)),
-        bump_rec(0.05, 0.9, 5,
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-          sphere(10, ctx_tex3d(1, 0, mi, mx, noatl, tex_height)))));
+      g::regular_polygon(150.0, 40,
+        g::bump_rec(1.8, 0.5, 1, g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height)),
+        g::bump_rec(0.05, 0.9, 5,
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          g::sphere(10, g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height)))));
   }
   pgs.make_vertex_set(tr0_0, "saucer",
-    regular_polygon(15.0, 40,
-      bump_rec(10.8, 0.5, 1, ctx_fill(0), ctx_fill(0)),
-      bump_rec(0.05, 0.9, 5,
-        ctx_fill(0),
-	sphere(10, ctx_fill_smooth(0)))));
+    g::regular_polygon(15.0, 40,
+      g::bump_rec(10.8, 0.5, 1, g::ctx_fill(0), g::ctx_fill(0)),
+      g::bump_rec(0.05, 0.9, 5,
+        g::ctx_fill(0),
+        g::sphere(10, g::ctx_fill_smooth(0)))));
   pgs.make_vertex_set(tr0_0, "saucer-multi",
-    regular_polygon(1.0, 3,
-      bump_rec(1.0, 1.0, 1, ctx_poly_joint("saucer"), hole()),
-      hole()));
+    g::regular_polygon(1.0, 3,
+      g::bump_rec(1.0, 1.0, 1, g::ctx_poly_joint("saucer"), g::hole()),
+      g::hole()));
   pgs.make_vertex_set(tr0_0, "block-multi",
-    regular_polygon(600.0, 4,
-      rectangle_split(9, 8, ctx_poly_joint("block")),
-      hole()));
+    g::regular_polygon(600.0, 4,
+      g::rectangle_split(9, 8, g::ctx_poly_joint("block")),
+      g::hole()));
   {
-    const m1 = mat4_identity().rotate(to_radians(90.0),
-	glm::make_vec3(1.0, 0.0, 0.0));
-    const m2 = mat4_identity().rotate(to_radians(-90.0),
-	glm::make_vec3(1.0, 0.0, 0.0));
+    const m1 = pgl::mat4_identity().rotate(pgl::to_radians(90.0),
+        glm::make_vec3(1.0, 0.0, 0.0));
+    const m2 = pgl::mat4_identity().rotate(pgl::to_radians(-90.0),
+        glm::make_vec3(1.0, 0.0, 0.0));
     pgs.make_vertex_set(tr0_0, "block-smtest",
-      regular_polygon(3.0, 4,
-	ctx_poly_joint("box"),
-	apply(m1, bump_rec(1.0, 1.0, 1, hole(), ctx_poly_joint("block")))));
+      g::regular_polygon(3.0, 4,
+        g::ctx_poly_joint("box"),
+        g::apply(m1, g::bump_rec(1.0, 1.0, 1, g::hole(),
+          g::ctx_poly_joint("block")))));
   }
   {
-    const m1 = mat4_identity().rotate(to_radians(90.0),
-	glm::make_vec3(1.0, 0.0, 0.0));
-    const m2 = mat4_identity().rotate(to_radians(-90.0),
-	glm::make_vec3(1.0, 0.0, 0.0));
+    const m1 = pgl::mat4_identity().rotate(pgl::to_radians(90.0),
+        glm::make_vec3(1.0, 0.0, 0.0));
+    const m2 = pgl::mat4_identity().rotate(pgl::to_radians(-90.0),
+        glm::make_vec3(1.0, 0.0, 0.0));
     pgs.make_vertex_set(tr0_0, "box-depth",
-      regular_polygon(3.0, 4,
-	ctx_poly_joint("box"),
-	apply(m1, bump_rec(1.0, 1.0, 1, hole(), ctx_poly_joint("box_opt1")))));
+      g::regular_polygon(3.0, 4,
+        g::ctx_poly_joint("box"),
+        g::apply(m1, g::bump_rec(1.0, 1.0, 1, g::hole(),
+          g::ctx_poly_joint("box_opt1")))));
   }
-  rnd = make_rand_generator(1U);
+  rnd = pgl::make_rand_generator(1U);
   pgs.make_vertex_set(tr0_0, "block",
-    regular_polygon(30.0, 4,
-      rotate_local(glm::make_quat_angle_axis(to_radians(45.0),
-	0.0, 0.0, 1.0),
-	rectangle_split(30, 30,
-	// rectangle_split(1, 1,
-	// rectangle_split(4, 4,
-	  rand_bump(1, 0.8, 0.4, 0.4, 0.4, 0.4, 2.0, 2.0, rnd,
-	    ctx_fill(0), ctx_fill(0), ctx_fill(0)))),
-      rotate_local(glm::make_quat_angle_axis(to_radians(-45.0),
-	0.0, 0.0, 1.0),
-	bump_rec(0.5, 1.0, 1, ctx_fill(0), ctx_fill(0)))));
-  rnd = make_rand_generator(1U);
+    g::regular_polygon(30.0, 4,
+      g::rotate_local(glm::make_quat_angle_axis(pgl::to_radians(45.0),
+        0.0, 0.0, 1.0),
+        g::rectangle_split(30, 30,
+        // g::rectangle_split(1, 1,
+        // g::rectangle_split(4, 4,
+          g::rand_bump(1, 0.8, 0.4, 0.4, 0.4, 0.4, 2.0, 2.0, rnd,
+            g::ctx_fill(0), g::ctx_fill(0), g::ctx_fill(0)))),
+      g::rotate_local(glm::make_quat_angle_axis(pgl::to_radians(-45.0),
+        0.0, 0.0, 1.0),
+        g::bump_rec(0.5, 1.0, 1, g::ctx_fill(0), g::ctx_fill(0)))));
+  rnd = pgl::make_rand_generator(1U);
   pgs.make_vertex_set(tr0_0, "nest",
-    regular_polygon(50.0, 4,
-      rotate_local(glm::make_quat_angle_axis(to_radians(45.0), 0.0, 0.0, 1.0),
-	bump_rec(0.03, 1.0, 1, ctx_fill(0),
-	  rand_bump2(100, 0.5, 0.2, 0.8, 0.05, 0.05, 0.5, 0.5, rnd,
-	    ctx_fill(0),
-	    rand_bump2(30, 10.0, 0.1, 0.2, 0.1, 0.2, 0.2, 0.5, rnd,
-	      ctx_fill(0), ctx_fill(0), ctx_fill(0)),
-	    ctx_fill(0)))),
-      rotate_local(glm::make_quat_angle_axis(to_radians(45.0), 0.0, 0.0, 1.0),
-	bump_rec(0.03, 1.0, 1, ctx_fill(0),
-	  rand_bump2(100, 0.5, 0.2, 0.8, 0.05, 0.05, 0.5, 0.5, rnd,
-	    ctx_fill(0),
-	    rand_bump2(30, 10.0, 0.1, 0.2, 0.1, 0.2, 0.2, 0.5, rnd,
-	      ctx_fill(0), ctx_fill(0), ctx_fill(0)),
-	    ctx_fill(0))))));
-  m = mat4_identity()
+    g::regular_polygon(50.0, 4,
+      g::rotate_local(glm::make_quat_angle_axis(
+        pgl::to_radians(45.0), 0.0, 0.0, 1.0),
+        g::bump_rec(0.03, 1.0, 1, g::ctx_fill(0),
+          g::rand_bump2(100, 0.5, 0.2, 0.8, 0.05, 0.05, 0.5, 0.5, rnd,
+            g::ctx_fill(0),
+            g::rand_bump2(30, 10.0, 0.1, 0.2, 0.1, 0.2, 0.2, 0.5, rnd,
+              g::ctx_fill(0), g::ctx_fill(0), g::ctx_fill(0)),
+            g::ctx_fill(0)))),
+      g::rotate_local(glm::make_quat_angle_axis(pgl::to_radians(45.0), 0.0,
+        0.0, 1.0),
+        g::bump_rec(0.03, 1.0, 1, g::ctx_fill(0),
+          g::rand_bump2(100, 0.5, 0.2, 0.8, 0.05, 0.05, 0.5, 0.5, rnd,
+            g::ctx_fill(0),
+            g::rand_bump2(30, 10.0, 0.1, 0.2, 0.1, 0.2, 0.2, 0.5, rnd,
+              g::ctx_fill(0), g::ctx_fill(0), g::ctx_fill(0)),
+            g::ctx_fill(0))))));
+  m = pgl::mat4_identity()
     .translate(glm::make_vec3(100.0, 100.0, 100.0))
-    .rotate(to_radians(30.0), glm::make_vec3(0.0, 0.0, 1.0));
+    .rotate(pgl::to_radians(30.0), glm::make_vec3(0.0, 0.0, 1.0));
   pgs.make_vertex_set(tr0_0, "nest-multi",
-    regular_polygon(600.0, 4,
-      bump_apply(m, true, hole(),
-	bump_rec_seq(0.2, 1.0, 5, hole(),
-	  rectangle_split(10, 10, ctx_poly_joint("nest")))),
-      hole()));
-  m = mat4_identity()
+    g::regular_polygon(600.0, 4,
+      g::bump_apply(m, true, g::hole(),
+        g::bump_rec_seq(0.2, 1.0, 5, g::hole(),
+          g::rectangle_split(10, 10, g::ctx_poly_joint("nest")))),
+      g::hole()));
+  m = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, 1.0))
-    .rotate(to_radians(10.0), glm::make_vec3(0.0, 0.0, 1.0));
+    .rotate(pgl::to_radians(10.0), glm::make_vec3(0.0, 0.0, 1.0));
   if (false) {
     pgs.make_vertex_set(tr1_0, "bullet",
-      regular_polygon(1.0, 6,
-        bump_apply(m, true,
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height)),
-        bump_apply(m, true,
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
-          ctx_tex3d(1, 0, mi, mx, noatl, tex_height))));
+      g::regular_polygon(1.0, 6,
+        g::bump_apply(m, true,
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height)),
+        g::bump_apply(m, true,
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height),
+          g::ctx_tex3d(1, 0, mi, mx, noatl, tex_height))));
   }
   pgs.make_vertex_set(tr0_0, "bullet",
-    regular_polygon(1.0, 6,
-      bump_apply(m, true, ctx_fill(0), ctx_fill(0)),
-      bump_apply(m, true, ctx_fill(0), ctx_fill(0))));
+    g::regular_polygon(1.0, 6,
+      g::bump_apply(m, true, g::ctx_fill(0), g::ctx_fill(0)),
+      g::bump_apply(m, true, g::ctx_fill(0), g::ctx_fill(0))));
   // 60fps, macosx/linux mbp gt750m
   pgs.make_vertex_set(tr0_0, "bullet-multi",
-    regular_polygon(600.0, 4,
-      rectangle_split(170, 170, ctx_poly_joint("bullet")),
-      hole()));
-  m = mat4_identity()
+    g::regular_polygon(600.0, 4,
+      g::rectangle_split(170, 170, g::ctx_poly_joint("bullet")),
+      g::hole()));
+  m = pgl::mat4_identity()
     .translate(glm::make_vec3(0.0, 0.0, 1.0))
     .rotate(10.0, glm::make_vec3(0.0, 0.0, 1.0)); // FIXME: to_radians?
+  // atlas試験用5角イモ
   pgs.make_vertex_set(tr1_0, "bullet2",
-    regular_polygon(1.0, 5,
-      bump_rec(2.3, 0.8, 1,
-        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)
+    g::regular_polygon(1.0, 5,
+      g::bump_rec(2.3, 0.8, 1,
+        g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
+        g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)
+        /*
+        g::duplicate(
+          g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
+          g::ctx_fill(1)),
+        g::duplicate(
+          g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
+          g::ctx_fill(1))
+        */
         ),
-      bump_rec(3.1, 0.8, 1,
-        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
-        ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)
+      g::bump_rec(3.1, 0.8, 1,
+        g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
+        g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height)
+        /*
+        g::duplicate(
+          g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
+          g::ctx_fill(1)),
+        g::duplicate(
+          g::ctx_tex3d(1, 0, mi_atl, mx_atl, atl, tex_height),
+          g::ctx_fill(1))
+        */
         )));
   if (false) {
     pgs.make_vertex_set(tr0_0, "bullet2",
-      regular_polygon(1.0, 5,
-        bump_rec(2.3, 0.8, 1, ctx_fill(0), ctx_fill(0)),
-        bump_rec(3.1, 0.8, 1, ctx_fill(0), ctx_fill(0))));
+      g::regular_polygon(1.0, 5,
+        g::bump_rec(2.3, 0.8, 1, g::ctx_fill(0), g::ctx_fill(0)),
+        g::bump_rec(3.1, 0.8, 1, g::ctx_fill(0), g::ctx_fill(0))));
   }
-  rnd = make_rand_generator(991U);
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi",
-    rand_sphere(200.0, 37000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 37000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "block-multi2",
-    rand_sphere(500.0, 300, false, true, rnd,
-      ctx_point_joint("block")));
+    g::rand_sphere(500.0, 300, false, true, rnd,
+      g::ctx_point_joint("block")));
   pgs.make_vertex_set(tr0_0, "box-multi",
-    rand_sphere(300.0, 500, false, true, rnd,
-      ctx_point_joint("box")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(300.0, 500, false, true, rnd,
+      g::ctx_point_joint("box")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2",
-    rand_sphere(200.0, 20000, false, true, rnd,
-      ctx_point_joint("bullet2")));
+    g::rand_sphere(200.0, 20000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
   {
-  rnd = make_rand_generator(991U);
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s1",
-    rand_sphere(200.0, 2000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 2000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s2",
-    rand_sphere(200.0, 3000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 3000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s3",
-    rand_sphere(200.0, 4000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 4000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s4",
-    rand_sphere(200.0, 5000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 5000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s5",
-    rand_sphere(200.0, 6000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 6000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s6",
-    rand_sphere(200.0, 7000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 7000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s7",
-    rand_sphere(200.0, 8000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 8000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s8",
-    rand_sphere(200.0, 9000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 9000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s9",
-    rand_sphere(200.0, 10000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 10000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s10",
-    rand_sphere(200.0, 11000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 11000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s11",
-    rand_sphere(200.0, 12000, false, true, rnd,
-      ctx_point_joint("bullet2")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 12000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi2s12",
-    rand_sphere(200.0, 13000, false, true, rnd,
-      ctx_point_joint("bullet2")));
+    g::rand_sphere(200.0, 13000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
   }
-  rnd = make_rand_generator(991U);
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "bullet2-multi3",
-    rand_sphere(50.0, 1000, false, true, rnd,
-      ctx_point_joint("bullet2")));
+    g::rand_sphere(50.0, 1000, false, true, rnd,
+      g::ctx_point_joint("bullet2")));
   pgs.make_vertex_set(tr0_0, "bullet-multi-2",
-    regular_polygon(600.0, 4,
-      rectangle_split(80, 80, ctx_poly_joint("bullet")),
-      hole()));
-  rnd = make_rand_generator(991U);
+    g::regular_polygon(600.0, 4,
+      g::rectangle_split(80, 80, g::ctx_poly_joint("bullet")),
+      g::hole()));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "saucer-multi3",
-    rand_sphere(200.0, 200, false, true, rnd,
-      ctx_point_joint("saucer")));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(200.0, 200, false, true, rnd,
+      g::ctx_point_joint("saucer")));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(tr0_0, "ab-multi3",
-    rand_sphere(100.0, 100, false, true, rnd,
-      ctx_point_joint("airboat")));
-  rnd = make_rand_generator(1U);
+    g::rand_sphere(100.0, 100, false, true, rnd,
+      g::ctx_point_joint("airboat")));
+  rnd = pgl::make_rand_generator(1U);
   pgs.make_vertex_set(parti, "particle",
-    rand_sphere(1.0, 100, true, true, rnd, ctx_fill(0)));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(1.0, 100, true, true, rnd, g::ctx_fill(0)));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(parti, "particle-multi",
-    rand_sphere(60.0, 10000, true, true, rnd,
-      ctx_point_joint("particle")));
-  rnd = make_rand_generator(1U);
+    g::rand_sphere(60.0, 10000, true, true, rnd,
+      g::ctx_point_joint("particle")));
+  rnd = pgl::make_rand_generator(1U);
   pgs.make_vertex_set(parti, "particle-bb",
-    rand_sphere(1.0, 100, true, true, rnd, ctx_fill(0)));
-  rnd = make_rand_generator(991U);
+    g::rand_sphere(1.0, 100, true, true, rnd, g::ctx_fill(0)));
+  rnd = pgl::make_rand_generator(991U);
   pgs.make_vertex_set(parti_bb, "particle-bb-multi",
-    rand_sphere(60.0, 10000, true, true, rnd,
-      ctx_point_joint("particle-bb")));
+    g::rand_sphere(60.0, 10000, true, true, rnd,
+      g::ctx_point_joint("particle-bb")));
   pgs.make_vertex_set(parti_bb, "mixed",
-    regular_polygon(1.0, 5,
-      bump_rec(1.0, 10.0, 1, hole(), ctx_poly_joint("saucer")),
-      ctx_poly_joint("particle-bb")));
+    g::regular_polygon(1.0, 5,
+      g::bump_rec(1.0, 10.0, 1, g::hole(), g::ctx_poly_joint("saucer")),
+      g::ctx_poly_joint("particle-bb")));
   //// for prepass test
   pgs.make_vertex_set(tr0_0, "plane-multi-1",
-    regular_polygon(100.0, 4,
-      bump_rec_seq(0.1, 1.0, 10, hole(), ctx_poly_joint("box")),
-      hole()));
+    g::regular_polygon(100.0, 4,
+      g::bump_rec_seq(0.1, 1.0, 10, g::hole(), g::ctx_poly_joint("box")),
+      g::hole()));
   pgs.make_vertex_set(tr0_0, "plane-multi-2",
-    regular_polygon(100.0, 4,
-      bump_rec_seq(0.1, 1.0, 10, hole(), backside(ctx_poly_joint("box"))),
-      hole()));
+    g::regular_polygon(100.0, 4,
+      g::bump_rec_seq(0.1, 1.0, 10, g::hole(),
+        g::backside(g::ctx_poly_joint("box"))),
+      g::hole()));
   /*
   //// for dynamics test
   pgs.make_vertex_set(tr0_0, "rigidbody-multi",
-    regular_polygon(100.0, 4,
-      rectangle_split(10, 10, ctx_poly_joint("box")),
-      hole()));
+    g::regular_polygon(100.0, 4,
+      g::rectangle_split(10, 10, g::ctx_poly_joint("box")),
+      g::hole()));
   */
 
   //// save default font metrics
@@ -541,86 +573,56 @@ public function void build_vertices(app_data mutable& app,
 }
 
 public function void prepare_vbids(raycast_drawers_info mutable& rdi,
-  make_vertices_i mutable& pgs, int raycast_layer)
+  pgl::make_vertices_i mutable& pgs, int raycast_layer)
 {
+  // raycastレイヤの数だけsubdrawerを用意し、rdi.subdrawer_vbidsにセット。
   rdi.subdrawer_vbids.clear();
-  rdi.subdrawer_vbid_min = 0;
-  rdi.subdrawer_vbid_max = 0;
+  rdi.subdrawer_vbid_to_layer.clear();
   uint const num_subdrawers = static_cast{uint}(raycast_layer);
   for (uint i : 0 .. num_subdrawers) {
     string s = "vbid_triangles_1_" + to_string(i);
-    const vbid = pgs.get_vbid(s);
-    if (vbid == vbid_invalid()) {
+    const vbid = pgs.get_drawer_vbid(s);
+    if (vbid == pgl::vbid_invalid()) {
       break;
     }
-    // debug_log("prepare_vbids: found", s, vbid);
     rdi.subdrawer_vbids.push_back(vbid);
-    if (i == 0u) {
-      rdi.subdrawer_vbid_min = vbid;
-      rdi.subdrawer_vbid_max = vbid;
-    } else {
-      rdi.subdrawer_vbid_min = min(rdi.subdrawer_vbid_min, vbid);
-      rdi.subdrawer_vbid_max = max(rdi.subdrawer_vbid_max, vbid);
+    if (static_cast{size_t}(vbid) >= rdi.subdrawer_vbid_to_layer.size()) {
+      rdi.subdrawer_vbid_to_layer.resize(static_cast{size_t}(vbid) + 1, -1);
     }
-    // debug_log("subdrawer vbid_min_max", rdi.subdrawer_vbid_min,
-    //   rdi.subdrawer_vbid_max);
+    rdi.subdrawer_vbid_to_layer[vbid] = static_cast{int}(i);
   }
-  if (static_cast{size_t}(rdi.subdrawer_vbid_max
-    - rdi.subdrawer_vbid_min + 1) != rdi.subdrawer_vbids.size()) {
-    // 連続したvbidでなければならない。順序はどうてもいい。
-    // そうなるためには、drawerの生成順を気にしなければならない。
-    // 理不尽な制約なので、できれば修正する。
-    debug_log("failed to get subdrawer_vbids");
-    throw runtime_error_template{"subdrawer_vbids"}("1");
-  }
-  // debug_log("prepare_vbids: ", rdi.subdrawer_vbids.size());
+  debug_log("prepare_vbids: subdrawers", rdi.subdrawer_vbids.size());
+  // shape名からjoint_idを返すmapをコピーしてrdi.name_to_joint_idにセット。
   rdi.name_to_joint_id = pgs.get_name_to_joint_id();
-  rdi.vs_radius.clear();
-  for (const& name, const& joint_id: rdi.name_to_joint_id) {
-    cptr{vertices} const vtxs = pgs.get_nonempty_vertices(name);
-    if (!vtxs->vertex_attrs.empty() && vtxs->vertex_attrs[0].is_tconv) {
-      // 半径を計算するために、いったんvoxel_shapeを作る。
-      const voxsh = make_voxel_shape(vtxs->vertex_attrs, vtxs->elements);
-      rdi.vs_radius[joint_id] = voxsh->get_radius();
-    } else {
-      const& p = vtxs->positions;
-      float radius = 0.0f;
-      for (size_t i : 0 .. p.size() / 3) {
-        const oi = i * 3;
-        const vec = glm::make_vec3(p[oi], p[oi+1], p[oi+2]);
-        // debug_log("shape", name, joint_id, "vec", vec);
-        radius = max(radius, glm::length(vec));
-      }
-      // debug_log("shape", name, joint_id, radius);
-      rdi.vs_radius[joint_id] = radius;
-    }
-  }
+  // 各shapeに外接する球の半径を計算し、rdi.vs_radiusにセット。
+  rdi.vs_radius = pgs.get_vs_radius();
 }
 
-threaded function double get_time(io::io const& sys)
+pure function double get_time(core::io::io const& sys)
 {
   const t = sys.high_resolution_timer();
   const d = sys.high_resolution_timer_frequency();
   return static_cast{double}(t) / static_cast{double}(d);
 }
 
-threaded function float time_diff(double t0, double t1)
+pure function float time_diff(double t0, double t1)
 {
   return static_cast{float}(t1 - t0);
 }
 
-threaded struct app_scene(node_factory const& nodefac0,
+threaded struct app_scene(pgl::node_factory const& nodefac0,
   collision_shape_data_array const& shapes0,
-  tptr{tiled_voxel_texture} const& tvt0, tptr{texture_updates} const& tup0,
-  io::io const& sys0)
-  <pgl3d_scene>
+  tptr{pgl::tiled_voxel_texture} const& tvt0,
+  tptr{pgl::texture_updates} const& tup0, core::io::io const& sys0)
+  <pgl::pgl3d_scene>
 {
   public scene_control sctl = scene_control(nodefac0, shapes0, tvt0, tup0);
-  public io::io sys = sys0;
+  public core::io::io sys = sys0;
   public string timings;
   public raycast_objects robjs;
-  private function void update_camera_light(position_angle mutable& camera,
-    position_angle mutable& light, glm::vec2 const& light_val)
+  private function void update_camera_light(
+    pgl::position_angle mutable& camera,
+    pgl::position_angle mutable& light, glm::vec2 const& light_val)
   {
     light.position = camera.position + glm::make_vec3(0.0, 0.0, 0.0);
     light.angle = (
@@ -630,17 +632,17 @@ threaded struct app_scene(node_factory const& nodefac0,
   }
   public function void on_motion_step(float frame_speed,
     cstrref const& status_message,
-    cslice{prepare_instance_data_funcptr} const& ftable,
-    whole_instances_type mutable& whole_instances,
-    pgl3d_scene_shared mutable& ss)
+    cslice{pgl::prepare_instance_data_funcptr} const& ftable,
+    pgl::instances_all_format mutable& insts_allfmt,
+    pgl::pgl3d_scene_shared mutable& ss)
   {
     // motion thread上でフレーム毎に呼ばれる。物理を1ステップ実行し、
     // オブジェクトの位置とカメラ位置などから表示オブジェクトのインスタンス
     // データを作る。インスタンスデータはftableのエントリ関数
     const t0 = get_time(sys);
     mutable& dss = downcast_mutable{app_scene_shared}(ss);
-    // const t0 = io::debug_system().gettimeofday_double();
-    projection_info mutable& pj = dss.pj_drawing_frame;
+    // const t0 = core::io::debug_system().gettimeofday_double();
+    pgl::projection_info mutable& pj = dss.pj_drawing_frame;
     pj.camera = dss.posang;
     update_camera_light(pj.camera, pj.light, dss.light);
     pj.view = pj.camera.to_mat4().inverse();
@@ -648,11 +650,12 @@ threaded struct app_scene(node_factory const& nodefac0,
     pj.exposure = dss.exposure;
     pj.option_value = static_cast{float}(dss.option_value);
     pj.option_value2 = static_cast{float}(dss.option_value2);
+    pj.option_value3 = static_cast{float}(dss.option_value3);
     // dss.pj_drawing_frame = pj; // これを介してmainスレッドのdrawersに反映
     const sm_view = pj.light.to_mat4().inverse();
     // const sm_vp = pj.sm_projection * sm_view;
     const& vp = pj.view_projection;
-    node_common_data ncd;
+    pgl::node_common_data ncd;
     // ncd.shadowmapping_vp = sm_vp; // FIXME: remove: unused
     ncd.vp = vp;
     scene_control_update_buttons(sctl, sctl.node_buttons);
@@ -663,40 +666,40 @@ threaded struct app_scene(node_factory const& nodefac0,
     {
       farray{string, 2} msg;
       msg[0] = string_join{" "}("O:", sctl.sco.dworld.rigid_bodies_size(),
-	swarm_total, status_message, "T:", timings);
+        swarm_total, status_message, "T:", timings);
       if (!dss.engine_status) {
-	msg[0] = "RELOADING SHADER FAILED";
+        msg[0] = "RELOADING SHADER FAILED";
         msg[1] = "";
       } else {
         msg[1] = dss.app_status_message;
       }
       scene_control_set_message(sctl, sctl.node_status_message, msg,
-	0, 0,
-	dss.default_font_texture_info.char_w,
-	dss.default_font_texture_info.char_h,
-	static_cast{float}(pj.display_width),
-	static_cast{float}(pj.display_height));
+        0, 0,
+        dss.default_font_texture_info.char_w,
+        dss.default_font_texture_info.char_h,
+        static_cast{float}(pj.display_width),
+        static_cast{float}(pj.display_height));
     }
     const t1 = get_time(sys);
     robjs.set_perspective(pj.camera_pers);
     robjs.clear_objects();
     scene_control_step(sctl, dss, robjs, pj, frame_speed, ncd, ftable,
-      whole_instances);
+      insts_allfmt);
       // 物理エンジンを使ったオブジェクトの移動とインスタンス出力。大きな
       // raycastオブジェクトはここではrobjsに入れておき、後でソートしてから
       // インスタンス出力する。
-    robjs.prepare_instances(ncd, dss.rdi, ftable, whole_instances);
+    robjs.prepare_instances(ncd, dss.rdi, ftable, insts_allfmt);
       // 大きなraycastシェーダの重ね合わせを決定してインスタンス出力
     const t2 = get_time(sys);
     prepare_instance_data_ft_rec(ncd, sctl.node_status_message, ftable,
-      whole_instances);
+      insts_allfmt);
       // node_status_messageのインスタンス出力
     const t3 = get_time(sys);
     prepare_instance_data_ft_rec(ncd, sctl.node_buttons, ftable,
-      whole_instances);
+      insts_allfmt);
       // node_buttonsのインスタンス出力
     const t4 = get_time(sys);
-    prepare_instance_data_lp(ncd, ftable, whole_instances);
+    prepare_instance_data_lp(ncd, ftable, insts_allfmt);
       // lpのインスタンス出力
     const t5 = get_time(sys);
     timings = string_join{" "}(
@@ -706,39 +709,40 @@ threaded struct app_scene(node_factory const& nodefac0,
     // debug_log("timings", timings);
   }
   private function size_t prepare_instance_data_ft_rec(
-    node_common_data mutable& ncd,
-    scene_node const& sn,
-    cslice{prepare_instance_data_funcptr} const& ftable,
-    whole_instances_type mutable& whole_instances)
+    pgl::node_common_data mutable& ncd,
+    pgl::scene_node const& sn,
+    cslice{pgl::prepare_instance_data_funcptr} const& ftable,
+    pgl::instances_all_format mutable& insts_allfmt)
   {
     size_t r = 0;
     const& vbid = sn.joint_id.vbid;
     const& vsid = sn.joint_id.vsid;
-    if (vbid != vbid_invalid() && vsid != vsid_invalid()) {
+    if (vbid != pgl::vbid_invalid() && vsid != pgl::vsid_invalid()) {
       ++r;
-      mutable& idata = whole_instances[vbid][vsid];
-      // debug_log("prepare_instance_data_ft_rec instance vbid=", vbid);
+      mutable& idata = insts_allfmt[vbid][vsid];
+      debug_instance("prepare_instance_data_ft_rec instance vbid=", vbid);
       ftable[vbid](sn, ncd, idata);
     }
     for (const i, const& snp: sn.children) {
-      r += prepare_instance_data_ft_rec(ncd, snp, ftable, whole_instances);
+      r += prepare_instance_data_ft_rec(ncd, snp, ftable,
+        insts_allfmt);
     }
     return r;
   }
   private function void prepare_instance_data_lp(
-    node_common_data mutable& ncd,
-    cslice{prepare_instance_data_funcptr} const& ftable,
-    whole_instances_type mutable& whole_instances)
+    pgl::node_common_data mutable& ncd,
+    cslice{pgl::prepare_instance_data_funcptr} const& ftable,
+    pgl::instances_all_format mutable& insts_allfmt)
   {
-    // FIXME: 
+    // FIXME:
     const vbid = sctl.joint_id_lp.vbid;
     const vsid = sctl.joint_id_lp.vsid;
-    mutable& idata = whole_instances[vbid][vsid];
+    mutable& idata = insts_allfmt[vbid][vsid];
     for (const k, const& lpbsw: sctl.lpbullet_swarms) {
       const& lparr = lpbsw->lparr;
       for (const i, const& lpb: lparr) {
-	const sli = lpb.value.crange();
-	idata.instance_buffer.append(sli[0 .. 9]);
+        const sli = lpb.value.crange();
+        idata.instance_buffer.append(sli[0 .. 9]);
       }
     }
   }
@@ -758,7 +762,7 @@ function varray{float} reduce_vertices(cslice{float} const& shape, float delta)
       const dy = a[oj + 1] - vec.y;
       const dz = a[oj + 2] - vec.z;
       if (fabs(dx) + fabs(dy) + fabs(dz) < delta) {
-	break;
+        break;
       }
     }
     if (j == asz) {
@@ -768,14 +772,14 @@ function varray{float} reduce_vertices(cslice{float} const& shape, float delta)
   return a;
 }
 
-metafunction node scene_node;
+metafunction node pgl::scene_node;
 
-threaded function node make_node()
+pure function node make_node()
 {
-  return scene_node(joint_id_type(), mat4_identity());
+  return pgl::scene_node(pgl::joint_id_type(), pgl::mat4_identity());
 }
 
-tsvaluetype struct lpbullet_data {
+pure tsvaluetype struct lpbullet_data {
   public farray{float, 9} value;
   public function glm::vec3 get_pos0() const {
     return glm::make_vec3(value[0], value[1], value[2]);
@@ -814,23 +818,24 @@ tsvaluetype struct lpbullet_data {
 }
 
 threaded struct
-collision_shape_ptr(ptr{collision_shape_i} const& ptr0, float mass0)
+collision_shape_ptr(ptr{pgl::collision_shape_i} const& ptr0, float mass0)
 {
-  public ptr{collision_shape_i} shape_ptr = ptr0;
+  public ptr{pgl::collision_shape_i} shape_ptr = ptr0;
   public float mass = mass0;
 }
 
 threaded struct
 scene_objects(collision_shape_data_array const& shape0, size_t num_split0,
-  tptr{tiled_voxel_texture} const& tvt0, tptr{texture_updates} const& tup0)
+  tptr{pgl::tiled_voxel_texture} const& tvt0,
+  tptr{pgl::texture_updates} const& tup0)
 {
-  public dynamics_world dworld = dynamics_world(num_split0, tvt0->tmap_edit,
-    tup0);
+  public pgl::dynamics_world dworld = pgl::dynamics_world(num_split0,
+    tvt0->tmap_edit, tup0);
   public tree_map{string, collision_shape_ptr} shapes_by_name;
-  public tree_map{joint_id_type, collision_shape_ptr} shapes_by_id;
-  public tree_map{string, joint_id_type} name_to_joint_id;
+  public tree_map{pgl::joint_id_type, collision_shape_ptr} shapes_by_id;
+  public tree_map{string, pgl::joint_id_type} name_to_joint_id;
   add_collision_shapes(shape0);
-  public function void clear_objects() 
+  public function void clear_objects()
   {
     dworld.clear();
     dworld.set_gravity(0.0f, 0.0f, 0.0f);
@@ -852,41 +857,42 @@ scene_objects(collision_shape_data_array const& shape0, size_t num_split0,
     const& va = sh.vattrs;
     const& e = sh.elements;
     const mass = sh.mass;
-    function ptr{collision_shape_i} get_shape() {
+    function ptr{pgl::collision_shape_i} get_shape() {
       if (sh.shape == collision_shape_e_sphere) {
-	return make_sphere_shape(v, e);
+        return pgl::make_sphere_shape(v, e);
       } else if (sh.shape == collision_shape_e_box) {
-	return make_box_shape(v, e);
+        return pgl::make_box_shape(v, e);
       } else if (sh.shape == collision_shape_e_convex_hull) {
-	return make_convex_hull_shape(v, e);
+        return pgl::make_convex_hull_shape(v, e);
       } else if (sh.shape == collision_shape_e_concave) {
-	return make_triangle_mesh_shape(v, e);
+        return pgl::make_triangle_mesh_shape(v, e);
       } else if (sh.shape == collision_shape_e_voxel) {
-	return make_voxel_shape(va, e);
+        return pgl::make_voxel_shape(va, e);
       } else {
-	throw runtime_error_template{"get_shape"}("1");
+        throw runtime_error_template{"get_shape"}("1");
       }
     }
     add_collision_shape_one(name, joint_id, get_shape(), mass);
   }
   private function void add_collision_shape_one(string const& name,
-    joint_id_type const& id, ptr{collision_shape_i} const& sh,
+    pgl::joint_id_type const& id, ptr{pgl::collision_shape_i} const& sh,
     float mass)
   {
     const csp = collision_shape_ptr(sh, mass);
     shapes_by_name.insert(name, csp);
     shapes_by_id.insert(id, csp);
   }
-  public function option{ptr{rigid_body_i}} add_collision_object(
-    scene_node const& sn)
+  public function option{ptr{pgl::rigid_body_i}} add_collision_object(
+    pgl::scene_node const& sn)
   {
-    option{ptr{rigid_body_i}} r;
+    option{ptr{pgl::rigid_body_i}} r;
     if (sn.joint_id.vsid < 0) {
       return r;
     }
     if (const& shape: shapes_by_id[sn.joint_id]) {
       const& t = sn.trans.value.to_cslice();
-      const rb = make_rigid_body(sn.joint_id, shape.shape_ptr, shape.mass, t);
+      const rb = pgl::make_rigid_body(sn.joint_id, shape.shape_ptr,
+        shape.mass, t);
       dworld.add_rigid_body(rb);
       r.some = rb;
       return r;
@@ -896,7 +902,7 @@ scene_objects(collision_shape_data_array const& shape0, size_t num_split0,
 }
 
 multithreaded struct
-lpbullet_swarm <swarm_i>
+lpbullet_swarm <pgl::swarm_i>
 {
   public varray{lpbullet_data} lparr;
   public function size_t size() const { return lparr.size(); }
@@ -933,28 +939,29 @@ lpbullet_swarm <swarm_i>
     {
       return lpb.get_step() > lpb.get_step_limit();
     }
-    erase_cond{lp_is_finished}(lparr);
+    pgl::erase_cond{lp_is_finished}(lparr);
   }
 }
 
 threaded struct
-scene_control(node_factory const& nfac,
+scene_control(pgl::node_factory const& nfac,
   collision_shape_data_array const& shapes0,
-  tptr{tiled_voxel_texture} const& tvt0, tptr{texture_updates} const& tup0)
+  tptr{pgl::tiled_voxel_texture} const& tvt0,
+  tptr{pgl::texture_updates} const& tup0)
 {
   public size_t const num_split = 3;
-  public node_factory nodefac = nfac;
+  public pgl::node_factory nodefac = nfac;
   public bool scene_paused = false;
   public float prev_spawn = 0.0;
-  public joint_id_type joint_id_lp =
+  public pgl::joint_id_type joint_id_lp =
     nodefac.get_joint_id_by_name("lineparticle");
-  public joint_id_type joint_id_font =
+  public pgl::joint_id_type joint_id_font =
     nodefac.get_joint_id_by_name("default_font");
-  public joint_id_type joint_id_rect2d =
+  public pgl::joint_id_type joint_id_rect2d =
     nodefac.get_joint_id_by_name("rect2d");
-  public joint_id_type joint_id_dbgui =
+  public pgl::joint_id_type joint_id_dbgui =
     nodefac.get_joint_id_by_name_notrw("dbgui");
-  public joint_id_type joint_id_dbgui2 =
+  public pgl::joint_id_type joint_id_dbgui2 =
     nodefac.get_joint_id_by_name_notrw("dbgui2");
   public size_t cur_scene = 0;
   public varray{tptr{lpbullet_swarm}} lpbullet_swarms;
@@ -1015,7 +1022,7 @@ scene_control(node_factory const& nfac,
   private function node instantiate_cur_scene()
   {
     const name = scene_names[cur_scene];
-    mutable r = nodefac.make_node_by_name(name, mat4_identity());
+    mutable r = nodefac.make_node_by_name(name, pgl::mat4_identity());
     sco.clear_objects();
     for (const i, const& lpbsw: lpbullet_swarms) {
       sco.dworld.add_swarm(lpbsw, i);
@@ -1023,24 +1030,24 @@ scene_control(node_factory const& nfac,
     if (r.children.empty()) {
       sco.add_collision_object(r);
     } else {
-      mutable rnd = make_rand_generator(1U);
+      mutable rnd = pgl::make_rand_generator(1U);
       // if (cur_scene == 0) {
       //   const ch = r.children[1];
       //   const rb = sco.add_collision_object(ch).some;
       //   rb->apply_central_impulse(1.0f, 0.0f, 0.0f);
       // } else
       {
-	for (const i, const& ch: r.children) {
-	  const rb = sco.add_collision_object(ch).some;
-	  rb->apply_torque_impulse(
-	    rnd->generate_float() * 10.0f - 5.0f,
-	    rnd->generate_float() * 10.0f - 5.0f,
-	    rnd->generate_float() * 10.0f - 5.0f);
-	  rb->apply_central_impulse(
-	    rnd->generate_float() * 10.0f - 5.0f,
-	    rnd->generate_float() * 10.0f - 5.0f,
-	    rnd->generate_float() * 10.0f - 5.0f);
-	}
+        for (const i, const& ch: r.children) {
+          const rb = sco.add_collision_object(ch).some;
+          rb->apply_torque_impulse(
+            rnd->generate_float() * 10.0f - 5.0f,
+            rnd->generate_float() * 10.0f - 5.0f,
+            rnd->generate_float() * 10.0f - 5.0f);
+          rb->apply_central_impulse(
+            rnd->generate_float() * 10.0f - 5.0f,
+            rnd->generate_float() * 10.0f - 5.0f,
+            rnd->generate_float() * 10.0f - 5.0f);
+        }
       }
     }
     return r;
@@ -1056,7 +1063,7 @@ scene_control(node_factory const& nfac,
 
 threaded function void
 scene_control_set_message(scene_control mutable& sctl,
-  scene_node mutable& sn_text,
+  pgl::scene_node mutable& sn_text,
   cslice{string} const& msg, uint x, uint y, uint font_width, uint font_height,
   float screen_w, float screen_h)
 {
@@ -1068,7 +1075,7 @@ scene_control_set_message(scene_control mutable& sctl,
       n += s.size();
     }
     while (nd.children.size() < n) {
-      const p = scene_node(sctl.joint_id_font, mat4_identity());
+      const p = pgl::scene_node(sctl.joint_id_font, pgl::mat4_identity());
       nd.children.push_back(p);
     }
     if (nd.children.size() > n) {
@@ -1079,13 +1086,13 @@ scene_control_set_message(scene_control mutable& sctl,
     for (const k, mutable& p: nd.children) {
       const& sli = p.trans.value.to_slice();
       while (mj >= msg[mi].size() && mi < msg.size()) {
-	y += font_height;
-	++mi;
-	mj = 0;
-	x = x0;
+        y += font_height;
+        ++mi;
+        mj = 0;
+        x = x0;
       }
       if (mi >= msg.size()) {
-	break;
+        break;
       }
       sli[0] = static_cast{float}((msg[mi][mj] & 0x7f) - 0x20);
       sli[1] = msg[mi][mj] >= 0x80 ? 1.0f : 0.0f; // 反転フラグ
@@ -1099,13 +1106,13 @@ scene_control_set_message(scene_control mutable& sctl,
 
 threaded function void
 scene_control_update_buttons(scene_control mutable& sctl,
-  scene_node mutable& sn_buttons)
+  pgl::scene_node mutable& sn_buttons)
 {
   //// box
   mutable& nd = sn_buttons;
-  if (sctl.joint_id_dbgui.vbid != vbid_invalid()) { // dbgui is enabled
+  if (sctl.joint_id_dbgui.vbid != pgl::vbid_invalid()) { // dbgui is enabled
     if (nd.children.size() < 2) {
-      mutable p = scene_node(sctl.joint_id_dbgui, mat4_identity());
+      mutable p = pgl::scene_node(sctl.joint_id_dbgui, pgl::mat4_identity());
       // dbgui 左下
       const& sli = p.trans.value.to_slice();
       sli[0] = -0.9f;
@@ -1115,7 +1122,7 @@ scene_control_update_buttons(scene_control mutable& sctl,
       nd.children.push_back(p);
     }
     if (nd.children.size() < 3) {
-      mutable p = scene_node(sctl.joint_id_dbgui2, mat4_identity());
+      mutable p = pgl::scene_node(sctl.joint_id_dbgui2, pgl::mat4_identity());
       // dbgui2 全面に描画
       const& sli = p.trans.value.to_slice();
       sli[0] = -1.0f;
@@ -1130,10 +1137,10 @@ scene_control_update_buttons(scene_control mutable& sctl,
 threaded function void
 scene_control_step(scene_control mutable& sctl,
   app_scene_shared const& ss, raycast_objects mutable& robjs,
-  projection_info const& pjinfo,
-  float frame_speed, node_common_data mutable& ncd,
-  cslice{prepare_instance_data_funcptr} const& ftable,
-  whole_instances_type mutable& whole_instances)
+  pgl::projection_info const& pjinfo,
+  float frame_speed, pgl::node_common_data mutable& ncd,
+  cslice{pgl::prepare_instance_data_funcptr} const& ftable,
+  pgl::instances_all_format mutable& insts_allfmt)
 {
   if (ss.scene_next != 0) {
     sctl.scene_next(ss.scene_next);
@@ -1155,8 +1162,8 @@ scene_control_step(scene_control mutable& sctl,
     size_t min_lpsw = sctl.lpbullet_swarms.size();
     for (const i, const& lpbsw: sctl.lpbullet_swarms) {
       if (lpbsw->size() < min_n) {
-	min_lpsw = i;
-	min_n = lpbsw->size();
+        min_lpsw = i;
+        min_n = lpbsw->size();
       }
     }
     if (min_n >= lim) {
@@ -1179,22 +1186,24 @@ scene_control_step(scene_control mutable& sctl,
     }
     return;
   }
-  scene_node sn_work = make_node();
-  function void prepare_one(scene_node const& sn)
+  pgl::scene_node sn_work = make_node();
+  function void prepare_one(pgl::scene_node const& sn)
   {
+    debug_instance("scene_control_step prepare_one", sn.joint_id);
     const vbid = sn.joint_id.vbid;
     const vsid = sn.joint_id.vsid;
-    if (vbid != vbid_invalid() && vsid != vsid_invalid()) {
-      if (ss.raycast_layer != 0 && vbid >= ss.rdi.subdrawer_vbid_min &&
-	vbid <= ss.rdi.subdrawer_vbid_max) {
-	// debug_log("scene_control_step push robj vbid=", vbid);
-	if (robjs.push_object(ss.rdi, pjinfo, sn)) {
-	  // robjsにpushされた。あとでソートしてからインスタンス生成する。
-	  return;
-	}
+    if (vbid != pgl::vbid_invalid() && vsid != pgl::vsid_invalid()) {
+      // if (ss.raycast_layer != 0 && vbid >= ss.rdi.subdrawer_vbid_min &&
+      //  vbid <= ss.rdi.subdrawer_vbid_max) {
+      if (ss.raycast_layer != 0 && ss.rdi.get_subdrawer_layer(vbid) >= 0) {
+        // debug_log("scene_control_step push robj vbid=", vbid);
+        if (robjs.push_object(ss.rdi, pjinfo, sn)) {
+          // robjsにpushされた。あとでソートしてからインスタンス生成する。
+          return;
+        }
       }
-      mutable& idata = whole_instances[vbid][vsid];
-      // debug_log("scene_control_step prepare_one vbid,vsid=", vbid, vsid);
+      mutable& idata = insts_allfmt[vbid][vsid];
+      debug_instance("scene_control_step prepare_one vbid,vsid=", vbid, vsid);
       ftable[vbid](sn, ncd, idata);
     }
   }
@@ -1205,22 +1214,22 @@ scene_control_step(scene_control mutable& sctl,
     const timestep_inv = static_cast{float}(physics_fps);
     if (!sctl.scene_paused) {
       if (spawn_obj) {
-	const a = ss.posang.angle * glm::make_vec3(0.0f, 0.0f, -1.0f);
-	mutable posang = ss.posang;
-	posang.position += a * 0.1f;
-	scene_node cnode = scene_node(
-	  sctl.sco.name_to_joint_id["smallbox"], posang.to_mat4());
-	const& pos_delta = ss.pos_delta;
-	const rb = sctl.sco.add_collision_object(cnode).some;
-	// debug_log("pos_delta", pos_delta);
-	rb->set_linear_velocity(
-	  pos_delta.x * timestep_inv,
-	  pos_delta.y * timestep_inv,
-	  pos_delta.z * timestep_inv);
-	  // playerの速度を初速にする
-	rb->apply_central_impulse(a.x, a.y, a.z);
-	  // 向いている方向にさらにimpulseを加える
-	// debug_log("spawn_obj", sctl.sco.dworld.objects_size());
+        const a = ss.posang.angle * glm::make_vec3(0.0f, 0.0f, -1.0f);
+        mutable posang = ss.posang;
+        posang.position += a * 0.1f;
+        pgl::scene_node cnode = pgl::scene_node(
+          sctl.sco.name_to_joint_id["smallbox"], posang.to_mat4());
+        const& pos_delta = ss.pos_delta;
+        const rb = sctl.sco.add_collision_object(cnode).some;
+        // debug_log("pos_delta", pos_delta);
+        rb->set_linear_velocity(
+          pos_delta.x * timestep_inv,
+          pos_delta.y * timestep_inv,
+          pos_delta.z * timestep_inv);
+          // playerの速度を初速にする
+        rb->apply_central_impulse(a.x, a.y, a.z);
+          // 向いている方向にさらにimpulseを加える
+        // debug_log("spawn_obj", sctl.sco.dworld.objects_size());
       }
     }
     sctl.sco.dworld.step_simulation(sctl.scene_paused, speed * timestep, 1,
@@ -1228,34 +1237,35 @@ scene_control_step(scene_control mutable& sctl,
     {
       // 大オブジェクトに小オブジェクトが衝突した。とりあえず小オブジェクト
       // を消すようにしておく。後で修正。 TODO
-      varray{ptr{rigid_body_i}} rb_to_remove;
-      function void remove_if(size_t i, ptr{rigid_body_i} const& obj)
+      varray{ptr{pgl::rigid_body_i}} rb_to_remove;
+      function void remove_if(size_t i, ptr{pgl::rigid_body_i} const& obj)
       {
-	if (obj->get_collide()) {
-	  rb_to_remove.push_back(obj);
-	}
+        if (obj->get_collide()) {
+          rb_to_remove.push_back(obj);
+        }
       }
       sctl.sco.dworld.rigid_bodies_foreach{remove_if}();
       for (const i, const& rb: rb_to_remove) {
-	sctl.sco.dworld.remove_rigid_body(rb);
+        sctl.sco.dworld.remove_rigid_body(rb);
       }
     }
-    scene_node cursn = scene_node(joint_id_type(), mat4_identity());
-    function void step_obj(size_t i, ptr{rigid_body_i} const& obj)
+    pgl::scene_node cursn = pgl::scene_node(pgl::joint_id_type(),
+      pgl::mat4_identity());
+    function void step_obj(size_t i, ptr{pgl::rigid_body_i} const& obj)
     {
       cursn.joint_id = obj->get_joint_id();
       obj->get_world_transform_mat4(cursn.trans.value);
       prepare_one(cursn);
       if (!sctl.scene_paused && spawn_lp_flag) {
-	spawn_lp_one(cursn.trans.value, 200.0f, 1.0f);
+        spawn_lp_one(cursn.trans.value, 200.0f, 1.0f);
       }
     }
     sctl.sco.dworld.rigid_bodies_foreach{step_obj}();
     if (sctl.scene_paused && spawn_lp_flag) {
       mutable posang = ss.posang;
       posang.position += posang.angle * glm::make_vec3(0.0f, 5.0f, -5.0f);
-      posang.angle *= glm::make_quat_angle_axis(to_radians(-90.0f),
-	1.0f, 0.0f, 0.0f);
+      posang.angle *= glm::make_quat_angle_axis(pgl::to_radians(-90.0f),
+        1.0f, 0.0f, 0.0f);
       const m = posang.to_mat4();
       spawn_lp_one(m, 10000.0f, 0.1f);
     }

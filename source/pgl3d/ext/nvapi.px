@@ -1,6 +1,6 @@
 public namespace pgl3d::ext::nvapi "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 
 nvapi_init();
 
@@ -93,6 +93,7 @@ nvapi_mem_usage(pxcrt::bt_uint idx)
 pxcrt::bt_int
 nvapi_gpu_usage(pxcrt::bt_uint idx)
 {
+  // TODO: たまに極端に遅いことがある(windows)
   if (idx >= num_physical_gpus) {
     return -1;
   }

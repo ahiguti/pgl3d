@@ -1,13 +1,13 @@
 public threaded namespace pgl3d::texture::atlas;
-public import common -;
+public import core::common -;
 public import glm -;
-public import meta m;
+public import core::meta m;
 public import pgl3d::texture::texture -;
 public import pgl3d::engine::util -;
 
 metafunction debug_size 1;
 
-public multithreaded struct atlas_entry {
+public pure mtvaluetype struct atlas_entry {
   public glm::vec3 position; // テクスチャ座標での始点座標(padding内側)
   public glm::uvec3 uposition_pad; // タイルマップ上の始点座標(padding含む)
   public glm::vec3 size; // テクスチャ座標での大きさ(padding内側)
@@ -17,7 +17,7 @@ public multithreaded struct atlas_entry {
   public float height; // テクスチャ座標でのデータ生成範囲高さ(TODO)
 }
 
-public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
+public pure multithreaded struct atlas /* (uvec3 tmap_size0) */ {
   private uvec3 tmap_size;
     // テクスチャのブロック単位の大きさ。xyz軸がそれぞれ2の冪。
   private uint tmap_size_max;
@@ -123,7 +123,7 @@ public multithreaded struct atlas /* (uvec3 tmap_size0) */ {
   }
 }
 
-private threaded function pair{vec2, vec2}
+private pure function pair{vec2, vec2}
 aabb_add_padding(pair{vec2, vec2} const& aabb0, float padding)
 {
   mutable aabb = aabb0;
@@ -132,7 +132,7 @@ aabb_add_padding(pair{vec2, vec2} const& aabb0, float padding)
   return aabb;
 }
 
-private threaded function pair{vec2, vec2} calc_aabb(cslice{vec2} const& vs)
+private pure function pair{vec2, vec2} calc_aabb(cslice{vec2} const& vs)
 {
   vec2 mi = vs[0];
   vec2 mx = vs[0];

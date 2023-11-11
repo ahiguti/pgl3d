@@ -1,6 +1,6 @@
 private threaded namespace pgl3d::edit_mode::fill_fillings;
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import glm -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::texture -;
@@ -11,8 +11,9 @@ private import pgl3d::engine::util -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::tiled_texture_edit_view -;
+private import pgl3d::edit_mode::pattern_save_data -;
 
-private function {t} bool
+private pure function {t} bool
 has_floor(t const& tex, uvec3 const& pos, uvec3 const& sz)
 {
   bool r = true;
@@ -25,7 +26,7 @@ has_floor(t const& tex, uvec3 const& pos, uvec3 const& sz)
   return r;
 }
 
-private function {t} bool
+private pure function {t} bool
 has_space(t const& tex, uvec3 const& pos, uvec3 const& sz)
 {
   bool r = true;
@@ -38,45 +39,39 @@ has_space(t const& tex, uvec3 const& pos, uvec3 const& sz)
   return r;
 }
 
-public function void
-fill_fillings_range(tiled_texture_edit_view mutable& ttev,
+public pure function void
+fill_fillings_range(varray{subtexture_with_filling} const& fillsubs,
   subtexture mutable& cp, ptr{rand_generator} const& rndp)
 {
   if (cp.copy_size.z < 2u) {
     return;
   }
   debug_log("fill_fillings_range");
-  const fills = ttev.get_fillings();
-  varray{filling} single_fills; // fillsのうち1x1x1のもの
-  varray{filling} multi_fills; // 1x1x1以外のもの
+  varray{size_t} single_fills; // fillsのうち1x1x1のもの
+  varray{size_t} multi_fills; // 1x1x1以外のもの
+  varray{size_t} wire_fills; // 線状
   farray{uint, 9} sz_single;
   sz_single[1] = 1;
   sz_single[4] = 1;
   sz_single[7] = 1;
-  for (size_t i, const& fi: fills) {
-    if (fi.sizes == sz_single) {
-      // 1x1x1サイズのfillspace種として登録
-      single_fills.push_back(fi);
-    } else {
-      if (!fi.is_seed_filling()) {
-        // 1x1x1以外のfillspace種として登録
-        multi_fills.push_back(fi);
-      }
-      /*
-      const& s = fi.sizes;
-      const sz = fi.size();
-      const large = (sz.x > 10 || sz.y > 10 || sz.z > 10);
-        // 大きい
-      const diag = (s[0] != 0 || s[2] != 0 || s[3] != 0 || s[5] != 0 ||
-        s[6] != 0 || s[8] != 0);
-        // 角ボクセルが0以外の大きさを持っている
-      if (large || !diag) {
-        // このfillingはfilling生成種なので除外する
+  for (size_t i, const& fi: fillsubs) {
+    if (fi.fdata.fsort == filling_sort_wire) {
+      if (fi.fdata.size() == make_uvec3(1u, 5u, 1u)) {
+        wire_fills.push_back(i);
+        debug_log("wire_fill", fi.fdata);
       } else {
-        // 1x1x1以外のfillspace種として登録
-        multi_fills.push_back(fi);
+        debug_log("fill_fillings_range: malformed wire pattern", fi.fdata);
       }
-      */
+    } else {
+      if (fi.fdata.sizes == sz_single) {
+        // 1x1x1サイズのfillspace種として登録
+        single_fills.push_back(i);
+      } else {
+        if (!fi.fdata.is_seed_filling()) {
+          // 1x1x1以外のfillspace種として登録
+          multi_fills.push_back(i);
+        }
+      }
     }
   }
   debug_log("single", single_fills.size(), "multi", multi_fills.size());
@@ -87,6 +82,9 @@ fill_fillings_range(tiled_texture_edit_view mutable& ttev,
   mutable& tex = cp.tex[0];
   const sz = cp.copy_size - make_uvec3(0, 0, 1);
     // テクスチャのサイズからzだけ1を引いたもの
+  if (!wire_fills.empty()) {
+    fill_wire(wire_fills, 5); // FIXME: 100くらい？
+  }
   if (!multi_fills.empty()) {
     size_t num_multi = 10000;
     fill_multi(multi_fills, 10000, make_uvec3(5, 5, 3));
@@ -94,17 +92,191 @@ fill_fillings_range(tiled_texture_edit_view mutable& ttev,
   if (!single_fills.empty()) {
     fill_multi(single_fills, 10000, make_uvec3(1, 1, 1));
   }
-  function void fill_multi(varray{filling} const& fills, size_t num,
+  function void fill_wire(varray{size_t} const& idxs, size_t num) {
+    // FIXME: test
+    for (const iter: 0 .. num) {
+      const i = rndp->generate() % static_cast{uint}(idxs.size());
+      const& fi_subtex = fillsubs[idxs[i]];
+      const& fi = fi_subtex.fdata;
+      const szx = cp.copy_size.x;
+      const szy = cp.copy_size.y;
+      varray{uint} vm; // Cpの書き込み対象位置に印をつける
+      vm.resize(szx * szy, 0u);
+      function void vmset(uint x, uint y, uint v) {
+        if (x >= szx || y >= szy) {
+          return;
+        }
+        vm[y * szx + x] = v;
+        debug_log("vmset", x, y, v);
+      }
+      function uint vmget(uint x, uint y) {
+        if (x >= szx || y >= szy) {
+          return 0u;
+        }
+        return vm[y * szx + x];
+      }
+      // vmの書き込み可能な場所に0x01を書き込む
+      for (const x: 0 .. szx) {
+        for (const y: 0 .. szy) {
+          const rpos = make_uvec3(x, y, 1);
+          const floor_pos = make_uvec3(x, y, 0);
+          if (has_floor(cp.tex[0], floor_pos, make_uvec3(1u, 1u, 1u))
+            && has_space(cp.tex[0], rpos, make_uvec3(1u, 1u, 1u))) {
+            vmset(x, y, 0x1u);
+          }
+        }
+      }
+      const rep = 2u; // FIXME: rndp->generate() % 3u;
+      mutable pos = make_uvec2(rndp->generate() % szx, rndp->generate() % szy);
+      if (vmget(pos.x, pos.y) != 0) {
+        vmset(pos.x, pos.y, 0x2u);
+        wire_one(pos, rep);
+      }
+      // vmの内容にしたがってcpへパターンを書き込む
+      for (const x: 0 .. szx) {
+        for (const y: 0 .. szy) {
+          if (vmget(x, y) != 0x2u) {
+            continue;
+          }
+          uint dirs = 0;
+          if (vmget(x + 1u, y) == 0x2u) { dirs |= 1u; } // 右
+          if (vmget(x - 1u, y) == 0x2u) { dirs |= 2u; } // 左
+          if (vmget(x, y + 1u) == 0x2u) { dirs |= 4u; } // 上
+          if (vmget(x, y - 1u) == 0x2u) { dirs |= 8u; } // 下
+          noderef_param np; // 軸反転と入れ替え
+          uint offset = 0; // 何番目のパターンを使うか
+          if (dirs == 0) {
+            continue;
+          } else if (dirs == 1) { // 右。pat0, xとyを入れ替える
+            offset = 0;
+            np.rot = make_uvec3(1, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 2) { // 左。pat0, xとyを入れ替えてxを反転
+            offset = 0;
+            np.rot = make_uvec3(1, 0, 0);
+            np.sgn = make_uvec3(1, 0, 0);
+          } else if (dirs == 4) { // 上。pat0, そのまま
+            offset = 0;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 8) { // 下。pat0, y反転
+            offset = 0;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 1, 0);
+          } else if (dirs == 3) { // 左右。pat1, xyいれかえ
+            offset = 1;
+            np.rot = make_uvec3(1, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 12) { // 上下。pat1, そのまま
+            offset = 1;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 5) { // 右上。pat2, x反転
+            offset = 2;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(1, 0, 0);
+          } else if (dirs == 6) { // 左上。pat2, そのまま
+            offset = 2;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 9) { // 右下。pat2, xyいれかえ
+            offset = 2;
+            np.rot = make_uvec3(1, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 10) { // 左下。pat2, y反転
+            offset = 2;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 1, 0);
+          } else if (dirs == 7) { // 右左上。pat3, xyいれかえ、y反転
+            offset = 3;
+            np.rot = make_uvec3(1, 0, 0);
+            np.sgn = make_uvec3(0, 1, 0);
+          } else if (dirs == 11) { // 右左下。pat3, xyいれかえ
+            offset = 3;
+            np.rot = make_uvec3(1, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 13) { // 右上下。pat3, x反転
+            offset = 3;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(1, 0, 0);
+          } else if (dirs == 14) { // 左上下。pat3, そのまま
+            offset = 3;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          } else if (dirs == 15) { // 上下左右。pat4
+            offset = 4;
+            np.rot = make_uvec3(0, 0, 0);
+            np.sgn = make_uvec3(0, 0, 0);
+          }
+          for (size_t i: 0u .. m::symbol{subtexture, "num_tex"}) {
+            mutable v = fi_subtex.subtex.tex[i].get(0, offset, 0);
+              // y方向に5つ並んでいる
+            if (i == 0u) {
+              if (is_node_reference(v)) {
+                // 回転と反転を適用
+                noderef_param np0 = decode_noderef_param(v);
+                np.coord = np0.coord;
+                np.scale = np0.scale;
+                v = encode_noderef_param(np);
+              } else {
+                debug_log("fill_fillings_range: must be a node reference");
+              }
+            }
+            cp.tex[i].set(x, y, 1u, v);
+          }
+        }
+      }
+      function void wire_one(uvec2 const& p0, uint r) {
+        const dir = rndp->generate() % 16u;
+        const len = rndp->generate() % 5u;
+        for (const d: 0 .. 4u) {
+          const sd = 1u << d;
+          if ((dir & sd) == 0) {
+            continue;
+          }
+          int const dx = (d == 0) ? 1 : (d == 1) ? -1 : 0;
+          int const dy = (d == 2) ? 1 : (d == 3) ? -1 : 0;
+          int px = static_cast{int}(p0.x);
+          int py = static_cast{int}(p0.y);
+          bool ng = false;
+          for (const i: 0 .. len) {
+            px += dx;
+            py += dy;
+            if (vmget(static_cast{uint}(px), static_cast{uint}(py)) != 0x1u) {
+              ng = true;
+              break;
+            }
+          }
+          if (ng) {
+            continue;
+          }
+          px = static_cast{int}(p0.x);
+          py = static_cast{int}(p0.y);
+          for (const i: 0 .. len) {
+            px += dx;
+            py += dy;
+            vmset(static_cast{uint}(px), static_cast{uint}(py), 0x2u);
+          }
+          if (r > 1) {
+            // 再帰的に呼びだし
+            wire_one(make_uvec2(static_cast{uint}(px), static_cast{uint}(py)),
+              r - 1);
+          }
+        }
+      }
+    }
+  }
+  function void fill_multi(varray{size_t} const& idxs, size_t num,
     uvec3 const& maxmul) {
     for (const iter: 0 .. num) {
-      const i = rndp->generate() % static_cast{uint}(fills.size());
-      const& fi = fills[i];
-      const& fofs = fi.offset; // tmapのどこにあるか
+      const i = rndp->generate() % static_cast{uint}(idxs.size());
+      const& fi_subtex = fillsubs[idxs[i]];
+      const& fi = fi_subtex.fdata;
       const min_fsz = fi.size();
         // 書き込む最小サイズ
       const mu = make_uvec3(
         rndp->generate() % maxmul.x,
-        rndp->generate() % maxmul.y, 
+        rndp->generate() % maxmul.y,
         rndp->generate() % maxmul.z);
         // 中間部分の繰り返し回数-1
       const& s = fi.sizes;
@@ -165,9 +337,7 @@ fill_fillings_range(tiled_texture_edit_view mutable& ttev,
         uint ry = rd_offset(y, fsz.y, s[3], s[4], s[5]);
         uint rz = rd_offset(z, fsz.z, s[6], s[7], s[8]);
         for (size_t i: 0u .. m::symbol{subtexture, "num_tex"}) {
-          // const v = cp.tex[i].get(fofs.x + x, fofs.y + y, fofs.z + z);
-          const tvi = static_cast{texture_value_index}(i);
-          const v = ttev.tmap_edit_get(fofs + make_uvec3(rx, ry, rz), tvi, 0);
+          const v = fi_subtex.subtex.tex[i].get(rx, ry, rz);
           const wpos = pos + make_uvec3(x, y, z);
           cp.tex[i].set(wpos.x, wpos.y, wpos.z, v);
         }
@@ -181,9 +351,9 @@ fill_fillings_range(tiled_texture_edit_view mutable& ttev,
       if (is_filled(bv) && is_space_voxel(v)) {
         const i = rndp->generate() % static_cast{uint}(single_fills.size());
         // debug_log("fill", i, x, y, z);
-        const& fi = single_fills[i];
-        const& fofs = fi.offset; // tmapのどこにあるか
-        const fival = ttev.tmap_edit_get(fofs, 0, 0);
+        const& fi_subtex = fillsubs[single_fills[i]];
+        const& fi = fi_subtex.fdata;
+        const fival = fi_subtex.subtex.tex[0].get(0, 0, 0);
         if (is_node_reference(fival)) {
           cp.tex[0].set(x, y, z + 1u, fival);
           for (size_t i: 1u .. m::symbol{subtexture, "num_tex"}) {

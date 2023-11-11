@@ -1,20 +1,20 @@
 private threaded namespace pgl3d::drawer::font2 "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct font2_uniforms()
+private pure tsvaluetype struct font2_uniforms()
 {
   public glm::vec2 screen_size_px;
   public int sampler_font;
 }
 
-private tsvaluetype struct font2_instance_attributes()
+private pure tsvaluetype struct font2_instance_attributes()
 {
   public glm::vec4 idata;
 }
 
-private tsvaluetype struct font2_vertex_attributes()
+private pure tsvaluetype struct font2_vertex_attributes()
 {
   public glm::vec2 texture_size_px;
   public glm::vec2 texture_origin_px;
@@ -49,7 +49,7 @@ public struct drawer_font2(shader_config const& glc,
     res->textures.insert("font", texture_font);
     reload_shaders(glc);
   }
-  public function vbid_t get_vbid() const { return vbid_font2; }
+  public function vbid_t get_drawer_vbid() const { return vbid_font2; }
   public function vbid_t get_instances_vbid() const { return vbid_font2; }
   public function vbid_t get_vertices_vbid() const { return vbid_font2; }
   public function prepare_instance_data_funcptr
@@ -57,13 +57,13 @@ public struct drawer_font2(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_font2}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(true, false);
+    return make_tattr_vertex_buffer{tattr}(true, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
     return "default_font";
   }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     const ti = get_texture_info("font");
     const char_w = static_cast{float}(ti.char_w);
@@ -101,7 +101,7 @@ public struct drawer_font2(shader_config const& glc,
     return r;
   }
   public function void resize_screen(shader_config const& glc)
-  { 
+  {
   }
   public function bool reload_shaders(shader_config const& glc)
   {
@@ -131,7 +131,7 @@ public struct drawer_font2(shader_config const& glc,
     glUseProgram(sdr.program);
     glUniform1i(sdr.u_sampler_font, 0);
     glUniform2fv(sdr.u_screen_size_px, 1, screen_size_px.to_crawptr());
-    ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    ddata.draw_all_vs_all_inst(sdr, get_vertices_vbid(), get_instances_vbid());
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
@@ -211,7 +211,7 @@ init_font2_shader(shader_config const& g)
   */
 }
 
-private threaded function void prepare_instance_data_font2(
+private pure function void prepare_instance_data_font2(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {

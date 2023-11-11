@@ -1,12 +1,15 @@
 private threaded namespace pgl3d::drawer::triangles "export-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 public import pgl3d::drawer::base -;
 public import pgl3d::texture::atlas -;
 public import pgl3d::edit_mode::edit_control -;
 public import pgl3d::edit_mode::noedit_control -;
 
-private tsvaluetype struct triangles_uniforms()
+private metafunction debug_shadowmap no_operation;
+private metafunction debug_instance no_operation;
+
+private pure tsvaluetype struct triangles_uniforms()
 {
   public glm::mat4 view_projection_matrix = mat4_identity();
   public int sampler_dpat;
@@ -30,9 +33,11 @@ private tsvaluetype struct triangles_uniforms()
   public float random_seed;
   public float option_value;
   public float option_value2;
+  public float option_value3;
+  public float cur_layer;
 }
 
-private tsvaluetype struct triangles_vertex_attributes()
+private pure tsvaluetype struct triangles_vertex_attributes()
 {
   public metafunction boundary_len
     m::symbol{pgl3d::geometry::funcs::vertex_attr, "boundary_len"};
@@ -56,7 +61,7 @@ private metafunction zprepass_vertex_attributes triangles_vertex_attributes;
 private metafunction shadowmap_vertex_attributes triangles_vertex_attributes;
 
 /*
-private tsvaluetype struct zprepass_vertex_attributes()
+private pure tsvaluetype struct zprepass_vertex_attributes()
 {
   public glm::vec3 position;
   public glm::vec3 normal;
@@ -67,7 +72,7 @@ private tsvaluetype struct zprepass_vertex_attributes()
   public glm::vec3 aabb_max;
 }
 
-private tsvaluetype struct shadowmap_vertex_attributes()
+private pure tsvaluetype struct shadowmap_vertex_attributes()
 {
   public glm::vec3 position;
   public glm::vec3 normal;
@@ -79,12 +84,12 @@ private tsvaluetype struct shadowmap_vertex_attributes()
 }
 */
 
-private tsvaluetype struct triangles_instance_attributes()
+private pure tsvaluetype struct triangles_instance_attributes()
 {
   public glm::mat4 model_matrix = mat4_identity();
 }
 
-private tsvaluetype struct zprepass_uniforms()
+private pure tsvaluetype struct zprepass_uniforms()
 {
   public glm::mat4 view_projection_matrix = mat4_identity();
   public glm::vec3 camera_pos;
@@ -92,7 +97,7 @@ private tsvaluetype struct zprepass_uniforms()
   public int sampler_voxtpat;
 }
 
-private tsvaluetype struct shadowmap_uniforms()
+private pure tsvaluetype struct shadowmap_uniforms()
 {
   public glm::mat4 shadowmap_vp = mat4_identity();
   public glm::vec3 light_dir;
@@ -114,7 +119,7 @@ make_drawer_triangles_stype(ptr{bool} const& cond, shader_config const& glc,
 {
   shadow_r.resize(static_cast{size_t}(num_shadowmaps), varray{drawer_cond}());
   const maindr = make_ptr{drawer_triangles}(glc, datadir, ds, pj, stype,
-    smname, num_shadowmaps, atl);
+    num_subtypes, smname, num_shadowmaps, atl);
   for (int i: 0 .. num_subtypes) {
     solid_r.push_back(drawer_cond(cond, make_ptr{drawstep_triangles}(
       maindr, stype, num_subtypes - i - 1, draw_step_solid, 0u)));
@@ -145,14 +150,18 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
   public int const ssubtype = ssubtype0;
   public draw_step const step = step0;
   public uint const sm_index = sm_index0;
+  vbid_t const vbid_instances = main_drawer->ds.vbid_pool->intern(
+    // "vbid_triangles_" + to_string(main_drawer->stype) + "_"
+    //   + to_string(ssubtype));
+    "vbid_triangles_1_" + to_string(ssubtype));
   vbid_t const vbid_self = main_drawer->ds.vbid_pool->intern(
     "vbid_triangles_" + to_string(main_drawer->stype) + "_"
       + to_string(ssubtype));
-  public function vbid_t get_vbid() const {
+  public function vbid_t get_drawer_vbid() const {
     return vbid_self;
   }
   public function vbid_t get_instances_vbid() const {
-    return get_vbid();
+    return vbid_instances;
   }
   public function vbid_t get_vertices_vbid() const {
     return main_drawer->get_vertices_vbid();
@@ -162,14 +171,16 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
     return main_drawer->get_prepare_instance_data_funcptr();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return main_drawer->make_vertex_buffer();
+    metafunction tattr triangles_vertex_attributes;
+    return make_tattr_vertex_buffer{tattr}(false, vbid_instances,
+      main_drawer->stype == 2);
   }
   public function string builtin_vertex_set_name() const {
     return main_drawer->builtin_vertex_set_name();
   }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const {
-    main_drawer->make_builtin_vertex_sets(vptr);
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr) {
+    main_drawer->make_builtin_vertex_sets(vsid, vptr);
   }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
   {
@@ -194,10 +205,11 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
   }
   public function void draw_drawstep(draw_data mutable& ddata)
   {
-//    if (step == draw_step_shadowmapping) {
-//      debug_log("draw_drawstep drawstep_triangles shadow", stype, ssubtype);
-//    }
-    return main_drawer->draw_sub_step(ssubtype, step, sm_index, ddata,
+    if (step == draw_step_shadowmapping) {
+      debug_shadowmap("draw_drawstep drawstep_triangles shadow", stype,
+        ssubtype);
+    }
+    return main_drawer->draw_drawstep_sub(ssubtype, step, sm_index, ddata,
       get_vertices_vbid(), get_instances_vbid());
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
@@ -208,10 +220,11 @@ private struct drawstep_triangles(ptr{drawer_triangles} const& drawer_tr0,
 
 public struct drawer_triangles(shader_config const& glc0,
   string const& datadir0, drawer_shared const& ds0,
-  ptr{projection_info} const& pj0, int stype0, string const& smname0,
+  ptr{projection_info} const& pj0, int stype0, int num_subtypes0,
+  string const& smname0,
   int num_shadowmaps0, ptr{atlas} const& atl0)
 {
-  /* stype==0 は三角形をそのまま描画する。
+  /* stype==0 は三角形をそのまま描画する。parallaxマッピング。
    * stype==1 は直方体の内部をraycastで描画する。
    * stype==2 は三角形をzprepass/shadowmapだけ描画する。これはstype==1の底面
    *          に使うためのものだが現在使っていない。
@@ -221,6 +234,7 @@ public struct drawer_triangles(shader_config const& glc0,
   public drawer_shared const ds = ds0;
   public ptr{projection_info} pj = pj0;
   public int const stype = stype0;
+  public int const num_subtypes = num_subtypes0;
   public string const smname = smname0;
   public size_t const num_shadowmaps = static_cast{size_t}(num_shadowmaps0);
   public ptr{atlas} const atl = atl0;
@@ -252,6 +266,7 @@ public struct drawer_triangles(shader_config const& glc0,
     (glc.conf.get("debug_zprepass", 0, 0, 1) != 0);
   bool const raycast_sort =
     (glc.conf.get("raycast_sort", 1, 0, 1) != 0);
+    // この変数は常に1では？ sortするかどうかはappのraycast_layerが決める。
   bool const large_shadow =
     (glc.conf.get("large_shadow", 0, 0, 1) != 0);
   rand_generator_ptr rand_generator = make_rand_generator(123u);
@@ -264,7 +279,11 @@ public struct drawer_triangles(shader_config const& glc0,
     debug_log("drawer_triangles init ", stype);
     vbid_triangles = ds.vbid_pool->intern(
       "vbid_triangles_" + to_string(stype) + "_0");
-    vbid_instances = vbid_triangles;
+    // vbid_instances = vbid_triangles;
+    vbid_instances = ds.vbid_pool->intern("vbid_triangles_1_0");
+      // インスタンスデータの形式はstypeにかかわらず同じなのでvbid_instances
+      // は常に1のほうを使う。stypeが1のもののみraycast_layerソートに対応
+      // する。
     vbid_vertices = (stype == 1)
       ? ds.vbid_pool->intern("vbid_triangles_1_0") : vbid_triangles;
     const tex_col = *textures->equal_range("triangles.tile_color");
@@ -288,28 +307,30 @@ public struct drawer_triangles(shader_config const& glc0,
     res->textures.insert("voxsurf", texture_voxsurf);
     if (stype == 1) {
       if (emt->vox.voxtile.size() <= 1u) {
-	emt->vox = *tvt;
-	debug_log("vox tpat", emt->vox.tpat_edit->data[0].size());
-	debug_log("vox tmap", emt->vox.tmap_edit->data[0].size());
-	if (glc.is_gl3_or_gles3()) {
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
-	    emt->vox.tpat_edit->data[0], GL_RGBA, GL_NEAREST);
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
-	    emt->vox.tpat_edit->data[1], GL_RGBA, GL_NEAREST);
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
-	    emt->vox.tmap_edit->data[0], GL_RGBA, GL_NEAREST);
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
-	    emt->vox.tmap_edit->data[1], GL_RGBA, GL_NEAREST);
-	} else {
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
-	    emt->vox.tpat_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
-	    emt->vox.tpat_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
-	    emt->vox.tmap_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
-	  texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
-	    emt->vox.tmap_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
-	}
+        emt->vox = *tvt;
+        const tpsz = emt->vox.tpat_edit->data[0].size();
+        const tmsz = emt->vox.tpat_edit->data[0].size();
+        debug_log("vox tpat", tpsz);
+        debug_log("vox tmap", tmsz);
+        if (glc.is_gl3_or_gles3()) {
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
+            emt->vox.tpat_edit->data[0], GL_RGBA, GL_NEAREST);
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
+            emt->vox.tpat_edit->data[1], GL_RGBA, GL_NEAREST);
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
+            emt->vox.tmap_edit->data[0], GL_RGBA, GL_NEAREST);
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
+            emt->vox.tmap_edit->data[1], GL_RGBA, GL_NEAREST);
+        } else {
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
+            emt->vox.tpat_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
+            emt->vox.tpat_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
+            emt->vox.tmap_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
+          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
+            emt->vox.tmap_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
+        }
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
         edit_mode_ptr.some = make_ptr{edit_control}(datadir, emt, atl);
@@ -322,7 +343,7 @@ public struct drawer_triangles(shader_config const& glc0,
     debug_log("drawer_triangles init ", stype, "done", vbid_triangles,
       vbid_vertices);
   }
-  public function vbid_t get_vbid() const { return vbid_triangles; }
+  public function vbid_t get_drawer_vbid() const { return vbid_triangles; }
   public function vbid_t get_instances_vbid() const { return vbid_instances; }
   public function vbid_t get_vertices_vbid() const { return vbid_vertices; }
   public function prepare_instance_data_funcptr
@@ -330,11 +351,12 @@ public struct drawer_triangles(shader_config const& glc0,
     return make_tfuncptr{prepare_instance_data_triangles}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, stype == 2);
+    return make_tattr_vertex_buffer{tattr}(false, vbid_instances,
+      stype == 2);
   }
   public function string builtin_vertex_set_name() const { return ""; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const { }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr) { }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
   {
     bool override_uvw = (stype != 1);
@@ -380,20 +402,20 @@ public struct drawer_triangles(shader_config const& glc0,
       /*
       glActiveTexture(GL_TEXTURE0);
       if (texture_depth_rd->texture_id.get() == 0) {
-	texture_depth_rd->texture_id.generate();
+        texture_depth_rd->texture_id.generate();
       }
       glBindTexture(GL_TEXTURE_2D, texture_depth_rd->texture_id.get());
       texture_depth_rd->surface_w = static_cast{uint}(width);
       texture_depth_rd->surface_h = static_cast{uint}(height);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-	static_cast{int}(GL_NEAREST));
+        static_cast{int}(GL_NEAREST));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-	static_cast{int}(GL_NEAREST));
+        static_cast{int}(GL_NEAREST));
       glTexImage2D(GL_TEXTURE_2D, 0, static_cast{int}(GL_DEPTH_COMPONENT24),
-	width, height,
-	0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, offset_to_void_cp(0));
+        width, height,
+        0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, offset_to_void_cp(0));
       if (!res->textures.exists("depth_rd")) {
-	res->textures.insert("depth_rd", texture_depth_rd);
+        res->textures.insert("depth_rd", texture_depth_rd);
       }
       debug_log("create depth_rd");
       */
@@ -406,7 +428,7 @@ public struct drawer_triangles(shader_config const& glc0,
   {
     function {t} string ivec3_string(t v) {
       return "ivec3(" + to_string(v.x) + ", " + to_string(v.y) + ", "
-	+ to_string(v.z) + ")";
+        + to_string(v.z) + ")";
     }
     function {t} string ivec2_string(t v) {
       return "ivec2(" + to_string(v.x) + ", " + to_string(v.y) + ")";
@@ -427,17 +449,17 @@ public struct drawer_triangles(shader_config const& glc0,
       ivec2 voxsurf_size_l2;
       // int virt3_size;
       if (stype == 1 && !emt->vox.tpat_edit->data[0].empty()) {
-	pattex3_size = make_ivec3(
-	  si(emt->vox.tpat_edit->data[0][0].get_width()),
-	  si(emt->vox.tpat_edit->data[0][0].get_height()),
-	  si(emt->vox.tpat_edit->data[0][0].get_depth()));
-	pattex3_size = map{ivec3, power_of_2}(pattex3_size);
-	maptex3_size = make_ivec3(
-	  si(emt->vox.tmap_edit->data[0][0].get_width()),
-	  si(emt->vox.tmap_edit->data[0][0].get_height()),
-	  si(emt->vox.tmap_edit->data[0][0].get_depth()));
-	maptex3_size = map{ivec3, power_of_2}(maptex3_size);
-	voxsurf_size_l2 = ivec2_log2(make_ivec2(
+        pattex3_size = make_ivec3(
+          si(emt->vox.tpat_edit->data[0][0].get_width()),
+          si(emt->vox.tpat_edit->data[0][0].get_height()),
+          si(emt->vox.tpat_edit->data[0][0].get_depth()));
+        pattex3_size = map{ivec3, power_of_2}(pattex3_size);
+        maptex3_size = make_ivec3(
+          si(emt->vox.tmap_edit->data[0][0].get_width()),
+          si(emt->vox.tmap_edit->data[0][0].get_height()),
+          si(emt->vox.tmap_edit->data[0][0].get_depth()));
+        maptex3_size = map{ivec3, power_of_2}(maptex3_size);
+        voxsurf_size_l2 = ivec2_log2(make_ivec2(
           si(texture_voxsurf->surface_w),
           si(texture_voxsurf->surface_h)));
       }
@@ -451,16 +473,16 @@ public struct drawer_triangles(shader_config const& glc0,
       bnd["raycast_cull_front"] = to_string(raycast_cull_front ? 1 : 0);
       bnd["update_frag_depth"] = to_string(update_frag_depth ? 1 : 0);
       bnd["check_frag_depth"] = to_string(
-	((enable_raycast_zprepass || raycast_sort) && glc.check_frag_depth)
+        ((enable_raycast_zprepass || raycast_sort) && glc.check_frag_depth)
         ? 1 : 0);
       // debug_log("check_frag_depth", bnd["check_frag_depth"]);
       bnd["debug_zprepass"] = to_string(debug_zprepass ? 1 : 0);
       bnd["shadowmap_resolution"] = to_string(glc.shadowmap_resolution);
       bnd["shaodwmap_scale"] = to_string(
-	static_cast{int}(glc.shadowmap_scale + 0.5f));
+        static_cast{int}(glc.shadowmap_scale + 0.5f));
       bnd["shadowmap_max_distance"] = to_string(
-	pow(glc.shadowmap_scale, static_cast{float}(num_shadowmaps - 1))
-	* glc.shadowmap_distance);
+        pow(glc.shadowmap_scale, static_cast{float}(num_shadowmaps - 1))
+        * glc.shadowmap_distance);
       bnd["raycast_iter"] = to_string(
         glc.conf.get("raycast_iter", 128, 32, 1024));
       bnd["boundary_len"] = to_string(
@@ -479,112 +501,122 @@ public struct drawer_triangles(shader_config const& glc0,
     debug_log("triangles reload_shaders done");
     return true;
   }
-  public function void draw_sub_step(int ssubtype, draw_step step, size_t iter,
-    draw_data const& ddata, vbid_t vbid_v, vbid_t vbid_i)
+  public function void draw_drawstep_sub(int ssubtype, draw_step step,
+    size_t iter, draw_data const& ddata, vbid_t vbid_v, vbid_t vbid_i)
   {
     const& cam_df = *pj;
     const& bo = *ddata.vertex_buffers[vbid_v];
-    const& bo_ib = ddata.local_whole_instances[vbid_i];
-//    debug_log("draw_sub_step", stype, ssubtype, static_cast{int}(step), iter);
-    if (!has_instance_to_draw(bo, bo_ib)) {
+    const& instfmt = ddata.local_insts_allfmt[vbid_i];
+    debug_instance("draw_drawstep_sub", stype, ssubtype,
+      static_cast{int}(step), iter, "vbid_v=", ds.id_to_string(vbid_v),
+      "vbid_i=", ds.id_to_string(vbid_i));
+    if (!has_instance_to_draw(bo, instfmt)) {
+      debug_instance("draw_drawstep_sub no inst");
       return;
     }
-//    debug_log("draw_sub_step has inst", stype, ssubtype, static_cast{int}(step), iter);
+    glEnable(GL_CULL_FACE);
+    if (stype == 0) {
+      // parallaxは表面だけ描く。
+      glCullFace(GL_BACK);
+    } else if (stype == 1) {
+      // raycastは表面カリング。これは、カメラが直方体の内側にいるときも
+      // 描画できるようにするため。
+      glCullFace(GL_FRONT);
+    } else {
+      glCullFace(GL_FRONT);
+    }
+    debug_instance("draw_drawstep_sub has inst");
     if (step == draw_step_shadowmapping) {
-//      debug_log("triangles draw step sm stype=", stype, "iter=", iter);
+      debug_instance("triangles draw step sm stype=", stype, "iter=", iter);
       glUseProgram(sdr_shadow.some->program);
       if (stype == 1) {
-	if (ssubtype != 1 && raycast_sort && !large_shadow) { return; }
-	  // 大きいオブジェクトがssubtype >= 2で描かれる。
-	  // large_shadowが偽なら影は差さない
-	if (raycast_cull_front) {
-	  // glEnable(GL_CULL_FACE);
-	  glCullFace(GL_FRONT);
-	}
-	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
-	glUniform1i(sdr_shadow.some->u_sampler_voxtpat, 5);
-	/*
-	debug_log("sampler_voxtpat", stype, ssubtype, iter,
-	  sdr_shadow.some->u_sampler_voxtpat,
-	  static_cast{int}(emt->glt_voxtpat->texture_id.get()),
-	  static_cast{int}(glGetError()));
-	*/
-	glActiveTexture(GL_TEXTURE6);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
-	glUniform1i(sdr_shadow.some->u_sampler_voxtmap, 6);
+        if (ssubtype != 1 && raycast_sort && !large_shadow) { return; }
+          // 大きいオブジェクトがssubtype >= 2で描かれる。
+          // large_shadowが偽なら影は差さない
+        if (raycast_cull_front) {
+          glCullFace(GL_FRONT);
+        }
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
+        glUniform1i(sdr_shadow.some->u_sampler_voxtpat, 5);
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
+        glUniform1i(sdr_shadow.some->u_sampler_voxtmap, 6);
       }
       const sm_view = cam_df.light.to_mat4().inverse();
       const sm_vp = cam_df.sm_projection[iter] * sm_view;
       float scale = 1.0f / glc.shadowmap_distance;
       for (const i: 0 .. iter) {
-	scale /= glc.shadowmap_scale;
+        scale /= glc.shadowmap_scale;
       }
       if (glc.light_fixed) {
-	//debug_log("scale", scale);
-	const trans = -cam_df.camera.position;
-	glUniform3fv(sdr_shadow.some->u_trans, 1, trans.to_crawptr());
-	glUniform1f(sdr_shadow.some->u_scale, scale);
+        //debug_log("scale", scale);
+        const trans = -cam_df.camera.position;
+        glUniform3fv(sdr_shadow.some->u_trans, 1, trans.to_crawptr());
+        glUniform1f(sdr_shadow.some->u_scale, scale);
       } else {
-	glUniformMatrix4fv(sdr_shadow.some->u_shadowmap_vp, 1, 0,
-	  sm_vp.to_crawptr());
+        glUniformMatrix4fv(sdr_shadow.some->u_shadowmap_vp, 1, 0,
+          sm_vp.to_crawptr());
       }
       glUniform3fv(sdr_shadow.some->u_light_dir, 1,
-	(cam_df.light.angle * glm::make_vec3(0.0, 0.0, 1.0)).to_crawptr());
+        (cam_df.light.angle * glm::make_vec3(0.0, 0.0, 1.0)).to_crawptr());
       glUniform3fv(sdr_shadow.some->u_camera_pos, 1,
-	cam_df.camera.position.to_crawptr());
-      ddata.draw(*sdr_shadow.some, vbid_v, vbid_i);
+        cam_df.camera.position.to_crawptr());
+      const n = ddata.draw_all_vs_all_inst(*sdr_shadow.some, vbid_v, vbid_i);
       if (stype == 1) {
-	if (raycast_cull_front) {
-	  glCullFace(GL_BACK);
-	}
+        if (raycast_cull_front) {
+          glCullFace(GL_BACK);
+        }
       }
     } else if (step == draw_step_zprepass) {
       if (stype == 1 && !enable_raycast_zprepass) {
-	return;
+        return;
       }
       // debug_log("zprepass " + to_string(stype));
       if (debug_zprepass) {
-	// debug_zprepassが有効のときはzprepassシェーダで色を塗り、solidは
-	// 実行しない
-	glColorMask(1, 1, 1, 1);
+        // debug_zprepassが有効のときはzprepassシェーダで色を塗り、solidは
+        // 実行しない
+        glColorMask(1, 1, 1, 1);
       }
       const& vp = cam_df.view_projection;
       mutable& sdr = *sdr_zp.some;
       glUseProgram(sdr.program);
       glUniformMatrix4fv(sdr.u_view_projection_matrix, 1, 0,
-	vp.to_crawptr());
+        vp.to_crawptr());
       glUniform3fv(sdr.u_camera_pos, 1,
-	cam_df.camera.position.to_crawptr());
+        cam_df.camera.position.to_crawptr());
       if (stype == 1) {
-	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
-	glUniform1i(sdr.u_sampler_voxtpat, 5);
-	glActiveTexture(GL_TEXTURE6);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
-	glUniform1i(sdr.u_sampler_voxtmap, 6);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtpat, 5);
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtmap, 6);
       }
-      ddata.draw(sdr, vbid_v, vbid_i);
+      const n = ddata.draw_all_vs_all_inst(sdr, vbid_v, vbid_i);
     } else if (step == draw_step_solid) {
       if (stype == 2) { return; }
+      /*
+      // 2023/10/08 なぜかssubtype==0のシェーダはsolidを描画しないように
+      // なっていたのでコメントアウト。なぜ？
       if (stype == 1 && ssubtype == 0 && raycast_sort) {
-	// ssubtype==0のシェーダはsolidを描画しない(何故？)
-	return;
+        return;
       }
+      */
       // if (debug_zprepass) { return; }
       const& vp = cam_df.view_projection;
       const red = make_farray{float}(0.8, 0.1, 0.0, 1.0);
       mutable& sdr = *sdr_solid.some;
       glUseProgram(sdr.program);
       if (glc.light_fixed) {
-	glUniform3fv(sdr.u_light_dir, 1,
-	  glm::make_vec3(0.0, 0.0, -1.0).to_crawptr());
+        glUniform3fv(sdr.u_light_dir, 1,
+          glm::make_vec3(0.0, 0.0, -1.0).to_crawptr());
       } else {
-	glUniform3fv(sdr.u_light_dir, 1,
-	  (cam_df.light.angle * glm::make_vec3(0.0, 0.0, 1.0)).to_crawptr());
+        glUniform3fv(sdr.u_light_dir, 1,
+          (cam_df.light.angle * glm::make_vec3(0.0, 0.0, 1.0)).to_crawptr());
       }
       glUniform3fv(sdr.u_camera_pos, 1,
-	cam_df.camera.position.to_crawptr());
+        cam_df.camera.position.to_crawptr());
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, texture_dpat->texture_id.get());
       glActiveTexture(GL_TEXTURE1);
@@ -595,72 +627,72 @@ public struct drawer_triangles(shader_config const& glc0,
       glBindTexture(GL_TEXTURE_2D, texture_tilemap->texture_id.get());
       glUniform1i(sdr.u_sampler_tilemap, 2);
       if (texture_env->texture_id.get() == 0) { // TODO: cleanup
-	if (const te: res->textures["environ"]) {
-	  texture_env = te;
-	  // debug_log("texture_env", texture_env);
-	}
+        if (const te: res->textures["environ"]) {
+          texture_env = te;
+          // debug_log("texture_env", texture_env);
+        }
       }
       if (texture_env->texture_id.get() != 0) {
-	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, texture_env->texture_id.get());
-	glUniform1i(sdr.u_sampler_env, 3);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, texture_env->texture_id.get());
+        glUniform1i(sdr.u_sampler_env, 3);
       }
       if (stype == 1) {
-	// debug_log("solid triangles", stype, ssubtype);
-	if (raycast_cull_front) {
-	  glCullFace(GL_FRONT);
-	}
-	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_2D, texture_noise->texture_id.get());
-	glUniform1i(sdr.u_sampler_noise, 4);
-	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
-	glUniform1i(sdr.u_sampler_voxtpat, 5);
-	glActiveTexture(GL_TEXTURE6);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpax->texture_id.get());
-	glUniform1i(sdr.u_sampler_voxtpax, 6);
-	glActiveTexture(GL_TEXTURE7);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
-	glUniform1i(sdr.u_sampler_voxtmap, 7);
-	glActiveTexture(GL_TEXTURE8);
-	glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmax->texture_id.get());
-	glUniform1i(sdr.u_sampler_voxtmax, 8);
-	glActiveTexture(GL_TEXTURE9);
+        // debug_log("solid triangles", stype, ssubtype);
+        if (raycast_cull_front) {
+          glCullFace(GL_FRONT);
+        }
+        glActiveTexture(GL_TEXTURE4);
+        glBindTexture(GL_TEXTURE_2D, texture_noise->texture_id.get());
+        glUniform1i(sdr.u_sampler_noise, 4);
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtpat, 5);
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpax->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtpax, 6);
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtmap, 7);
+        glActiveTexture(GL_TEXTURE8);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmax->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtmax, 8);
+        glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, texture_voxsurf->texture_id.get());
         glUniform1i(sdr.u_sampler_voxsurf, 9);
-	if ((enable_raycast_zprepass || raycast_sort) && update_frag_depth) {
+        if ((enable_raycast_zprepass || raycast_sort) && update_frag_depth) {
           /*
-	  // enable_raycast_zpreassフラグは読む必要ないのでは？
-	  if (texture_depth_rd->texture_id.get() == 0) {
-	    if (const te: res->textures["depth_rd"]) {
+          // enable_raycast_zpreassフラグは読む必要ないのでは？
+          if (texture_depth_rd->texture_id.get() == 0) {
+            if (const te: res->textures["depth_rd"]) {
               // 全シェーダで共有しているテクスチャ
-	      texture_depth_rd = te;
-	    }
-	  }
-	  if (texture_depth_rd->texture_id.get() != 0) {
-	    const& tex = *texture_depth_rd;
-	    glActiveTexture(GL_TEXTURE10);
-	    glBindTexture(GL_TEXTURE_2D, tex.texture_id.get());
-	    glUniform1i(sdr.u_sampler_depth_rd, 10);
-	    // debug_log("ssubtype", ssubtype, "depth_rd", tex.texture_id.get(),
-	    //   tex.surface_w, tex.surface_h);
-	    // if (ssubtype != 0)
-	    {
+              texture_depth_rd = te;
+            }
+          }
+          if (texture_depth_rd->texture_id.get() != 0) {
+            const& tex = *texture_depth_rd;
+            glActiveTexture(GL_TEXTURE10);
+            glBindTexture(GL_TEXTURE_2D, tex.texture_id.get());
+            glUniform1i(sdr.u_sampler_depth_rd, 10);
+            // debug_log("ssubtype", ssubtype, "depth_rd", tex.texture_id.get(),
+            //   tex.surface_w, tex.surface_h);
+            // if (ssubtype != 0)
+            {
               // 現在のフレームバッファのデプスバッファの内容をdepth_rdに
               // コピーする。シェーダからはそれをsampler_depth_rdとして
               // 参照し、early depth testのために使う。
-	      glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
-		static_cast{GLint}(tex.surface_w),
-		static_cast{GLint}(tex.surface_h));
-	    }
-	  }
+              glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                static_cast{GLint}(tex.surface_w),
+                static_cast{GLint}(tex.surface_h));
+            }
+          }
           */
           if (const& fb: ddata.cur_target_fb.some) {
             // 描画対象のフレームバッファ
             const texid = fb->texture_depth.get();
-	    glActiveTexture(GL_TEXTURE10);
-	    glBindTexture(GL_TEXTURE_2D, texid);
-	    glUniform1i(sdr.u_sampler_depth_rd, 10);
+            glActiveTexture(GL_TEXTURE10);
+            glBindTexture(GL_TEXTURE_2D, texid);
+            glUniform1i(sdr.u_sampler_depth_rd, 10);
             //debug_log("got cur_target_fb");
           } else if (const fb: res->framebuffers["first_pp"]) {
             // 最初のpostprocessのフレームバッファ。これはmain描画の対象
@@ -668,38 +700,38 @@ public struct drawer_triangles(shader_config const& glc0,
             // sampler_depth_rdとしてセットする。
             const texid = fb->texture_depth.get();
             // debug_log("depth_rd texid", texid);
-	    glActiveTexture(GL_TEXTURE10);
-	    glBindTexture(GL_TEXTURE_2D, texid);
-	    glUniform1i(sdr.u_sampler_depth_rd, 10);
+            glActiveTexture(GL_TEXTURE10);
+            glBindTexture(GL_TEXTURE_2D, texid);
+            glUniform1i(sdr.u_sampler_depth_rd, 10);
             //debug_log("got first_pp");
           }
-	}
+        }
       }
       darrayst{int} sampler_smarr = darrayst{int}(num_shadowmaps, 0);
       for (const i: 0 .. num_shadowmaps) {
-	glActiveTexture(static_cast{GLenum}(
-	  static_cast{int}(GL_TEXTURE11) + static_cast{int}(i)));
-	glBindTexture(GL_TEXTURE_2D, shadowmap_fbs[i]->texture_depth.get());
-	sampler_smarr[i] = 11 + static_cast{int}(i);
+        glActiveTexture(static_cast{GLenum}(
+          static_cast{int}(GL_TEXTURE11) + static_cast{int}(i)));
+        glBindTexture(GL_TEXTURE_2D, shadowmap_fbs[i]->texture_depth.get());
+        sampler_smarr[i] = 11 + static_cast{int}(i);
       }
       glUniform1iv(sdr.u_sampler_sm, static_cast{int}(num_shadowmaps),
-	caddress(sampler_smarr[0]));
+        caddress(sampler_smarr[0]));
       if (glc.light_fixed) {
-	glUniform1f(sdr.u_ndelta_scale,
-	  static_cast{float}(8192 / cam_df.shadowmap_size)
-	    * 0.02f / glc.shadowmap_distance);
+        glUniform1f(sdr.u_ndelta_scale,
+          static_cast{float}(8192 / cam_df.shadowmap_size)
+            * 0.02f / glc.shadowmap_distance);
       } else {
-	const sm_view = cam_df.light.to_mat4().inverse();
-	// TODO: sm_viewの中心をカメラのもっと前方に置くことができる。
-	darrayst{glm::mat4} sm_vparr = darrayst{glm::mat4}(
+        const sm_view = cam_df.light.to_mat4().inverse();
+        // TODO: sm_viewの中心をカメラのもっと前方に置くことができる。
+        darrayst{glm::mat4} sm_vparr = darrayst{glm::mat4}(
           num_shadowmaps, mat4_identity());
-	for (const i: 0 .. num_shadowmaps) {
-	  sm_vparr[i] = cam_df.sm_projection[i] * sm_view;
-	}
-	glUniformMatrix4fv(sdr.u_shadowmap_vp,
+        for (const i: 0 .. num_shadowmaps) {
+          sm_vparr[i] = cam_df.sm_projection[i] * sm_view;
+        }
+        glUniformMatrix4fv(sdr.u_shadowmap_vp,
           static_cast{int}(num_shadowmaps), 0, sm_vparr[0].to_crawptr());
-	glUniform1f(sdr.u_ndelta_scale,
-	  static_cast{float}(8192 / cam_df.shadowmap_size) * 0.02);
+        glUniform1f(sdr.u_ndelta_scale,
+          static_cast{float}(8192 / cam_df.shadowmap_size) * 0.02);
       }
       float ex = (static_cast{int}(cam_df.option_value) % 2) == 0
         ? cam_df.exposure : cam_df.exposure * 4.0f;
@@ -709,7 +741,7 @@ public struct drawer_triangles(shader_config const& glc0,
       glUniform1f(sdr.u_random_seed, 0.0f);
       /*
       glUniform1f(sdr.u_random_seed,
-	static_cast{float}(rand_generator->generate()) / 65536.0f);
+        static_cast{float}(rand_generator->generate()) / 65536.0f);
       */
       mutable opval = static_cast{int}(cam_df.option_value);
       opval /= 2;
@@ -717,12 +749,17 @@ public struct drawer_triangles(shader_config const& glc0,
       glUniform1f(sdr.u_option_value, static_cast{float}(opval));
       mutable opval2 = cam_df.option_value2;
       glUniform1f(sdr.u_option_value2, opval2);
+      mutable opval3 = cam_df.option_value3;
+      glUniform1f(sdr.u_option_value3, opval3);
+      mutable cur_layer = static_cast{float}(num_subtypes - 1 - ssubtype);
+      glUniform1f(sdr.u_cur_layer, cur_layer);
       glUniformMatrix4fv(sdr.u_view_projection_matrix, 1, 0, vp.to_crawptr());
-      ddata.draw(sdr, vbid_v, vbid_i);
+      const n = ddata.draw_all_vs_all_inst(sdr, vbid_v, vbid_i);
+      // debug_log("solid: n=", n, vbid_v, vbid_i);
       if (stype == 1) {
-	if (raycast_cull_front) {
-	  glCullFace(GL_BACK);
-	}
+        if (raycast_cull_front) {
+          glCullFace(GL_BACK);
+        }
         if (m::ne{is_windows, 0}) {
           if (glc.version_ge(4, 5)) {
             glTextureBarrier();
@@ -746,14 +783,14 @@ public struct drawer_triangles(shader_config const& glc0,
   }
 }
 
-private threaded function void prepare_instance_data_triangles(
+private pure function void prepare_instance_data_triangles(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {
   buffer_append(idata.instance_buffer, sn.trans); /* model matrix */
 }
 
-private threaded function {tattr} void
+private pure function {tattr} void
 dgf_polygon_filler_tattr(ptr{vertices} const& vptr, bool override_uvw,
   bool flat_flag, poly_t const& poly, mesh_index const& mp)
 {
@@ -761,10 +798,10 @@ dgf_polygon_filler_tattr(ptr{vertices} const& vptr, bool override_uvw,
     poly, mp);
 }
 
-private threaded function {tattr} dgf_filler
+private pure function {tattr} dgf_filler
 make_dgf_polygon_filler(ptr{vertices} const& vptr, bool override_uvw)
 {
-  return make_callable_ptr{dgf_polygon_filler_tattr{tattr}, 2}(vptr,
+  return make_pure_callable_ptr{dgf_polygon_filler_tattr{tattr}, 2}(vptr,
     override_uvw);
 }
 
@@ -845,13 +882,13 @@ private function string triangles_shader_frag(shader_config const& g,
 }
 
 private function bool has_instance_to_draw(vertex_buffer const& bo,
-  bo_instances_type const& bo_ib)
+  instances_per_format const& instfmt)
 {
-  for (const vsid: 0 .. bo.num_vs()) {
-    if (bo_ib.size() <= static_cast{size_t}(vsid)) {
+  for (const _, const vsid: bo.vsids) {
+    if (instfmt.size() <= static_cast{size_t}(vsid)) {
       break;
     }
-    const& instance = bo_ib[vsid];
+    const& instance = instfmt[vsid];
     const& arr = instance.instance_buffer;
     if (!arr.empty()) {
       return true;

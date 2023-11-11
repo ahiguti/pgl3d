@@ -1,11 +1,11 @@
 private threaded namespace pgl3d::opengl::glresource "export-unsafe";
-public import common -;
+public import core::common -;
 public import glm;
 public import opengl::compat -;
-public import meta m;
-public import meta::vararg v;
-public import exception -;
-public import pointer::raw -;
+public import core::meta m;
+public import core::meta::vararg v;
+public import core::exception -;
+public import core::pointer::raw -;
 public import sdl2::api_base *;
 public import sdl2::api_types *;
 public import sdl2::api_functions *;
@@ -13,7 +13,8 @@ public import sdl2::api_wrappers *;
 public import sdl2::misc *;
 public import pgl3d::engine::platform *;
 
-public threaded struct extern "pgl3d$n::glresource$n::handle" "noncopyable" {t}
+public tsvaluetype struct
+extern "pgl3d$n::glresource$n::handle" "noncopyable" {t}
 handle()
 {
   public t value;
@@ -55,7 +56,7 @@ expand (sym: m::seq{m::not{is_gl3_or_gles3}}) {
     auto_handle{uint, 0, 0};
 }
 
-private threaded struct {t, generate_func, release_func}
+private tsvaluetype struct {t, generate_func, release_func}
 auto_handle()
 {
   private handle{t} hnd = handle{t}();
@@ -81,7 +82,7 @@ auto_handle()
   {
     if (hnd.value > 0) {
       if (m::ne{release_func, 0}) {
-	release_func(1, caddress(hnd.value));
+        release_func(1, caddress(hnd.value));
       }
       hnd.value = 0;
     }

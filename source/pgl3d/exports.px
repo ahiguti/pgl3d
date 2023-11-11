@@ -1,7 +1,5 @@
 public namespace pgl3d::exports;
 
-public import sdl2::api_types *;
-
 public import pgl3d::engine::pglbase *;
 public import pgl3d::engine::application *;
 public import pgl3d::engine::mainloop *;
@@ -27,7 +25,7 @@ public import pgl3d::physics::dynamics_world *;
 public import pgl3d::sdl::sdlutil *;
 public import pgl3d::geometry::wfobj *;
 public import pgl3d::ext::d3axim *;
-public import pgl3d::ext::enumerate_device *; // FIXME
+public import pgl3d::ext::enumerate_device *; // FIXME?
 public import pgl3d::ext::motion_controller *;
 
 public import pgl3d::engine::nvidia_optimus_switch;

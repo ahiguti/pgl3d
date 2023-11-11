@@ -1,13 +1,13 @@
 public namespace pgl3d::engine::mainloop "use-unsafe";
-public import common -;
-public import pointer::raw -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::pointer::raw -;
+public import core::numeric::fpmath -;
 public import glm;
-public import io::time -;
-public import io::environ -;
-public import exception -;
-public import fundamental::mainloop -;
-public import meta m;
+public import core::io::time -;
+public import core::io::environ -;
+public import core::exception -;
+public import core::fundamental::mainloop -;
+public import core::meta m;
 public import pgl3d::geometry::funcs -;
 public import pgl3d::engine::pglmotion -;
 public import pgl3d::engine::pglbase -;
@@ -152,7 +152,8 @@ frame_stat_log(double threshold0)
         debug_log(labels);
         for (size_t i: 0u .. 30u) {
           const& e0 = ents[(cur_ent + log_length - 29u + i) % log_length];
-          debug_log("framest dmp", e0.to_relative());
+          const& val = e0.to_relative();
+          debug_log("framest dmp", val);
         }
       }
     }
@@ -181,8 +182,8 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   public int mutable vsync = vsync0;
   public int mutable swap_interval = set_swap_interval(vsync0 > 0 ? 1 : 0);
   public int frame_sleep = frame_sleep0;
-  public ulonglong time_prev = io::system.high_resolution_timer();
-  public ulonglong time_den = io::system.high_resolution_timer_frequency();
+  public ulonglong time_prev = thread_io().high_resolution_timer();
+  public ulonglong time_den = thread_io().high_resolution_timer_frequency();
   public double const max_fps = max_fps0;
   public double target_fps = max_fps0;
   public double target_interval = 1.0 / max_fps;
@@ -196,7 +197,7 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
     retarget_count = 0;
     target_interval = 1.0 / max_fps;
     cur_interval = target_interval;
-    time_prev = io::system.high_resolution_timer();
+    time_prev = thread_io().high_resolution_timer();
     sdl_log("maxfps=", max_fps);
   }
   public function void toggle_vsync()
@@ -213,6 +214,8 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   public function void update_target_interval()
   {
     return;
+      // TODO: nvapi_gpu_usageが極端に遅くカクつくことがあるのでとりあえず
+      // 無効にしておく
     if (vsync == 0) {
       return;
     }
@@ -252,7 +255,7 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   }
   public function void rate_control()
   {
-    const time_now = io::system.high_resolution_timer();
+    const time_now = thread_io().high_resolution_timer();
     cur_interval = time_subtract_sec(time_now, time_prev);
     update_target_interval();
     if (vsync == 0 || target_fps < max_fps) {
@@ -260,7 +263,8 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
       // sdl_log("interval", time_prev, time_now, cur_interval,
       //   target_interval);
       if (sleep_sec > 0.000 && frame_sleep != 0) {
-        io::system.usleep(static_cast{uint}((sleep_sec - 0.000) * 1000000.0));
+        thread_io().usleep(static_cast{uint}(
+          (sleep_sec - 0.000) * 1000000.0));
         sdl_log("sleep", sleep_sec);
         time_prev = time_now +
           static_cast{ulonglong}(sleep_sec * static_cast{double}(time_den));
@@ -286,7 +290,8 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app0,
   {
     if (cnt == 0) {
       debug_log("mainloop step");
-      debug_log("mainloop nvapi:", nvapi_get_init_error());
+      const nvapi_err = nvapi_get_init_error();
+      debug_log("mainloop nvapi:", nvapi_err);
     }
     ++cnt;
     bool r = false;
@@ -316,7 +321,7 @@ private interface main_ctrl_export_i
   public function glm::uvec2 get_window_size();
 }
 
-private threaded function void heartbeat_thread(tptr{bool} const& fin)
+private pure function void heartbeat_thread(tptr{bool} const& fin)
 {
   while (true) {
     bool v = false;
@@ -326,7 +331,7 @@ private threaded function void heartbeat_thread(tptr{bool} const& fin)
     if (v) {
       break;
     }
-    debug_system().sleep(1);
+    debug_io().sleep(1);
     debug_log("heartbeat_thread: dump");
     dump_pxc_backtrace_all_threads(-1);
   }
@@ -351,7 +356,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   private node_factory nfac;
   private option{ptr{motion_thread_client}} motion_thr;
   private tptr{bool} heartbeat_fin = make_tptr{bool}(false);
-  private option{callable_ptr{void, m::nil}} heartbeat_thr;
+  private option{threaded_callable_ptr{void, m::nil}} heartbeat_thr;
   private size_t saved_stat_num_objects;
   private frame_stat_log mutable fr = frame_stat_log(
     conf.get("framestat_threshold", 0.0, 0.0, 10.0));
@@ -420,7 +425,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
 
     /* spawn motion thread */
     motion_thr.some = make_ptr{motion_thread_client}(nfac,
-      pgs.ddata.local_whole_instances, app->get_scene_shared(), pgs.pidft,
+      pgs.ddata.local_insts_allfmt, app->get_scene_shared(), pgs.pidft,
       async_motion_thread);
     if (async_motion_thread) {
       motion_thr.some->start();
@@ -461,10 +466,10 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     SDL_SetWindowFullscreen(sdlc.sdl_window, fullscreen != 0 ? flag : 0);
     if (fullscreen == 0) {
       if (saved_w != 0) {
-	SDL_SetWindowSize(sdlc.sdl_window, saved_w, saved_h);
+        SDL_SetWindowSize(sdlc.sdl_window, saved_w, saved_h);
       }
       if ((saved_window_flags & SDL_WINDOW_MAXIMIZED) != 0) {
-	SDL_MaximizeWindow(sdlc.sdl_window);
+        SDL_MaximizeWindow(sdlc.sdl_window);
       }
     }
   }
@@ -510,53 +515,53 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       sdl_log("event", cast_int(ev.type));
        */
       if (etype == SDL_WINDOWEVENT) {
-	if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
-	  update_window_size();
-	} else if (ev.window.event == SDL_WINDOWEVENT_HIDDEN) {
-	  sdl_log("hidden ", ev.window.windowID);
-	} else if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-	  sdl_log("minimized ", ev.window.windowID);
-	} else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
-	  paused = true;
-	  sdl_log("focuslost ", ev.window.windowID);
-	  sdlc.pause();
-	} else if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
-	  sdl_log("restored ", ev.window.windowID);
-	} else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
-	  sdl_log("focusgained ", ev.window.windowID);
-	  paused = false;
-	  sdlc.resume();
-	  // sdlc.make_current();
-	  sdl_log("gl version ", sdlc.get_gl_version());
-	  if (sconf.auto_reload) {
-	    reload_shaders();
-	  }
-	  // シェーダのリロードが成功したかどうかをdata1にセットする
-	  ev.window.data1 = engine_status ? 1 : 0;
-	  debug_log("reload: engine status", ev.window.data1);
-	  frctl.start();
+        if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
+          update_window_size();
+        } else if (ev.window.event == SDL_WINDOWEVENT_HIDDEN) {
+          sdl_log("hidden ", ev.window.windowID);
+        } else if (ev.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+          sdl_log("minimized ", ev.window.windowID);
+        } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+          paused = true;
+          sdl_log("focuslost ", ev.window.windowID);
+          sdlc.pause();
+        } else if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
+          sdl_log("restored ", ev.window.windowID);
+        } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+          sdl_log("focusgained ", ev.window.windowID);
+          paused = false;
+          sdlc.resume();
+          // sdlc.make_current();
+          sdl_log("gl version ", sdlc.get_gl_version());
+          if (sconf.auto_reload) {
+            reload_shaders();
+          }
+          // シェーダのリロードが成功したかどうかをdata1にセットする
+          ev.window.data1 = engine_status ? 1 : 0;
+          debug_log("reload: engine status", ev.window.data1);
+          frctl.start();
           fr.reset();
-	} else {
-	  /*
-	  sdl_log("window event ", cast_int(ev.window.event));
-	  */
-	}
+        } else {
+          /*
+          sdl_log("window event ", cast_int(ev.window.event));
+          */
+        }
       } else if (etype == SDL_QUIT) {
-	sdl_log("quit");
-	done = true;
-	break;
+        sdl_log("quit");
+        done = true;
+        break;
       }
       /* invoke event handler */
       app->on_event(ev, actrl, frctl.frame_speed_mul);
     }
     // fr.save_ticks("event");
     if (is_windows) {
-      // FIXME: windowsでjoystick効いてない? sdl2のversionによると思われる
+      // TODO: 複数joystickがあっても動作するように
       // TODO: linux?
       // sdlc.update_joystick_info();
       SDL_JoystickUpdate();
       if (sdlc.joysticks.size() != joysticks.size()) {
-	joysticks.resize(sdlc.joysticks.size(), joystick_state());
+        joysticks.resize(sdlc.joysticks.size(), joystick_state());
         debug_log("joysticks", joysticks.size());
       }
     }
@@ -565,20 +570,20 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       const& inf = sdlc.joysticks[i];
       mutable& st = joysticks[i];
       if (st.axes.size() != inf.num_axes) {
-	st.enable_axes.resize(inf.num_axes, 0);
-	st.axes.resize(inf.num_axes, 0);
+        st.enable_axes.resize(inf.num_axes, false);
+        st.axes.resize(inf.num_axes, short());
         // debug_log("joystick", i, "axes", st.axes.size());
       }
       if (st.buttons.size() != inf.num_buttons) {
-	st.buttons.resize(inf.num_buttons, false);
+        st.buttons.resize(inf.num_buttons, false);
         // debug_log("joystick", i, "buttons", st.buttons.size());
       }
       if (st.hats.size() != inf.num_hats) {
-	st.hats.resize(inf.num_hats, 0);
+        st.hats.resize(inf.num_hats, ushort());
         // debug_log("joystick", i, "hats", st.hats.size());
       }
       for (const j: 0 .. inf.num_axes) {
-	const v = SDL_JoystickGetAxis(hnd.get(), static_cast{int}(j));
+        const v = SDL_JoystickGetAxis(hnd.get(), static_cast{int}(j));
         if (v != 0 && v != -32768) {
           st.enable_axes[j] = true;
         }
@@ -587,12 +592,12 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
         }
       }
       for (const j: 0 .. inf.num_buttons) {
-	const v = SDL_JoystickGetButton(hnd.get(), static_cast{int}(j));
-	st.buttons[j] = (v != 0);
+        const v = SDL_JoystickGetButton(hnd.get(), static_cast{int}(j));
+        st.buttons[j] = (v != 0);
       }
       for (const j: 0 .. inf.num_hats) {
-	const v = SDL_JoystickGetHat(hnd.get(), static_cast{int}(j));
-	st.hats[j] = v;
+        const v = SDL_JoystickGetHat(hnd.get(), static_cast{int}(j));
+        st.hats[j] = v;
       }
       // debug_log(i, "axes", st.axes, "btns", st.buttons, "hats", st.hats);
     }
@@ -619,44 +624,44 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
         // TODO: nvapi_gpu_usageは10ms以上かかることがある
       fr.save_ticks("motion01");
       const mess = string_join{" "}(fr.fps, frctl.frame_speed_mul,
-	0.0f, saved_stat_num_objects, v);
+        0.0f, saved_stat_num_objects, v);
       if (async_motion_thread) {
         fr.save_ticks("motion02");
-	motion_thr.some->finish();
+        motion_thr.some->finish();
         fr.save_ticks("motion1");
         const mo_time = SDL_GetTicks() - motion_thr_start_time;
         // debug_log("motion_thr time", mo_time);
-	{
-	  mutable& mts = *motion_thr.some->shared;
-	  // mts.cam = pgs.cam;
-	  mts.frame_speed_mul = frctl.frame_speed_mul;
-	  mts.message = mess;
-	  pgs.ddata.local_whole_instances.swap(mts.whole_instances);
-	  saved_stat_num_objects = mts.stat_num_objects;
+        {
+          mutable& mts = *motion_thr.some->shared;
+          // mts.cam = pgs.cam;
+          mts.frame_speed_mul = frctl.frame_speed_mul;
+          mts.message = mess;
+          pgs.ddata.local_insts_allfmt.swap(mts.insts_allfmt);
+          saved_stat_num_objects = mts.stat_num_objects;
           app->on_motion_post();
           app->on_motion_pre();
-	}
+        }
         fr.save_ticks("motion2");
-	motion_thr.some->start();
+        motion_thr.some->start();
         fr.save_ticks("motion3");
         motion_thr_start_time = SDL_GetTicks();
       } else {
-	{
-	  mutable& mts = *motion_thr.some->shared;
-	  // mts.cam = pgs.cam;
-	  mts.frame_speed_mul = frctl.frame_speed_mul;
-	  mts.message = mess;
-	  pgs.ddata.local_whole_instances.swap(mts.whole_instances);
+        {
+          mutable& mts = *motion_thr.some->shared;
+          // mts.cam = pgs.cam;
+          mts.frame_speed_mul = frctl.frame_speed_mul;
+          mts.message = mess;
+          pgs.ddata.local_insts_allfmt.swap(mts.insts_allfmt);
           app->on_motion_pre();
-	}
-	motion_thr.some->start();
-	motion_thr.some->finish();
-	{
-	  mutable& mts = *motion_thr.some->shared;
-	  pgs.ddata.local_whole_instances.swap(mts.whole_instances);
-	  saved_stat_num_objects = mts.stat_num_objects;
+        }
+        motion_thr.some->start();
+        motion_thr.some->finish();
+        {
+          mutable& mts = *motion_thr.some->shared;
+          pgs.ddata.local_insts_allfmt.swap(mts.insts_allfmt);
+          saved_stat_num_objects = mts.stat_num_objects;
           app->on_motion_post();
-	}
+        }
       }
     }
     // FIXME: shadowmapping
@@ -680,12 +685,12 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       glm::vec3 mi = arr[0];
       glm::vec3 mx = arr[0];
       for (size_t i: 1 .. 8) {
-	mi.x = min(mi.x, arr[i].x);
-	mi.y = min(mi.y, arr[i].y);
-	mi.z = min(mi.z, arr[i].z);
-	mx.x = max(mx.x, arr[i].x);
-	mx.y = max(mx.y, arr[i].y);
-	mx.z = max(mx.z, arr[i].z);
+        mi.x = min(mi.x, arr[i].x);
+        mi.y = min(mi.y, arr[i].y);
+        mi.z = min(mi.z, arr[i].z);
+        mx.x = max(mx.x, arr[i].x);
+        mx.y = max(mx.y, arr[i].y);
+        mx.z = max(mx.z, arr[i].z);
       }
       */
       /*
@@ -693,7 +698,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       */
       /*
       cam_drawing_frame.sm_projection =
-	glm::ortho(mi.x, mx.x, mi.y, mx.y, mi.z, mx.z);
+        glm::ortho(mi.x, mx.x, mi.y, mx.y, mi.z, mx.z);
       */
       /*
       debug_log("lipos", cam_drawing_frame.light.position.to_slice());
@@ -714,11 +719,11 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       varray{uint} tick_draw;
       tick_draw = pgs.draw_frame();
       if (tick_draw.size() >= 2) {
-	fr.save_ticks_value(tick_draw[0], "dr0");
-	fr.save_ticks_value(tick_draw[1], "dr1");
+        fr.save_ticks_value(tick_draw[0], "dr0");
+        fr.save_ticks_value(tick_draw[1], "dr1");
       } else {
-	fr.save_ticks("dr0");
-	fr.save_ticks("dr1");
+        fr.save_ticks("dr0");
+        fr.save_ticks("dr1");
       }
     }
     const saved_prev_time = frctl.time_prev;
@@ -751,11 +756,11 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       int flip_count = cur_dummy_flip;
       // debug_log("flip_count", flip_count);
       if (flip_count > 4) {
-	flip_count = 4;
+        flip_count = 4;
       }
       for (int i: 1 .. flip_count) {
-	pgs.draw_frame_lastpass();
-	SDL_GL_SwapWindow(sdlc.sdl_window);
+        pgs.draw_frame_lastpass();
+        SDL_GL_SwapWindow(sdlc.sdl_window);
       }
       if (cur_dummy_flip_gpusum >= 0) {
         // nvapi有効のときのみ自動dummy_flipが可能。そうでないならdummy_flip
@@ -765,8 +770,8 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     } else {
       // dummy_flipが2以上のときはdummy_flipを入れる
       for (const i: 1 .. dummy_flip) {
-	pgs.draw_frame_lastpass();
-	SDL_GL_SwapWindow(sdlc.sdl_window);
+        pgs.draw_frame_lastpass();
+        SDL_GL_SwapWindow(sdlc.sdl_window);
       }
     }
     */

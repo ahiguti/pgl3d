@@ -1,6 +1,6 @@
 public namespace pgl3d::ext::serial_port "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 
 public struct extern "pgl3d::serial_port" "nonmovable"
 serial_port(uint index)

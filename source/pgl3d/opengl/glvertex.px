@@ -1,25 +1,25 @@
 public threaded namespace pgl3d::opengl::glvertex "use-unsafe";
-public import common -;
-private import pointer::raw -;
-private import pointer::raw_unsafe -;
-public import numeric::fpmath -;
+public import core::common -;
+private import core::pointer::raw -;
+private import core::pointer::raw_unsafe -;
+public import core::numeric::fpmath -;
 public import glm;
-public import io::time -;
-public import meta m;
-public import exception -;
+public import core::io::time -;
+public import core::meta m;
+public import core::exception -;
 public import pgl3d::engine::platform -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
 public import pgl3d::geometry::funcs -;
 private import pgl3d::opengl::glresource -;
 
-public multithreaded struct node_joint()
+public pure multithreaded struct node_joint()
 {
   public string joint_name;
   public glm::mat4 trans = mat4_identity(); /* or quat and vec3 ? */
 }
 
-private threaded function void
+private pure function void
 float_slice_set_int(slice{float} const& s, int v)
 {
   if (s.size() < 1) {
@@ -29,7 +29,7 @@ float_slice_set_int(slice{float} const& s, int v)
   si[0] = v;
 }
 
-private threaded function {t} void
+private pure function {t} void
 push_float(varray{float} mutable& arr, t const& v)
 {
   if (m::eq{t, float}) {
@@ -44,7 +44,7 @@ push_float(varray{float} mutable& arr, t const& v)
   }
 }
 
-public multithreaded struct
+public pure multithreaded struct
 vertices(size_t num_float_per_vertex0)
 {
   public size_t const num_float_per_vertex = num_float_per_vertex0;
@@ -69,17 +69,17 @@ vertices(size_t num_float_per_vertex0)
     size_t num_v = verts.size() / nfpv;
     if (nfpv > num_float_per_vertex) {
       throw runtime_error_template{"vertices::set_triangles"}(
-	string_join{" "}(nfpv, num_float_per_vertex));
+        string_join{" "}(nfpv, num_float_per_vertex));
     }
     vertex_values.resize(num_v * num_float_per_vertex, 0.0f);
     positions.clear();
     for (const i: 0 .. num_v) {
       for (const j: 0 .. nfpv) {
-	vertex_values[i * num_float_per_vertex + j] = verts[i * nfpv + j];
+        vertex_values[i * num_float_per_vertex + j] = verts[i * nfpv + j];
       }
       // assumes first 3 floats are position coords
       for (const j: 0 .. 3U) {
-	positions.push_back(verts[i * nfpv + j]);
+        positions.push_back(verts[i * nfpv + j]);
       }
     }
     vertex_attrs = vattrs;
@@ -87,15 +87,15 @@ vertices(size_t num_float_per_vertex0)
       size_t n = elems.size() / 3;
       elements.resize(n * 4);
       for (const i: 0 .. n) {
-	elements[i * 4 + 0] = 0xffffffffU;
-	elements[i * 4 + 1] = elems[i * 3 + 0];
-	elements[i * 4 + 2] = elems[i * 3 + 1];
-	elements[i * 4 + 3] = elems[i * 3 + 2];
+        elements[i * 4 + 0] = 0xffffffffU;
+        elements[i * 4 + 1] = elems[i * 3 + 0];
+        elements[i * 4 + 2] = elems[i * 3 + 1];
+        elements[i * 4 + 3] = elems[i * 3 + 2];
       }
     } else {
-      elements.resize(elems.size(), 0);
+      elements.resize(elems.size(), uint());
       for (const i, const& e: elems) {
-	elements[i] = e;
+        elements[i] = e;
       }
     }
     debug_log("set_triangles: ", vertex_values.size(), elements.size());
@@ -108,14 +108,14 @@ vertices(size_t num_float_per_vertex0)
     /* vattrsは物理エンジンなどが参照するためのデータ、valsはGPUに置くデータ */
     if (vattrs.size() != vals.size()) {
       throw runtime_error_template{"vertices::push_polygon_distinct::vattrs"}(
-	string_join{" "}(vattrs.size(), vals.size()));
+        string_join{" "}(vattrs.size(), vals.size()));
     }
     vertex_attrs.append(vattrs);
     /* tattr must have 'public glm::vec3 position' */
     if (num_float_per_vertex != num_float_struct{tattr}) {
       throw runtime_error_template{"vertices::push_polygon_distinct::tattr"}(
-	string_join{" "}(m::to_string{tattr}, num_float_struct{tattr},
-	  num_float_per_vertex));
+        string_join{" "}(m::to_string{tattr}, num_float_struct{tattr},
+          num_float_per_vertex));
     }
     /* no dedup */
     const first_id = vertex_values.size() / num_float_struct{tattr};
@@ -123,22 +123,22 @@ vertices(size_t num_float_per_vertex0)
       /* push_float()でtattr型の構造体をGPU用にfloatの配列に変換する */
       push_float{tattr}(vertex_values, val);
       if (m::symbol_exists{tattr, "position"}) {
-	positions.append(val.position.to_cslice());
+        positions.append(val.position.to_cslice());
       }
     }
     function void push_convex()
     {
       if (m::ne{use_primitive_restart, 0}) {
-	elements.push_back(0xffffffffU);
-	for (const i, const& val: vals) {
-	  elements.push_back(static_cast{uint}(first_id + i));
-	}
+        elements.push_back(0xffffffffU);
+        for (const i, const& val: vals) {
+          elements.push_back(static_cast{uint}(first_id + i));
+        }
       } else {
-	for (const i: 0 .. vals.size() - 2) {
-	  elements.push_back(static_cast{uint}(first_id));
-	  elements.push_back(static_cast{uint}(first_id + i + 1));
-	  elements.push_back(static_cast{uint}(first_id + i + 2));
-	}
+        for (const i: 0 .. vals.size() - 2) {
+          elements.push_back(static_cast{uint}(first_id));
+          elements.push_back(static_cast{uint}(first_id + i + 1));
+          elements.push_back(static_cast{uint}(first_id + i + 2));
+        }
       }
     }
     if (m::eq{split_convex, 0}) {
@@ -147,101 +147,101 @@ vertices(size_t num_float_per_vertex0)
       /* polygon triangulation */
       /* TODO: optimize for use_primitive_restart and convex polygons */
       varray{size_t} ia;
-      ia.resize(vals.size(), 0u);
+      ia.resize(vals.size(), size_t());
       for (const i, mutable& v: ia) {
-	v = i;
+        v = i;
       }
       function glm::vec3 ia_pos(size_t i) {
-	return vals[ia[i]].position;
+        return vals[ia[i]].position;
       }
       function size_t ia_prev(size_t i) {
-	return (i == 0) ? (ia.size() - 1) : (i - 1);
+        return (i == 0) ? (ia.size() - 1) : (i - 1);
       }
       function size_t ia_next(size_t i) {
-	return (i != ia.size() - 1) ? (i + 1) : 0u;
+        return (i != ia.size() - 1) ? (i + 1) : 0u;
       }
       function glm::vec3 cross_one(size_t i)
       {
-	/* TODO: optimize */
-	return glm::cross(
-	  ia_pos(i) - ia_pos(ia_prev(i)),
-	  ia_pos(ia_next(i)) - ia_pos(i));
+        /* TODO: optimize */
+        return glm::cross(
+          ia_pos(i) - ia_pos(ia_prev(i)),
+          ia_pos(ia_next(i)) - ia_pos(i));
       }
       glm::vec3 cross_sum;
       for (const i: 0 .. ia.size()) {
-	cross_sum += cross_one(i);
+        cross_sum += cross_one(i);
       }
       while (ia.size() >= 3) {
-	size_t i = ia.size() - 1;
-	while (true) {
-	  function bool removable() {
-	    const ci = cross_one(i);
-	    if (m::is_true{debug_triangulation}) {
-	      if (vals.size() >= 5) {
-		sdl_log("dir", ia.size(), i, glm::dot(cross_sum, ci));
-	      }
-	    }
-	    if (glm::dot(cross_sum, ci) <= -0.000001f) {
-	      return false;
-	    }
-	    size_t j;
-	    for (j = ia_next(ia_next(i)); j != ia_prev(i); j = ia_next(j)) {
-	      const c0 = glm::cross(
-		ia_pos(i) - ia_pos(ia_prev(i)),
-		ia_pos(j) - ia_pos(i));
-	      const c1 = glm::cross(
-		ia_pos(ia_next(i)) - ia_pos(i),
-		ia_pos(j) - ia_pos(ia_next(i)));
-	      const c2 = glm::cross(
-		ia_pos(ia_prev(i)) - ia_pos(ia_next(i)),
-		ia_pos(j) - ia_pos(ia_prev(i)));
-	      const s0 = glm::dot(c0, c1);
-	      const s1 = glm::dot(c0, c2);
+        size_t i = ia.size() - 1;
+        while (true) {
+          function bool removable() {
+            const ci = cross_one(i);
+            if (m::is_true{debug_triangulation}) {
+              if (vals.size() >= 5) {
+                sdl_log("dir", ia.size(), i, glm::dot(cross_sum, ci));
+              }
+            }
+            if (glm::dot(cross_sum, ci) <= -0.000001f) {
+              return false;
+            }
+            size_t j;
+            for (j = ia_next(ia_next(i)); j != ia_prev(i); j = ia_next(j)) {
+              const c0 = glm::cross(
+                ia_pos(i) - ia_pos(ia_prev(i)),
+                ia_pos(j) - ia_pos(i));
+              const c1 = glm::cross(
+                ia_pos(ia_next(i)) - ia_pos(i),
+                ia_pos(j) - ia_pos(ia_next(i)));
+              const c2 = glm::cross(
+                ia_pos(ia_prev(i)) - ia_pos(ia_next(i)),
+                ia_pos(j) - ia_pos(ia_prev(i)));
+              const s0 = glm::dot(c0, c1);
+              const s1 = glm::dot(c0, c2);
 
-	      if (s0 > 0.0f && s1 > 0.0f) {
-		if (m::is_true{debug_triangulation}) {
-		  if (vals.size() >= 5)
-		  {
-		    sdl_log("posi012", ia_pos(ia_prev(i)), ia_pos(i),
-			ia_pos(ia_next(i)));
-		    sdl_log("posj", ia_pos(j));
-		    sdl_log("s0s1", ia.size(), i, j, s0, s1);
-		  }
-		}
-		return false;
-	      }
-	      /*
-	      if (glm::dot(ci, c0) > 0.0f && glm::dot(ci, c1) > 0.0f &&
-		glm::dot(ci, c2) > 0.0f) {
-		return false;
-	      }
-	      */
-	    }
-	    return true;
-	  }
-	  function void push_one()
-	  {
-	    if (m::ne{use_primitive_restart, 0}) {
-	      elements.push_back(0xffffffffU);
-	    }
-	    elements.push_back(static_cast{uint}(first_id + ia[ia_prev(i)]));
-	    elements.push_back(static_cast{uint}(first_id + ia[i]));
-	    elements.push_back(static_cast{uint}(first_id + ia[ia_next(i)]));
-	  }
-	  if (removable()) {
-	    push_one();
-	    ia.erase(i, i + 1);
-	    break;
-	  }
-	  if (i == 0) {
-	    sdl_log("warning: split_convex failed", ia.size(), vals.size(),
-	      vals, ia);
-	    i = ia.size() - 1;
-	    push_one();
-	    ia.erase(i, i + 1);
-	  }
-	  --i;
-	}
+              if (s0 > 0.0f && s1 > 0.0f) {
+                if (m::is_true{debug_triangulation}) {
+                  if (vals.size() >= 5)
+                  {
+                    sdl_log("posi012", ia_pos(ia_prev(i)), ia_pos(i),
+                        ia_pos(ia_next(i)));
+                    sdl_log("posj", ia_pos(j));
+                    sdl_log("s0s1", ia.size(), i, j, s0, s1);
+                  }
+                }
+                return false;
+              }
+              /*
+              if (glm::dot(ci, c0) > 0.0f && glm::dot(ci, c1) > 0.0f &&
+                glm::dot(ci, c2) > 0.0f) {
+                return false;
+              }
+              */
+            }
+            return true;
+          }
+          function void push_one()
+          {
+            if (m::ne{use_primitive_restart, 0}) {
+              elements.push_back(0xffffffffU);
+            }
+            elements.push_back(static_cast{uint}(first_id + ia[ia_prev(i)]));
+            elements.push_back(static_cast{uint}(first_id + ia[i]));
+            elements.push_back(static_cast{uint}(first_id + ia[ia_next(i)]));
+          }
+          if (removable()) {
+            push_one();
+            ia.erase(i, i + 1);
+            break;
+          }
+          if (i == 0) {
+            sdl_log("warning: split_convex failed", ia.size(), vals.size(),
+              vals, ia);
+            i = ia.size() - 1;
+            push_one();
+            ia.erase(i, i + 1);
+          }
+          --i;
+        }
       }
     }
   }

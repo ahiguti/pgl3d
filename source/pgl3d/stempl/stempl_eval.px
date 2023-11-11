@@ -1,11 +1,11 @@
 public threaded namespace pgl3d::stempl::stempl_eval;
-public import common -;
-public import exception -;
+public import core::common -;
+public import core::exception -;
 public import pgl3d::stempl::stempl +;
-public import meta m;
-public import pointer::tfuncptr -;
+public import core::meta m;
+public import core::pointer::tfuncptr -;
 
-public threaded struct
+public pure struct
 stempl_evaluator()
 {
   public tree_map{string, stempl_binding_entry} functions;
@@ -28,16 +28,16 @@ stempl_evaluator()
     metafunction mfcs m::member_functions{t};
     expand (idx: m::seq{m::size{mfcs}}) {
       functions.insert(m::to_string{m::at{mfcs, idx}},
-	stempl_binding_entry(
-	  make_ptr{stempl_function_strict_method{t, idx}}(ptr),
-	  m::size{m::arg_types{m::at{mfcs, idx}}},
-	  m::size{m::arg_types{m::at{mfcs, idx}}}));
+        stempl_binding_entry(
+          make_ptr{stempl_function_strict_method{t, idx}}(ptr),
+          m::size{m::arg_types{m::at{mfcs, idx}}},
+          m::size{m::arg_types{m::at{mfcs, idx}}}));
     }
     metafunction mflds m::field_names{t};
     expand (idx: m::seq{m::size{mflds}}) {
       functions.insert(m::to_string{m::at{mflds, idx}},
-	stempl_binding_entry(
-	  make_ptr{stempl_function_const}(get_field{t, idx}(*ptr)), 0, 0));
+        stempl_binding_entry(
+          make_ptr{stempl_function_const}(get_field{t, idx}(*ptr)), 0, 0));
     }
   }
   public function void add_global_const(string const& name, string const& val)
@@ -75,22 +75,22 @@ stempl_evaluator()
     add_lazy_function{stempl_func_set}("set", 2, 2);
     add_lazy_function{stempl_func_for}("for", 3, nolimit);
     add_lazy_function{stempl_func_comment}("comment", 0, nolimit);
-    add_strict_function{operator::eq{string, string}}("eq");
-    add_strict_function{operator::ne{string, string}}("ne");
-    add_strict_function{operator::not{bool}}("not");
-    add_strict_function{operator::add{int, int}}("add");
-    add_strict_function{operator::sub{int, int}}("sub");
-    add_strict_function{operator::mul{int, int}}("mul");
-    add_strict_function{operator::div{int, int}}("div");
-    add_strict_function{operator::mod{int, int}}("mod");
-    add_strict_function{operator::add{float, float}}("fadd");
-    add_strict_function{operator::sub{float, float}}("fsub");
-    add_strict_function{operator::mul{float, float}}("fmul");
-    add_strict_function{operator::div{float, float}}("fdiv");
+    add_strict_function{core::operator::eq{string, string}}("eq");
+    add_strict_function{core::operator::ne{string, string}}("ne");
+    add_strict_function{core::operator::not{bool}}("not");
+    add_strict_function{core::operator::add{int, int}}("add");
+    add_strict_function{core::operator::sub{int, int}}("sub");
+    add_strict_function{core::operator::mul{int, int}}("mul");
+    add_strict_function{core::operator::div{int, int}}("div");
+    add_strict_function{core::operator::mod{int, int}}("mod");
+    add_strict_function{core::operator::add{float, float}}("fadd");
+    add_strict_function{core::operator::sub{float, float}}("fsub");
+    add_strict_function{core::operator::mul{float, float}}("fmul");
+    add_strict_function{core::operator::div{float, float}}("fdiv");
   }
 }
 
-public threaded function string
+public pure function string
 stempl_evaluator_eval(stempl_evaluator mutable& ev, stempl_expr const& expr)
 {
   if (case expr.literal) {
@@ -112,7 +112,7 @@ stempl_evaluator_eval(stempl_evaluator mutable& ev, stempl_expr const& expr)
   return string();
 }
 
-public threaded function string
+public pure function string
 stempl_func_noop(string const& a0, string const& a1)
 {
   return string();
@@ -121,13 +121,13 @@ stempl_func_noop(string const& a0, string const& a1)
 public metafunction stempl_func_lazy
   tfuncptr_matching_function{stempl_func_invalid};
 
-public threaded function string
+public pure function string
 stempl_func_invalid(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   throw stempl_exception("invalid expression", cons.offset);
 }
 
-public threaded function string
+public pure function string
 stempl_func_if(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   const& args = cons.args;
@@ -146,21 +146,21 @@ stempl_func_if(stempl_evaluator mutable& self, stempl_cons const& cons)
     while (else_pos < sz) {
       const& a = args[else_pos];
       if (case a.cons) {
-	const& acons = *a.cons;
-	const& sym = acons.symbol;
-	if (sym == "else") {
-	  if (!acons.args.empty()) {
-	    throw stempl_exception("invalid else-expression", acons.offset);
-	  }
-	  break;
-	}
-	if (sym == "elseif") {
-	  if (!acons.args.empty()) {
-	    throw stempl_exception("invalid elseif-expression", acons.offset);
-	  }
-	  else_if = true;
-	  break;
-	}
+        const& acons = *a.cons;
+        const& sym = acons.symbol;
+        if (sym == "else") {
+          if (!acons.args.empty()) {
+            throw stempl_exception("invalid else-expression", acons.offset);
+          }
+          break;
+        }
+        if (sym == "elseif") {
+          if (!acons.args.empty()) {
+            throw stempl_exception("invalid elseif-expression", acons.offset);
+          }
+          else_if = true;
+          break;
+        }
       }
       ++else_pos;
     }
@@ -176,7 +176,7 @@ stempl_func_if(stempl_evaluator mutable& self, stempl_cons const& cons)
   return string();
 }
 
-public threaded function string
+public pure function string
 stempl_func_or(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   for (const i, const& a: cons.args) {
@@ -187,7 +187,7 @@ stempl_func_or(stempl_evaluator mutable& self, stempl_cons const& cons)
   return to_string(false);
 }
 
-public threaded function string
+public pure function string
 stempl_func_and(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   for (const i, const& a: cons.args) {
@@ -198,7 +198,7 @@ stempl_func_and(stempl_evaluator mutable& self, stempl_cons const& cons)
   return to_string(true);
 }
 
-public threaded function string
+public pure function string
 stempl_func_variable(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   const vname = stempl_evaluator_eval(self, cons.args[0]);
@@ -216,7 +216,7 @@ stempl_func_variable(stempl_evaluator mutable& self, stempl_cons const& cons)
   return r;
 }
 
-public threaded function string
+public pure function string
 stempl_func_set(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   const vname = stempl_evaluator_eval(self, cons.args[0]);
@@ -229,7 +229,7 @@ stempl_func_set(stempl_evaluator mutable& self, stempl_cons const& cons)
   return string();
 }
 
-public threaded function string
+public pure function string
 stempl_func_for(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   const vname = stempl_evaluator_eval(self, cons.args[0]);
@@ -249,7 +249,7 @@ stempl_func_for(stempl_evaluator mutable& self, stempl_cons const& cons)
   return r;
 }
 
-public threaded function string
+public pure function string
 stempl_func_comment(stempl_evaluator mutable& self, stempl_cons const& cons)
 {
   return string();
@@ -257,13 +257,13 @@ stempl_func_comment(stempl_evaluator mutable& self, stempl_cons const& cons)
 
 /* private */
 
-private threaded interface stempl_function_i
+private pure interface stempl_function_i
 {
   public function string call(stempl_evaluator mutable& self,
     stempl_cons const& cons);
 }
 
-private threaded struct {f} stempl_function_lazy
+private pure struct {f} stempl_function_lazy
 <stempl_function_i>
 {
   public function string call(stempl_evaluator mutable& self,
@@ -273,7 +273,7 @@ private threaded struct {f} stempl_function_lazy
   }
 }
 
-private threaded struct {f} stempl_function_strict
+private pure struct {f} stempl_function_strict
 <stempl_function_i>
 {
   public function string call(stempl_evaluator mutable& self,
@@ -283,12 +283,12 @@ private threaded struct {f} stempl_function_strict
     const& args = cons.args;
     return to_string(
       f(expand (i: m::seq{sz};
-	from_string{m::arg_type{f, i}}(
-	  stempl_evaluator_eval(self, args[i])))));
+        from_string{m::arg_type{f, i}}(
+          stempl_evaluator_eval(self, args[i])))));
   }
 }
 
-private threaded struct {t, idx}
+private pure struct {t, idx}
 stempl_function_strict_method(ptr{t} const& pointer0)
 <stempl_function_i>
 {
@@ -300,14 +300,14 @@ stempl_function_strict_method(ptr{t} const& pointer0)
     metafunction sz m::size{m::arg_types{mf}};
     expand (sym: {m::to_string{mf}}) {
       return to_string(
-	pointer->sym(expand (i: m::seq{sz};
-	  from_string{m::arg_type{mf, i}}(
-	    stempl_evaluator_eval(self, cons.args[i])))));
+        pointer->sym(expand (i: m::seq{sz};
+          from_string{m::arg_type{mf, i}}(
+            stempl_evaluator_eval(self, cons.args[i])))));
     }
   }
 }
 
-private threaded struct
+private pure struct
 stempl_function_const(string const& value0)
 <stempl_function_i>
 {
@@ -319,7 +319,7 @@ stempl_function_const(string const& value0)
   }
 }
 
-private threaded struct
+private pure struct
 stempl_binding_entry(ptr{stempl_function_i} const& func0, size_t min_args0,
   size_t max_args0)
 {
@@ -328,13 +328,13 @@ stempl_binding_entry(ptr{stempl_function_i} const& func0, size_t min_args0,
   public size_t const max_args = max_args0;
 }
 
-private threaded function void
+private pure function void
 trace_eval(stempl_expr const& expr, cstrref const& s)
 {
   debug_log("stempl trace: ", expr.dump(), s);
 }
 
-private threaded function {t, idx} string
+private pure function {t, idx} string
 get_field(t const& obj)
 {
   metafunction mflds m::field_names{t};
@@ -343,7 +343,7 @@ get_field(t const& obj)
   }
 }
 
-private threaded function {t} void
+private pure function {t} void
 check_num_args(t const& lst, size_t mi, size_t mx, size_t src_offset)
 {
   if (lst.size() < mi || lst.size() > mx) {
@@ -351,7 +351,7 @@ check_num_args(t const& lst, size_t mi, size_t mx, size_t src_offset)
   }
 }
 
-private threaded function string
+private pure function string
 eval_concat(stempl_evaluator mutable& self, cslice{stempl_expr} const& exprs,
   size_t i0, size_t i1)
 {

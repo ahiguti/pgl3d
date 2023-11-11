@@ -7,9 +7,9 @@
 #        filemode = false
 
 
-cd `dirname $0`
+# cd `dirname $0`
 
-find -type f -exec chmod 644 {} \;
-find -type d -exec chmod 755 {} \;
-find -name "*.sh" -exec chmod 755 {} \;
+find . -type f -exec chmod 644 {} \;
+find . -type d -exec chmod 755 {} \;
+find . -name "*.sh" -exec chmod 755 {} \;
 

@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::drawer::setfb "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
 private struct setfb_attributes { }
 
@@ -88,7 +88,7 @@ public struct drawer_setfb(shader_config const& glc,
   */
   option{ptr{gl_framebuffer}} fbo_own;
   option{cptr{gl_framebuffer}} fbo;
-  public function vbid_t get_vbid() const { return vbid_invalid(); }
+  public function vbid_t get_drawer_vbid() const { return vbid_invalid(); }
   public function vbid_t get_instances_vbid() const { return vbid_invalid(); }
   public function vbid_t get_vertices_vbid() const { return vbid_invalid(); }
   init(ds, color_fmt0, depth_fmt0);
@@ -124,11 +124,12 @@ public struct drawer_setfb(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{setfb_attributes}(false, false);
+    return make_tattr_vertex_buffer{setfb_attributes}(false,
+      get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const { return string(); }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const { }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr) { }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
   {
     return make_dgf_noop(vptr);
@@ -143,8 +144,11 @@ public struct drawer_setfb(shader_config const& glc,
       return;
     }
     if (owner_flag) {
-      fbo_own.some->width = static_cast{int}(src_size->x);
-      fbo_own.some->height = static_cast{int}(src_size->y);
+      const w = static_cast{int}(src_size->x);
+      const h = static_cast{int}(src_size->y);
+      debug_log("setfb", w, h);
+      fbo_own.some->width = w;
+      fbo_own.some->height = h;
       if (color_tex) {
         init_color_fbo(glc, *fbo_own.some, color_fmt, depth_fmt, bilinear);
         debug_log("setfb color fbo");
@@ -152,7 +156,6 @@ public struct drawer_setfb(shader_config const& glc,
         init_shadowmap_fbo(glc, *fbo_own.some);
         debug_log("setfb shadowmap fbo");
       }
-      debug_log("setfb", fbo_own.some->width, fbo_own.some->height);
     }
   }
   public function bool reload_shaders(shader_config const& glc)
@@ -172,9 +175,9 @@ public struct drawer_setfb(shader_config const& glc,
       glEnable(GL_DEPTH_TEST);
       glDepthMask(1);
       if (enable_depth_texture) {
-	glColorMask(0, 0, 0, 0);
+        glColorMask(0, 0, 0, 0);
       } else {
-	glColorMask(1, 1, 1, 1); // TODO: 1,1,0,0 when enable_vsm ?
+        glColorMask(1, 1, 1, 1); // TODO: 1,1,0,0 when enable_vsm ?
       }
       glDepthFunc(GL_LEQUAL);
       glDisable(GL_BLEND);

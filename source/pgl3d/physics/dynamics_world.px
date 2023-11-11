@@ -1,20 +1,20 @@
 public namespace pgl3d::physics::dynamics_world "use-unsafe";
-public import common -;
-public import exception -;
-public import pointer::raw -;
-public import meta m;
-public import meta::vararg va;
+public import core::common -;
+public import core::exception -;
+public import core::pointer::raw -;
+public import core::meta m;
+public import core::meta::vararg va;
 public import pgl3d::engine::scene_node -;
-public import numeric::fpmath -;
-public import procedure::thread::async_task -;
+public import core::numeric::fpmath -;
+public import core::callable::thread::async_task -;
 public import glm;
 public import pgl3d::physics::collision_shape -;
-private import meta::platform mp;
+private import core::meta::platform mp;
 private import bullet_physics::base -;
 private import bullet_physics::constants -;
 private import bullet_physics::api +;
 private import bullet_physics::all -;
-private import pointer::raw_unsafe -;
+private import core::pointer::raw_unsafe -;
 private import pgl3d::texture::editable_voxel -;
 private import pgl3d::physics::grid_broadphase -;
 private import pgl3d::physics::collision_gjk -;
@@ -114,7 +114,7 @@ grid_bp_shared(size_t i0, size_t n0, tptr{texture_edit} const& tex0,
 
 private threaded struct
 grid_bp_thread_object(tptr{grid_bp_shared} const& shared0)
-<callable{void, m::nil}>
+<threaded_callable{void, m::nil}>
 {
   public grid_broadphase mutable grid_bp = grid_broadphase(6, 10.0f);
   public varray{bool} grid_bp_work_near;
@@ -132,14 +132,14 @@ grid_bp_thread_object(tptr{grid_bp_shared} const& shared0)
     grid_bp.set_mesh_size(10.0f);
     const grid_rbinfo_array = shared.grid_rbinfo_array_ptr.to_slice(
       shared.grid_rbinfo_array_size); // create slice from rawptr and size
-    shared.tm1 = io::debug_system().high_resolution_timer_double();
+    shared.tm1 = debug_io().high_resolution_timer_double();
     if (shared.tm1 - shared.tm0 > 0.1) {
       // debug_log("step t0", t0 - shared.tm1, grid_rbinfo_array.size());
     }
     /* この処理は同じ内容を全スレッドで実行している。一つにまとめた
      * ほうが速いか？ */
     grid_bp.add_objects(grid_rbinfo_array);
-    shared.tm2 = io::debug_system().high_resolution_timer_double();
+    shared.tm2 = debug_io().high_resolution_timer_double();
     /*
     debug_log("fillings", rad_avg, grid_rbinfo_array.size(),
       grid_bp.fillings.size());
@@ -158,73 +158,73 @@ grid_bp_thread_object(tptr{grid_bp_shared} const& shared0)
       mutable& sw = *swp;
       // debug_log("i", i);
       for (const j: 0 .. sw.size()) {
-	// debug_log("j", j);
-	/*
-	if (j + 1 < sz) {
-	  // prefetch
-	  if (sw.get(j + 1, pos, radius) != 0U) {
-	    const btpos = btVector3_(pos.x, pos.y, pos.z);
-	    const d = glm::make_vec3(radius, radius, radius);
-	    grid_bp.prefetch(pos - d, pos + d);
-	  }
-	}
-	*/
-	if (sw.get(j, pos, radius) != 0U) {
-	  const btpos = btVector3_(pos.x, pos.y, pos.z);
-	  const d = glm::make_vec3(radius, radius, radius);
-	  function bool near_cb(col_id_type col_id) {
-	    ++bp_count;
-	    if (!grid_bp_work_near[col_id]) {
-	      grid_bp_work_near[col_id] = true;
-	      grid_bp_work_near_ents.push_back(col_id);
-	    }
-	    return false;
-	  }
-	  grid_bp.find{near_cb}(pos - d, pos + d);
-	  bp1_count += grid_bp_work_near_ents.size();
-	  for (const k, const col_id: grid_bp_work_near_ents) {
-	    grid_bp_work_near[col_id] = false;
-	    // sw.on_collide(j, col_id);
-	    const& rbi = grid_rbinfo_array[col_id];
-	    const& rbpos = rbi.trans.cgetOrigin();
-	    const rel = glm::make_vec3(pos.x - rbpos.x(), pos.y - rbpos.y(),
-	      pos.z - rbpos.z());
-	    const reldist2 = glm::dot(rel, rel);
-	    const radsum = rbi.colshape->get_radius() + radius;
-	    if (reldist2 >= radsum * radsum) {
-	      continue;
-	    }
-	    ++np_count;
-	    /*
-	    const p = rbi.shape.dynamic_cast{btConvexShape}();
-	    if (!gjk.collide_convex_sphere(*p, rbi.trans, radius, btpos)) {
-	      continue;
-	    }
-	    */
-	    ++np1_count;
-	    if (rbi.colshape->has_near_collision()) {
-	      const trinv = rbi.trans.inverse(); // FIXME: don't use inverse()
-	      // FIXME: ただしこのinverseはmat4の逆行列計算ほどは遅くないはず
-	      // FIXME: avoid conversion between btVector and vec3
-	      const lpos = op_mul{btTransform, btVector3, btVector3}(trinv,
-		btVector3_(pos.x, pos.y, pos.z));
-	      if (!rbi.colshape->near_collision(
-		glm::make_vec3(lpos.x(), lpos.y(), lpos.z()), radius,
-		  shared.tex, shared.tu)) {
-		//debug_log("near_collision: false");
-		continue;
-	      } else {
-		//debug_log("near_collision: true");
-	      }
-	    }
-	    sw.on_collide(j, col_id);
-	  }
-	  grid_bp_work_near_ents.clear();
-	}
+        // debug_log("j", j);
+        /*
+        if (j + 1 < sz) {
+          // prefetch
+          if (sw.get(j + 1, pos, radius) != 0U) {
+            const btpos = btVector3_(pos.x, pos.y, pos.z);
+            const d = glm::make_vec3(radius, radius, radius);
+            grid_bp.prefetch(pos - d, pos + d);
+          }
+        }
+        */
+        if (sw.get(j, pos, radius) != 0U) {
+          const btpos = btVector3_(pos.x, pos.y, pos.z);
+          const d = glm::make_vec3(radius, radius, radius);
+          function bool near_cb(col_id_type col_id) {
+            ++bp_count;
+            if (!grid_bp_work_near[col_id]) {
+              grid_bp_work_near[col_id] = true;
+              grid_bp_work_near_ents.push_back(col_id);
+            }
+            return false;
+          }
+          grid_bp.find{near_cb}(pos - d, pos + d);
+          bp1_count += grid_bp_work_near_ents.size();
+          for (const k, const col_id: grid_bp_work_near_ents) {
+            grid_bp_work_near[col_id] = false;
+            // sw.on_collide(j, col_id);
+            const& rbi = grid_rbinfo_array[col_id];
+            const& rbpos = rbi.trans.cgetOrigin();
+            const rel = glm::make_vec3(pos.x - rbpos.x(), pos.y - rbpos.y(),
+              pos.z - rbpos.z());
+            const reldist2 = glm::dot(rel, rel);
+            const radsum = rbi.colshape->get_radius() + radius;
+            if (reldist2 >= radsum * radsum) {
+              continue;
+            }
+            ++np_count;
+            /*
+            const p = rbi.shape.dynamic_cast{btConvexShape}();
+            if (!gjk.collide_convex_sphere(*p, rbi.trans, radius, btpos)) {
+              continue;
+            }
+            */
+            ++np1_count;
+            if (rbi.colshape->has_near_collision()) {
+              const trinv = rbi.trans.inverse(); // FIXME: don't use inverse()
+              // FIXME: ただしこのinverseはmat4の逆行列計算ほどは遅くないはず
+              // FIXME: avoid conversion between btVector and vec3
+              const lpos = op_mul{btTransform, btVector3, btVector3}(trinv,
+                btVector3_(pos.x, pos.y, pos.z));
+              if (!rbi.colshape->near_collision(
+                glm::make_vec3(lpos.x(), lpos.y(), lpos.z()), radius,
+                  shared.tex, shared.tu)) {
+                //debug_log("near_collision: false");
+                continue;
+              } else {
+                //debug_log("near_collision: true");
+              }
+            }
+            sw.on_collide(j, col_id);
+          }
+          grid_bp_work_near_ents.clear();
+        }
       }
     }
     // debug_log("bp", bp_count, bp1_count, "np", np_count, np1_count);
-    shared.tm3 = io::debug_system().high_resolution_timer_double();
+    shared.tm3 = debug_io().high_resolution_timer_double();
     /*
     debug_log("bp", shared.split_i,
       shared.tm1 - shared.tm0,
@@ -246,38 +246,38 @@ grid_bp_thread_object(tptr{grid_bp_shared} const& shared0)
     for (const i, const& vrbi: grid_rbinfo_array) {
       const& vcolshape = *vrbi.colshape;
       if (!vcolshape.is_voxel()) {
-	continue;
+        continue;
       }
       // debug_log("do_voxel_collision: voxel", i);
       const& vrbpos = vrbi.trans.cgetOrigin();
       const trinv = vrbi.trans.inverse();
       const vrad = vcolshape.get_radius();
       for (const j, const& rbi: grid_rbinfo_array) {
-	const& jcolshape = *rbi.colshape;
-	if (jcolshape.is_voxel()) {
-	  continue;
-	}
-	// debug_log("do_voxel_collision: not voxel", j);
-	const& jpos = rbi.trans.cgetOrigin();
-	const jrad = jcolshape.get_radius();
-	const d = op_sub{btVector3, btVector3, btVector3}(jpos, vrbpos);
-	const dist2 = d.dot(d);
-	const rad = vrad + jrad;
-	const rad2 = rad * rad;
-	if (dist2 > rad2) {
-	  // debug_log("dist > rad", dist2, rad2);
-	  continue;
-	}
-	// グローバル座標jposをvrbiのオブジェクト座標系へ
-	const lpos = op_mul{btTransform, btVector3, btVector3}(trinv, jpos);
-	if (!vrbi.colshape->near_collision(
-	  glm::make_vec3(lpos.x(), lpos.y(), lpos.z()), jrad, shared.tex,
-	  shared.tu)) {
-	  // debug_log("near_collision: false");
-	  continue;
-	}
-	shared.col_to_voxel.push_back(static_cast{uint}(j));
-	// debug_log("col_to_voxel", j);
+        const& jcolshape = *rbi.colshape;
+        if (jcolshape.is_voxel()) {
+          continue;
+        }
+        // debug_log("do_voxel_collision: not voxel", j);
+        const& jpos = rbi.trans.cgetOrigin();
+        const jrad = jcolshape.get_radius();
+        const d = op_sub{btVector3, btVector3, btVector3}(jpos, vrbpos);
+        const dist2 = d.dot(d);
+        const rad = vrad + jrad;
+        const rad2 = rad * rad;
+        if (dist2 > rad2) {
+          // debug_log("dist > rad", dist2, rad2);
+          continue;
+        }
+        // グローバル座標jposをvrbiのオブジェクト座標系へ
+        const lpos = op_mul{btTransform, btVector3, btVector3}(trinv, jpos);
+        if (!vrbi.colshape->near_collision(
+          glm::make_vec3(lpos.x(), lpos.y(), lpos.z()), jrad, shared.tex,
+          shared.tu)) {
+          // debug_log("near_collision: false");
+          continue;
+        }
+        shared.col_to_voxel.push_back(static_cast{uint}(j));
+        // debug_log("col_to_voxel", j);
       }
     }
     // FIXME FIXME FIXME HERE
@@ -289,7 +289,7 @@ grid_bp_thread_factory(tptr{grid_bp_shared} const& shared0)
 <async_task_factory_i>
 {
   tptr{grid_bp_shared} shared = shared0;
-  public function ptr{callable{void, m::nil}} call__()
+  public function ptr{threaded_callable{void, m::nil}} call__()
   {
     return make_ptr{grid_bp_thread_object}(shared);
   }
@@ -312,7 +312,7 @@ dynamics_world(size_t num_grid_bp_tasks0, tptr{texture_edit} const& tex0,
   private metafunction broadphase_to_use
     m::cond{mp::platform_emscripten, 1, 2};
   private size_t num_grid_bp_tasks = num_grid_bp_tasks0;
-  private btDefaultCollisionConfiguration mutable collisionConfiguration 
+  private btDefaultCollisionConfiguration mutable collisionConfiguration
     = btDefaultCollisionConfiguration(btDefaultCollisionConstructionInfo());
   private btCollisionDispatcher mutable dispatcher
     = btCollisionDispatcher(address(collisionConfiguration));
@@ -355,7 +355,7 @@ dynamics_world(size_t num_grid_bp_tasks0, tptr{texture_edit} const& tex0,
     // collision tasks for swarm objects
     for (const i: 0 .. num_grid_bp_tasks) {
       grid_bp_tasks.push_back(make_ptr{grid_bp_task}(i, num_grid_bp_tasks,
-	tex_edit, tex_up, false));
+        tex_edit, tex_up, false));
     }
     // collision task for voxel objects
     grid_bp_task_voxel_collision.some = make_ptr{grid_bp_task}(0u, 0u,
@@ -448,15 +448,15 @@ dynamics_world(size_t num_grid_bp_tasks0, tptr{texture_edit} const& tex0,
   public function void step_simulation(bool paused, float timestep,
     int max_sub_steps, float fixed_timestep)
   {
-    const t0 = io::debug_system().high_resolution_timer_double();
+    const t0 = debug_io().high_resolution_timer_double();
     start_grid_collision();
-    const t1 = io::debug_system().high_resolution_timer_double();
+    const t1 = debug_io().high_resolution_timer_double();
     if (!paused) {
       dynamicsWorld.stepSimulation(timestep, max_sub_steps, fixed_timestep);
     }
-    const t2 = io::debug_system().high_resolution_timer_double();
+    const t2 = debug_io().high_resolution_timer_double();
     finish_grid_collision();
-    const t3 = io::debug_system().high_resolution_timer_double();
+    const t3 = debug_io().high_resolution_timer_double();
     /*
     debug_log("step_simulation", t1 - t0, t2 - t1, t3 - t2);
     if (t3 - t0 > 0.001) { debug_log("slow", t1 - t0, t2 - t1, t3 - t2); }
@@ -470,19 +470,19 @@ dynamics_world(size_t num_grid_bp_tasks0, tptr{texture_edit} const& tex0,
     {
       const rbisli = grid_rbinfo_array.range();
       for (const i, const& obj: rigid_bodies) {
-	mutable& rbi = rbisli[i];
-	rbi.trans = obj->rigidBody.cgetWorldTransform();
-	rad_sum += rbi.colshape->get_radius();
+        mutable& rbi = rbisli[i];
+        rbi.trans = obj->rigidBody.cgetWorldTransform();
+        rad_sum += rbi.colshape->get_radius();
       }
     }
     const rad_avg = rad_sum / static_cast{float}(rigid_bodies.size());
     for (const i, mutable& bpt: grid_bp_tasks) {
       {
-	mutable& gsh = *bpt->shared;
-	gsh.grid_rbinfo_array_ptr = grid_rbinfo_array.range().to_rawptr();
-	gsh.grid_rbinfo_array_size = grid_rbinfo_array.size();
-	gsh.grid_mesh_size = rad_avg * 4.0f;
-	gsh.tm0 = io::debug_system().high_resolution_timer_double();
+        mutable& gsh = *bpt->shared;
+        gsh.grid_rbinfo_array_ptr = grid_rbinfo_array.range().to_rawptr();
+        gsh.grid_rbinfo_array_size = grid_rbinfo_array.size();
+        gsh.grid_mesh_size = rad_avg * 4.0f;
+        gsh.tm0 = debug_io().high_resolution_timer_double();
       }
       bpt->executor.start();
     }
@@ -531,7 +531,7 @@ rigid_body(joint_id_type const& joint_id0,
     // 正のときはdynamic。
     if (mass == 0.0f) {
       rigidBody.setCollisionFlags(rigidBody.getCollisionFlags() |
-	CF_KINEMATIC_OBJECT);
+        CF_KINEMATIC_OBJECT);
       rigidBody.setActivationState(DISABLE_DEACTIVATION);
     }
   }

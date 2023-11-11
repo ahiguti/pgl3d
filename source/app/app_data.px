@@ -1,84 +1,88 @@
 public namespace app::app_data;
-public import common -;
-public import exception -;
-public import numeric::fpmath -;
-public import pointer::raw -;
-public import text::positional -;
-public import io::time -;
-public import fundamental::mainloop -;
-public import io::environ;
-public import pgl3d::ext::debug_helper -;
-public import pgl3d::exports -;
-public import pgl3d::texture::atlas -;
-public import pgl3d::texture::vec4tex -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::numeric::fpmath -;
+public import core::pointer::raw -;
+public import core::text::positional -;
+public import core::io::time -;
+public import core::fundamental::mainloop -;
+public import core::io::environ;
+public import pgl3d::exports pgl;
+public import pgl3d::texture::atlas pgl;
+public import pgl3d::texture::vec4tex pgl;
+public import pgl3d::ext::debug_helper pgl;
+public import core::meta m;
 public import glm;
 
 public struct camera_state {
-  public input_control_target player;
+  public pgl::input_control_target player;
   public glm::vec2 light;
 }
 
-public struct app_data(tptr{pgl3d_scene_shared} const& scene_shared0)
+public struct app_data(tptr{pgl::pgl3d_scene_shared} const& scene_shared0)
 {
-  public tptr{pgl3d_scene_shared} const scene_shared = scene_shared0;
-  // public tptr{app_scene_shared} const scene_shared
-  //   = make_tptr{app_scene_shared}(io::system);
-  public option{ptr{shader_config}} sconf;
-  public ptr{projection_info} proj_df = make_ptr{projection_info}();
+  public tptr{pgl::pgl3d_scene_shared} const scene_shared = scene_shared0;
+  public option{ptr{pgl::shader_config}} sconf;
+  public ptr{pgl::projection_info} proj_df = make_ptr{pgl::projection_info}();
   public string datadir = "./data";
     // drawing frame
-  public ptr{projection_info} proj_pm = make_ptr{projection_info}();
+  public ptr{pgl::projection_info} proj_pm = make_ptr{pgl::projection_info}();
     // pre-motion frame
-  public ptr{drawer_fxaa_params} dp_fxaa = make_ptr{drawer_fxaa_params}();
-  public ptr{drawer_ssao_params} dp_ssao = make_ptr{drawer_ssao_params}(
-    proj_df);
-  public ptr{drawer_blur_params} dp_blur = make_ptr{drawer_blur_params}();
-  public ptr{drawer_blur_h_params} dp_blur_h =
-    make_ptr{drawer_blur_h_params}();
+  public ptr{pgl::drawer_fxaa_params} dp_fxaa
+    = make_ptr{pgl::drawer_fxaa_params}();
+  public ptr{pgl::drawer_ssao_params} dp_ssao
+    = make_ptr{pgl::drawer_ssao_params}(proj_df);
+  public ptr{pgl::drawer_blur_params} dp_blur
+    = make_ptr{pgl::drawer_blur_params}();
+  public ptr{pgl::drawer_blur_h_params} dp_blur_h =
+    make_ptr{pgl::drawer_blur_h_params}();
   public ptr{bool} cond_blur = make_ptr{bool}(false);
   public ptr{bool} cond_noblur = make_ptr{bool}(true);
   public ptr{uint} white_count_ptr = make_ptr{uint}(0u);
   public ptr{glm::uvec2} pviewport_main = make_ptr{glm::uvec2}();
   public ptr{glm::uvec2} pviewport_disp = make_ptr{glm::uvec2}();
   public ptr{glm::uvec2} pviewport_sm = make_ptr{glm::uvec2}();
-  public input_control_target player;
-  public joystick_state player_joystick;
-  public input_control ictl = input_control(io::system);
+  public pgl::input_control_target player;
+  public pgl::joystick_state player_joystick;
+  public pgl::input_control ictl = pgl::input_control(thread_io());
   public int scene_next;
   public float light_on = 0.0f;
   public glm::vec2 light = glm::make_vec2(0.1f, 0.2f);
   public float exposure = 1.414f;
   public int option_value = 0;
   public int option_value2 = -1;
-  public string_map app_commands;
+  public int option_value3 = 0;
+  public pgl::string_map app_commands;
   public string app_status_message;
   // public varray{bool} prev_joy_buttons;
-  public option{ptr{edit_control_i}} edit_mode;
+  public option{ptr{pgl::edit_control_i}} edit_mode;
   public bool raycast_cull_front = false;
   public int raycast_layer = 0;
   public bool enable_dbgui = false;
-  public textures_ptr const txs = make_textures_ptr();
-  public tptr{tiled_voxel_texture} const tvt
-    = make_tptr{tiled_voxel_texture}();
-  public tptr{texture_updates} const tup = make_tptr{texture_updates}();
-  public tptr{texture_updates} const tup_swap = make_tptr{texture_updates}();
-  public ptr{vec4tex} const gp_vec4tex = make_ptr{vec4tex}(1024u * 1024u);
+  public pgl::textures_ptr const txs = pgl::make_textures_ptr();
+  public tptr{pgl::tiled_voxel_texture} const tvt
+    = make_tptr{pgl::tiled_voxel_texture}();
+  public tptr{pgl::texture_updates} const tup
+    = make_tptr{pgl::texture_updates}();
+  public tptr{pgl::texture_updates} const tup_swap
+    = make_tptr{pgl::texture_updates}();
+  public ptr{pgl::vec4tex} const gp_vec4tex
+    = make_ptr{pgl::vec4tex}(1024u * 1024u);
     // 汎用vec4テクスチャ。
   public pgl3d::engine::util::rand_generator rand_gen
     = pgl3d::engine::util::rand_generator(1u);
   public uint modmask; // shift, meta
-  public glm::mat4 edit_mode_trans = mat4_identity();
-  public vertex_attr edit_mode_vattr;
+  public glm::mat4 edit_mode_trans = pgl::mat4_identity();
+  public pgl::vertex_attr edit_mode_vattr;
   public ptr{varray{uchar}} capt_data = make_ptr{varray{uchar}}();
-  public ftd3_aximaster axim;
-  public option{ptr{motion_controller_serial}} mctrl;
+  public pgl::ftd3_aximaster axim;
+  public option{ptr{pgl::motion_controller_serial}} mctrl;
   public float virt_scale = 1.0;
-  public ptr{atlas} const atl = make_ptr{atlas}();
+  public ptr{pgl::atlas} const atl = make_ptr{pgl::atlas}();
   public function void set_datadir(string const& datadir0) {
     datadir = datadir0;
     string s;
-    if (sdl_load_file(datadir + "/camera_state.raw", s)) {
+    if (pgl::sdl_load_file(datadir + "/camera_state.raw", s)) {
       camera_state st = from_string{camera_state}(s);
       player = st.player;
       light = st.light;

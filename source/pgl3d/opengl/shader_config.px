@@ -1,20 +1,20 @@
 public threaded namespace pgl3d::opengl::shader_config "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 public import pgl3d::engine::platform -;
 public import pgl3d::engine::pglconfig -;
-public import exception -;
-public import pointer::tfuncptr -;
+public import core::exception -;
+public import core::pointer::tfuncptr -;
 // public import glresource -;
 
 metafunction dbglevel 1;
 metafunction dbg1 m::cond{m::ge{dbglevel, 1}, debug_log, no_operation};
 
-threaded function bool gl_version_ge(int major, int minor, int ma, int mi) {
+pure function bool gl_version_ge(int major, int minor, int ma, int mi) {
   return major > ma || (major == ma && minor >= mi);
 }
 
-public valuetype struct
+public pure valuetype struct
 shader_config(bool is_gles0, int major0, int minor0, int msaa0,
   bool forbid_read_modify_write0, pgl3d_config const& conf0)
 {
@@ -80,17 +80,17 @@ shader_config(bool is_gles0, int major0, int minor0, int msaa0,
   public function strlit prepend() const {
     if (is_gles) {
       if (is_gl3_or_gles3()) {
-	return "#version 300 es\nprecision highp float;\n";
+        return "#version 300 es\nprecision highp float;\n";
       } else {
-	return "precision highp float;\n";
+        return "precision highp float;\n";
       }
     } else {
       if (version_ge(4, 2)) {
-	return "#version 420\n";
+        return "#version 420\n";
       } else if (is_gl3_or_gles3()) {
-	return "#version 330\n";
+        return "#version 330\n";
       } else {
-	return "#version 120\n";
+        return "#version 120\n";
       }
     }
   }
@@ -123,12 +123,12 @@ shader_config(bool is_gles0, int major0, int minor0, int msaa0,
   {
     if (enable_instanced) {
       if (enable_uniform_instancing) {
-	/* use gl_InstanceID and uniform arrays */
-	return "uniform " + t + " " + n + "["
-	  + m::to_string{uniform_instancing_mul} + "];\n";
+        /* use gl_InstanceID and uniform arrays */
+        return "uniform " + t + " " + n + "["
+          + m::to_string{uniform_instancing_mul} + "];\n";
       } else {
-	/* use gl_InstanceID and glVertexAttribDivisor */
-	return vert_in() + t + " " + n + ";\n";
+        /* use gl_InstanceID and glVertexAttribDivisor */
+        return vert_in() + t + " " + n + ";\n";
       }
     } else {
       return "uniform " + t + " " + n + ";\n";

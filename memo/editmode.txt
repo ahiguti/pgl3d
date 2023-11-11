@@ -13,7 +13,7 @@ E        物体を投げる
 Q        パーティクル発射on/off
 F1       Pause/解除
 F2       色固定・解除
-F3       FXAA有効・無効
+F3       layer表示
 F4       mipmapレベル固定・解除
 F7       flip mode変更
 F8       露出-
@@ -64,6 +64,7 @@ D+RSHIFT カーソル位置のfillingパターンを登録削除する
 ,+RSHIFT 次のfillingパターンへ移動
 .+RSHIFT 前のfillingパターンへ移動
 HLJKNP+RSHIFT fillingパターンの繰り返し範囲を変更する
+T+RSHIFT fillingの種類を変更する
 
 --------------------------------------------------------
 色変更モード
@@ -92,14 +93,15 @@ HLJKNP+SHIFT 拡大率を変更
 コンソールモード
 
 load ファイル名
-        パターンを読み込み、コピーバッファに入れる。/build/saved/の下の
-        ファイル名を指定する。(.mpsd multi_pattern_save_data)形式、
-        (.psd pattern_save_data)形式、(.pat)形式の順にファイルを探し、
-        見つかった最初のものを読み込む。
+        fillingsを読み込み登録する、またはパターンを読み込みコピーバッファ
+        に入れる。/build/saved/の下のファイル名を指定する。
+        (.mpsd multi_pattern_save_data)形式、(.psd pattern_save_data)形式、
+        (.pat)形式の順にファイルを探し、見つかった最初のものを読み込む。
 save ファイル名
-        コピーバッファの内容をファイルに書き出す。fillingsをすべて保存する
-        形式(.mpsd multi_pattern_save_data)、noderef参照先を保存する形
-        式(.psd pattern_save_data)とnoderef参照先は保存しない単純な形式
+        すべてのfillingsをファイルに書き出し、またはコピーバッファの内容を
+        ファイルに書き出す。fillingsをすべて保存する形式
+        (.mpsd multi_pattern_save_data)、noderef参照先を保存する形式
+        (.psd pattern_save_data)とnoderef参照先は保存しない単純な形式
         (.pat)の3種類をファイルに書き出す。
 scale [値]
         tpatのスケール値を変更する。1以上8以下、実質6以下。

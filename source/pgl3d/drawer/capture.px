@@ -1,18 +1,18 @@
 private threaded namespace pgl3d::drawer::capture "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct capture_vertex_attributes()
+private pure tsvaluetype struct capture_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct capture_instance_attributes()
+private pure tsvaluetype struct capture_instance_attributes()
 {
 }
 
-private tsvaluetype struct capture_uniforms()
+private pure tsvaluetype struct capture_uniforms()
 {
   public int sampler_tex;
   public glm::vec2 pixel_delta;
@@ -30,7 +30,9 @@ public struct drawer_capture(shader_config const& glc,
   string const src_fbname = src_fbname0;
   option{cptr{gl_framebuffer}} srcfbo;
   capture_shader_ptr sdr_re = init_capture_shader(glc);
-  vbid_t const vbid_capture = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_capture = ds.vbid_pool->intern("vbid_capture");
+  vsid_t const vsid_generic_filter =
+    ds.vsid_pool->intern("vsid_generic_filter");
   init(ds);
   function void init(drawer_shared const& ds) {
     const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
@@ -38,7 +40,7 @@ public struct drawer_capture(shader_config const& glc,
       srcfbo.some = *respool->framebuffers.equal_range(src_fbname);
     }
   }
-  public function vbid_t get_vbid() const { return vbid_capture; }
+  public function vbid_t get_drawer_vbid() const { return vbid_capture; }
   public function vbid_t get_instances_vbid() const { return vbid_capture; }
   public function vbid_t get_vertices_vbid() const { return vbid_capture; }
   public function prepare_instance_data_funcptr
@@ -46,12 +48,12 @@ public struct drawer_capture(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_generic_filter"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{capture_vertex_attributes, 4} vs;
@@ -95,10 +97,10 @@ public struct drawer_capture(shader_config const& glc,
     glUniform2fv(sdr.u_framebuffer_size, 1,
       framebuffer_size.to_crawptr());
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
-    bo.draw(0, sdr);
+    bo.draw_single_instance(vsid_generic_filter, sdr);
     size_t sz = static_cast{size_t}(psize->x * psize->y * 2);
     if (capt_data->size() != sz) {
-      capt_data->resize(sz, 0u);
+      capt_data->resize(sz, uchar());
     }
     glReadPixels(0, 0, static_cast{int}(psize->x), static_cast{int}(psize->y),
       GL_RG, GL_UNSIGNED_BYTE, capt_data->to_rawptr().to_voidptr());

@@ -1,7 +1,7 @@
 public threaded namespace pgl3d::engine::platform "use-unsafe";
-public import common -;
-public import meta m;
-public import meta::vararg v;
+public import core::common -;
+public import core::meta m;
+public import core::meta::vararg v;
 
 public metafunction is_ios m::eq{m::profile{"platform"}, "ios"};
 public metafunction is_android m::eq{m::profile{"platform"}, "android"};

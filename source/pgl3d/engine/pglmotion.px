@@ -1,21 +1,21 @@
 private threaded namespace pgl3d::engine::pglmotion;
-public import common -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::numeric::fpmath -;
 public import glm;
-public import io::time -;
-public import exception -;
-public import meta m;
-public import procedure::thread::async_task -;
+public import core::io::time -;
+public import core::exception -;
+public import core::meta m;
+public import core::callable::thread::async_task -;
 public import pgl3d::engine::pglbase -;
 public import pgl3d::engine::util -;
 public import pgl3d::engine::application -;
 public import pgl3d::drawer::drawer -;
 
 public multithreaded struct
-motion_thread_shared(whole_instances_type const& whole_instances0,
+motion_thread_shared(instances_all_format const& insts_allfmt0,
   tptr{pgl3d_scene_shared} const& pss0, tptr{prepinstf_table} const& pidft0)
 {
-  public whole_instances_type whole_instances = whole_instances0;
+  public instances_all_format insts_allfmt = insts_allfmt0;
   public tptr{pgl3d_scene_shared} pss = pss0;
   public tptr{prepinstf_table} pidft = pidft0;
   public float frame_speed_mul = 1.0f;
@@ -26,12 +26,12 @@ motion_thread_shared(whole_instances_type const& whole_instances0,
 
 public threaded struct
 motion_thread_client(node_factory const& nfac,
-  whole_instances_type const& whole_instances,
+  instances_all_format const& insts_allfmt,
   tptr{pgl3d_scene_shared} const& pss, tptr{prepinstf_table} const& pidft,
   bool enable_async)
 {
   public tptr{motion_thread_shared} const shared =
-    make_tptr{motion_thread_shared}(whole_instances, pss, pidft);
+    make_tptr{motion_thread_shared}(insts_allfmt, pss, pidft);
   public option{ptr{task_executor}} async_executor;
   public option{ptr{sync_task_executor}} sync_executor;
   init(nfac, enable_async);
@@ -39,10 +39,10 @@ motion_thread_client(node_factory const& nfac,
   {
     if (enable_async) {
       async_executor.some = make_ptr{task_executor}(
-	make_tptr{motion_thread_factory}(shared, nfac));
+        make_tptr{motion_thread_factory}(shared, nfac));
     } else {
       sync_executor.some = make_ptr{sync_task_executor}(
-	make_tptr{motion_thread_factory}(shared, nfac));
+        make_tptr{motion_thread_factory}(shared, nfac));
     }
   }
   public function void start()
@@ -70,7 +70,7 @@ motion_thread_factory(tptr{motion_thread_shared} const& shared0,
 {
   private tptr{motion_thread_shared} sharedp = shared0;
   private node_factory nfac = nfac0; // copy
-  public function ptr{callable{void, m::nil}} call__()
+  public function ptr{threaded_callable{void, m::nil}} call__()
   {
     return make_ptr{motion_thread_task}(sharedp, nfac);
   }
@@ -79,7 +79,7 @@ motion_thread_factory(tptr{motion_thread_shared} const& shared0,
 private threaded struct
 motion_thread_task(tptr{motion_thread_shared} const& shared0,
   node_factory const& nfac0)
-<callable{void, m::nil}>
+<threaded_callable{void, m::nil}>
 {
   private tptr{motion_thread_shared} const sharedp = shared0;
   private ptr{pgl3d_scene} const ps = sharedp->pss->make_scene(nfac0);
@@ -88,16 +88,16 @@ motion_thread_task(tptr{motion_thread_shared} const& shared0,
     mutable& shared = *sharedp;
     mutable& pidft = *shared.pidft;
     mutable& pss = *shared.pss;
-    clear_instances(shared.whole_instances);
+    clear_instances(shared.insts_allfmt);
     ps->on_motion_step(shared.frame_speed_mul, shared.message,
-      pidft, shared.whole_instances, pss);
+      pidft, shared.insts_allfmt, pss);
   }
   private function void
-  clear_instances(whole_instances_type mutable& whole_instances)
+  clear_instances(instances_all_format mutable& insts_allfmt)
   {
-    for (const vbid, mutable& instances: whole_instances) {
+    for (const _, mutable& instances: insts_allfmt) {
       for (const i, mutable& ai: instances) {
-	ai.instance_buffer.clear();
+        ai.instance_buffer.clear();
       }
     }
   }

@@ -1,19 +1,19 @@
 private threaded namespace pgl3d::drawer::rect2d "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct rect2d_vertex_attributes()
+private pure tsvaluetype struct rect2d_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct rect2d_instance_attributes()
+private pure tsvaluetype struct rect2d_instance_attributes()
 {
   public glm::vec4 idata; // x0, y0, dx, dy
 }
 
-private tsvaluetype struct rect2d_uniforms()
+private pure tsvaluetype struct rect2d_uniforms()
 {
 }
 
@@ -24,7 +24,7 @@ public struct drawer_rect2d(shader_config const& glc,
   metafunction tattr rect2d_vertex_attributes;
   rect2d_shader_ptr sdr_re = init_rect2d_shader(glc);
   vbid_t const vbid_rect2d = ds.vbid_pool->intern_create("vbid_rect2d");
-  public function vbid_t get_vbid() const { return vbid_rect2d; }
+  public function vbid_t get_drawer_vbid() const { return vbid_rect2d; }
   public function vbid_t get_instances_vbid() const { return vbid_rect2d; }
   public function vbid_t get_vertices_vbid() const { return vbid_rect2d; }
   public function prepare_instance_data_funcptr
@@ -32,11 +32,11 @@ public struct drawer_rect2d(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_rect2d}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const { return "rect2d"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{rect2d_vertex_attributes, 4} vs;
@@ -55,7 +55,7 @@ public struct drawer_rect2d(shader_config const& glc,
     return texture_info();
   }
   public function void resize_screen(shader_config const& glc)
-  { 
+  {
   }
   public function bool reload_shaders(shader_config const& glc)
   {
@@ -67,7 +67,7 @@ public struct drawer_rect2d(shader_config const& glc,
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     mutable& sdr = *sdr_re;
     glUseProgram(sdr.program);
-    ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    ddata.draw_all_vs_all_inst(sdr, get_vertices_vbid(), get_instances_vbid());
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
@@ -101,7 +101,7 @@ init_rect2d_shader(shader_config const& g)
     rect2d_vertex_attributes}(v, f, "idata", g.debug_level, "rect2d");
 }
 
-private threaded function void prepare_instance_data_rect2d(
+private pure function void prepare_instance_data_rect2d(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {

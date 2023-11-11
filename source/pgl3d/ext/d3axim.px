@@ -1,7 +1,7 @@
 public namespace pgl3d::ext::d3axim "use-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::engine::platform -;
-public import meta m;
+public import core::meta m;
 
 metafunction enable_d3axim is_windows;
 
@@ -132,7 +132,7 @@ struct ftd3_handle {
     {
         FT_Create((PVOID)(intptr_t)index, FT_OPEN_BY_INDEX, &handle);
         if (!handle) {
-            return;        
+            return;
         }
         ovs.resize(use_overlapped ? (use_overlapped & 255): 1);
         for (auto& ov : ovs) {

@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::edit_mode::tiled_texture_edit_view
   "use-unsafe";
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::texture_edit_view -;
 private import pgl3d::edit_mode::vecutil -;

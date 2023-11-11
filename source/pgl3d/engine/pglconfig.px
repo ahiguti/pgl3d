@@ -1,18 +1,18 @@
 public threaded namespace pgl3d::engine::pglconfig "use-unsafe";
-public import common -;
-public import pointer::raw -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::pointer::raw -;
+public import core::numeric::fpmath -;
 public import glm;
-public import io::time -;
-public import exception -;
-public import meta m;
-public import text::positional -;
+public import core::io::time -;
+public import core::exception -;
+public import core::meta m;
+public import core::text::positional -;
 private import opengl::compat -;
-private import pointer::raw_unsafe -;
+private import core::pointer::raw_unsafe -;
 
 public metafunction string_map tree_map{string, string};
 
-public valuetype struct pgl3d_config(cstrref const& confstr)
+public pure valuetype struct pgl3d_config(cstrref const& confstr)
 {
   private string_map m;
   /*
@@ -31,12 +31,12 @@ public valuetype struct pgl3d_config(cstrref const& confstr)
     if (const& v: m[key]) {
       const r = from_string{t}(v);
       if (mi != mx) {
-	if (r < mi) {
-	  return mi;
-	}
-	if (r > mx) {
-	  return mx;
-	}
+        if (r < mi) {
+          return mi;
+        }
+        if (r > mx) {
+          return mx;
+        }
       }
       return r;
     } else {
@@ -51,7 +51,7 @@ public valuetype struct pgl3d_config(cstrref const& confstr)
     {
       const a = make_farray_split{2}(line, '=');
       if (!a[0].empty()) {
-	m[a[0]] = a[1];
+        m[a[0]] = a[1];
       }
     }
     split_foreach{ln}(confstr, '\n');

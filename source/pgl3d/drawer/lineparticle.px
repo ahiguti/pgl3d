@@ -1,20 +1,20 @@
 private threaded namespace pgl3d::drawer::lineparticle "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
 
-private tsvaluetype struct lineparticle_uniforms()
+private pure tsvaluetype struct lineparticle_uniforms()
 {
   public glm::mat4 view_projection_matrix = mat4_identity();
   public glm::vec2 screen_size_px;
   public float screen_size_base;
 }
 
-private tsvaluetype struct lineparticle_vertex_attributes()
+private pure tsvaluetype struct lineparticle_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct lineparticle_instance_attributes()
+private pure tsvaluetype struct lineparticle_instance_attributes()
 {
   public glm::mat3 idata = mat3_identity();
 }
@@ -28,7 +28,7 @@ public struct drawer_lineparticle(shader_config const& glc,
   lineparticle_shader_ptr sdr_lp = init_lineparticle_shader(glc);
   vbid_t const vbid_lineparticle =
     ds.vbid_pool->intern_create("vbid_lineparticle");
-  public function vbid_t get_vbid() const { return vbid_lineparticle; }
+  public function vbid_t get_drawer_vbid() const { return vbid_lineparticle; }
   public function vbid_t get_instances_vbid() const {
     return vbid_lineparticle; }
   public function vbid_t get_vertices_vbid() const {
@@ -38,13 +38,13 @@ public struct drawer_lineparticle(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_lineparticle}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
     return "lineparticle";
   }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{lineparticle_vertex_attributes, 4} vs;
@@ -64,7 +64,7 @@ public struct drawer_lineparticle(shader_config const& glc,
     return texture_info();
   }
   public function void resize_screen(shader_config const& glc)
-  { 
+  {
   }
   public function bool reload_shaders(shader_config const& glc)
   {
@@ -86,7 +86,7 @@ public struct drawer_lineparticle(shader_config const& glc,
       vp.to_crawptr());
     glUniform2fv(sdr.u_screen_size_px, 1, screen_size_px.to_crawptr());
     glUniform1fv(sdr.u_screen_size_base, 1, caddress(screen_size_base));
-    ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    ddata.draw_all_vs_all_inst(sdr, get_vertices_vbid(), get_instances_vbid());
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
@@ -120,7 +120,7 @@ init_lineparticle_shader(shader_config const& g)
   v += "float pz = (pz0 + pz1) * 0.5;\n";
   v += "vec2 p0 = p0p.xy * screen_size_px / p0p.w;\n";
   v += "vec2 p1 = p1p.xy * screen_size_px / p1p.w;\n";
-  v += "float is_posi = min(float(p0p.w > 0.0), float(p1p.w > 0.0));\n"; 
+  v += "float is_posi = min(float(p0p.w > 0.0), float(p1p.w > 0.0));\n";
   v += "vec2 pvec = p1 - p0;\n"; // FIXME: must be non-zero
   v += "float plen = length(pvec);\n";
   v += "vec2 r = screen_size_base * "
@@ -161,7 +161,7 @@ init_lineparticle_shader(shader_config const& g)
     (v, f, "", g.debug_level, "lineparticle");
 }
 
-private threaded function void prepare_instance_data_lineparticle(
+private pure function void prepare_instance_data_lineparticle(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {

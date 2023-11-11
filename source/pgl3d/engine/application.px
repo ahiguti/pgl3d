@@ -1,5 +1,5 @@
 public threaded namespace pgl3d::engine::application;
-public import common -;
+public import core::common -;
 
 public import pgl3d::engine::scene_node *;
 public import pgl3d::engine::pglbase *;
@@ -41,7 +41,7 @@ public threaded interface pgl3d_scene {
   public function void on_motion_step(float frame_speed,
     cstrref const& status_message,
     cslice{prepare_instance_data_funcptr} const& ftable,
-    whole_instances_type mutable& whole_instances,
+    instances_all_format mutable& insts_allfmt,
     pgl3d_scene_shared mutable& ss);
     // motion thread上でフレーム毎に呼ばれる。
 }

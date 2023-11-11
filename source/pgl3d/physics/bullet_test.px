@@ -1,12 +1,12 @@
 public namespace pgl3d::physics::bullet_test "use-unsafe";
-public import common -;
-public import pointer::raw -;
+public import core::common -;
+public import core::pointer::raw -;
 private import bullet_physics::base -;
 private import bullet_physics::constants -;
 private import bullet_physics::api -;
 private import bullet_physics::all -;
-private import pointer::raw_unsafe -;
-private import io::time -;
+private import core::pointer::raw_unsafe -;
+private import core::io::time -;
 
 {
   timing_vec3{100}();
@@ -21,7 +21,7 @@ private import io::time -;
   timing_mat3{1000000}();
 }
 
-public threaded function {size} void timing_vec3()
+public pure function {size} void timing_vec3()
 {
   ptr{farray{btVector3, size}} varrp = make_ptr{farray{btVector3, size}}();
   mutable& varr = *varrp;
@@ -43,7 +43,7 @@ public threaded function {size} void timing_vec3()
   debug_log("timing_vec3", size, y, t1 - t0);
 }
 
-public threaded function {size} void timing_mat3()
+public pure function {size} void timing_mat3()
 {
   ptr{farray{btMatrix3x3, size}} marrp = make_ptr{farray{btMatrix3x3, size}}();
   mutable& marr = *marrp;

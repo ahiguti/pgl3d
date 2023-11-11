@@ -1,14 +1,14 @@
 private threaded namespace pgl3d::opengl::framebuffer "export-unsafe";
-public import common -;
-public import pointer::raw -;
-public import pointer::raw_unsafe -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::pointer::raw -;
+public import core::pointer::raw_unsafe -;
+public import core::numeric::fpmath -;
 public import glm;
 public import glm::raw;
-public import io::time -;
-public import exception -;
-public import meta m;
-public import pointer::tfuncptr -;
+public import core::io::time -;
+public import core::exception -;
+public import core::meta m;
+public import core::pointer::tfuncptr -;
 public import opengl::compat -;
 public import pgl3d::opengl::glresource -;
 public import pgl3d::opengl::glshader -;
@@ -74,20 +74,20 @@ public function void init_shadowmap_fbo(shader_config const& glc,
     glBindTexture(GL_TEXTURE_2D, sfbo.texture_depth.get());
     if (glc.enable_vsm) {
       if (m::is_true{is_gl3_or_gles3}) {
-	// GLenum t_internal_format = GL_RG16F; // FIXME? RG32F?
-	GLenum t_internal_format = GL_RG32F;
-	if (m::is_true{is_gles}) {
-	  t_internal_format = GL_RG16F; // iOS
-	}
-	GLenum t_format = GL_RG;
-	GLenum t_type = GL_FLOAT;
-	glTexImage2D(GL_TEXTURE_2D, 0, cast_int(t_internal_format),
-	  sfbo.width, sfbo.height, 0, t_format, t_type,
-	  offset_to_void_cp(0));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-	  cast_int(GL_LINEAR));
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-	  cast_int(GL_LINEAR));
+        // GLenum t_internal_format = GL_RG16F; // FIXME? RG32F?
+        GLenum t_internal_format = GL_RG32F;
+        if (m::is_true{is_gles}) {
+          t_internal_format = GL_RG16F; // iOS
+        }
+        GLenum t_format = GL_RG;
+        GLenum t_type = GL_FLOAT;
+        glTexImage2D(GL_TEXTURE_2D, 0, cast_int(t_internal_format),
+          sfbo.width, sfbo.height, 0, t_format, t_type,
+          offset_to_void_cp(0));
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+          cast_int(GL_LINEAR));
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+          cast_int(GL_LINEAR));
       }
     } else if (glc.enable_depth_texture) {
       sdl_log("depth_texture");
@@ -95,12 +95,12 @@ public function void init_shadowmap_fbo(shader_config const& glc,
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, cast_int(f));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, cast_int(f));
       if (m::is_true{is_gl3_or_gles3}) {
-	if (glc.enable_sampler2dshadow) {
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,
-	    cast_int(GL_COMPARE_REF_TO_TEXTURE));
-	  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC,
-	    cast_int(GL_LEQUAL));
-	}
+        if (glc.enable_sampler2dshadow) {
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE,
+            cast_int(GL_COMPARE_REF_TO_TEXTURE));
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC,
+            cast_int(GL_LEQUAL));
+        }
       }
       gl_tex_image_depth(glc, sfbo.width, sfbo.height);
       /*
@@ -108,45 +108,45 @@ public function void init_shadowmap_fbo(shader_config const& glc,
       GLenum t_format = GL_DEPTH_COMPONENT;
       GLenum t_type = GL_UNSIGNED_BYTE;
       if (!glc.is_gles) {
-	sdl_log("depth_texture byte", sfbo.width, sfbo.height);
+        sdl_log("depth_texture byte", sfbo.width, sfbo.height);
       } else {
-	if (glc.is_gl3_or_gles3()) {
-	  sdl_log("depth_texture int");
-	  t_internal_format = GL_DEPTH_COMPONENT16;
-	  t_format = GL_DEPTH_COMPONENT;
-	  t_type = GL_UNSIGNED_INT;
-	} else {
-	  sdl_log("depth_texture short");
-	  t_internal_format = GL_DEPTH_COMPONENT;
-	  t_format = GL_DEPTH_COMPONENT;
-	  t_type = GL_UNSIGNED_SHORT;
-	}
+        if (glc.is_gl3_or_gles3()) {
+          sdl_log("depth_texture int");
+          t_internal_format = GL_DEPTH_COMPONENT16;
+          t_format = GL_DEPTH_COMPONENT;
+          t_type = GL_UNSIGNED_INT;
+        } else {
+          sdl_log("depth_texture short");
+          t_internal_format = GL_DEPTH_COMPONENT;
+          t_format = GL_DEPTH_COMPONENT;
+          t_type = GL_UNSIGNED_SHORT;
+        }
       }
       glTexImage2D(GL_TEXTURE_2D, 0, cast_int(t_internal_format),
-	sfbo.width, sfbo.height, 0, t_format, t_type,
-	offset_to_void_cp(0));
+        sfbo.width, sfbo.height, 0, t_format, t_type,
+        offset_to_void_cp(0));
       sdl_log("depth_texture done");
       */
     } else {
       sdl_log("no depth_texture");
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-	cast_int(GL_NEAREST));
+        cast_int(GL_NEAREST));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-	cast_int(GL_NEAREST));
+        cast_int(GL_NEAREST));
       sdl_log("no depth_texture rbga byte");
       glTexImage2D(GL_TEXTURE_2D, 0, cast_int(GL_RGBA), sfbo.width,
-	sfbo.height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-	offset_to_void_cp(0));
+        sfbo.height, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+        offset_to_void_cp(0));
     }
     if (m::eq{is_gles, 0})
     {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
-	cast_int(GL_CLAMP_TO_EDGE));
+        cast_int(GL_CLAMP_TO_EDGE));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,
-	cast_int(GL_CLAMP_TO_EDGE));
+        cast_int(GL_CLAMP_TO_EDGE));
       const border = make_farray{float}(1.0, 1.0, 1.0, 1.0);
       glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
-	border.crange().to_crawptr());
+        border.crange().to_crawptr());
       /*
       */
     }
@@ -155,17 +155,17 @@ public function void init_shadowmap_fbo(shader_config const& glc,
     glBindFramebuffer(GL_FRAMEBUFFER, sfbo.fbo.get());
     if (glc.enable_depth_texture) {
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-	GL_TEXTURE_2D, sfbo.texture_depth.get(), 0);
+        GL_TEXTURE_2D, sfbo.texture_depth.get(), 0);
     } else {
       // color attachmentだがテクスチャはtexture_depthに入っている
       glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-	GL_TEXTURE_2D, sfbo.texture_depth.get(), 0);
+        GL_TEXTURE_2D, sfbo.texture_depth.get(), 0);
     }
     /* renderbuffer */
     if (glc.enable_depth_texture) {
       if (m::eq{is_gles, 0}) {
-	glDrawBuffer(GL_NONE);
-	glReadBuffer(GL_NONE);
+        glDrawBuffer(GL_NONE);
+        glReadBuffer(GL_NONE);
       }
     } else {
       int orig_rb;
@@ -176,9 +176,9 @@ public function void init_shadowmap_fbo(shader_config const& glc,
       sfbo.depthbuf.generate();
       glBindRenderbuffer(GL_RENDERBUFFER, sfbo.depthbuf.get());
       glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-	sfbo.width, sfbo.height);
+        sfbo.width, sfbo.height);
       glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-	GL_RENDERBUFFER, sfbo.depthbuf.get());
+        GL_RENDERBUFFER, sfbo.depthbuf.get());
       glBindRenderbuffer(GL_RENDERBUFFER, static_cast{uint}(orig_rb));
     }
     const e = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -271,10 +271,10 @@ public function void init_color_fbo(shader_config const& glc,
     // if (m::and{m::is_true{is_gl3_or_gles3}, m::not{is_gles}}) {
     if (m::is_true{is_gl3_or_gles3}) {
       glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24,
-	ppfbo.width, ppfbo.height);
+        ppfbo.width, ppfbo.height);
     } else {
       glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-	ppfbo.width, ppfbo.height);
+        ppfbo.width, ppfbo.height);
     }
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
       GL_RENDERBUFFER, ppfbo.depthbuf.get());

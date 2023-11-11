@@ -1,12 +1,12 @@
 public threaded namespace pgl3d::texture::vec4tex;
-public import common -;
+public import core::common -;
 public import glm -;
-public import meta m;
+public import core::meta m;
 public import pgl3d::texture::texture -;
 public import pgl3d::engine::util -;
 
 // vec4要素の一次元テクスチャに
-public multithreaded struct vec4tex(size_t size0) {
+public pure multithreaded struct vec4tex(size_t size0) {
   public size_t const size = size0;
   public texture_data_vec4 tex;
   public function size_t allocate(cslice{vec4} const& data) {

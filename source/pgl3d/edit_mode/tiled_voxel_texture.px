@@ -1,14 +1,14 @@
 private threaded namespace pgl3d::edit_mode::tiled_voxel_texture "use-unsafe";
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import pgl3d::edit_mode::common -;
-private import text::serialize::compact_pod -;
+private import core::text::serialize::compact_pod -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::filling -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::texutil -;
 
-public multithreaded struct tiled_voxel_texture()
+public pure multithreaded struct tiled_voxel_texture()
 {
   public texture_data voxtile;
   public tptr{texture_edit} tmap_edit = make_tptr{texture_edit}();
@@ -227,6 +227,13 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
       for (size_t j: 0 .. multiword_num_words) {
         stex[j].swap(vox.tpat_edit->data[j][i - 1]);
         dtex[j].swap(vox.tpat_edit->data[j][i]);
+      }
+      {
+        const sz = tpat_vol[i - 1].get_size_l2_uvec3();
+        if (sz.x == 0 || sz.y == 0 || sz.z == 0) {
+          debug_log("tpat size too small", i, sz);
+          throw runtime_error_template{"tpat_size_too_small"}("1");
+        }
       }
       tpat_vol[i].set_size_l2_uvec3(tpat_vol[i - 1].get_size_l2_uvec3()
         - make_uvec3(1u, 1u, 1u));

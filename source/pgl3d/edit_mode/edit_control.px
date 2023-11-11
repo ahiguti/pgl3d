@@ -1,10 +1,10 @@
 private threaded namespace pgl3d::edit_mode::edit_control "use-unsafe";
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import sdl2::api_types -;
 private import sdl2::api_functions -;
-private import text::serialize::compact_pod -;
+private import core::text::serialize::compact_pod -;
 private import pgl3d::texture::subtexture -;
 private import pgl3d::texture::generator -;
 private import pgl3d::texture::filling -;
@@ -205,7 +205,7 @@ public struct edit_control(string const& datadir0,
           // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
         } else if (mod_rshift) {
-          filling_modify(-1, 0, 0);
+          filling_modify_size(-1, 0, 0);
         } else {
           move_cursor(-cdir.x * cursor_spd, 0, 0, cursor_move_r);
         }
@@ -219,7 +219,7 @@ public struct edit_control(string const& datadir0,
           // x軸反転
           rotate_range(glm::make_imat3(-1, 0, 0, 0, 1, 0, 0, 0, 1));
         } else if (mod_rshift) {
-          filling_modify(1, 0, 0);
+          filling_modify_size(1, 0, 0);
         } else {
           move_cursor(cdir.x * cursor_spd, 0, 0, cursor_move_r);
         }
@@ -232,7 +232,7 @@ public struct edit_control(string const& datadir0,
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
         } else if (mod_rshift) {
-          filling_modify(0, -1, 0);
+          filling_modify_size(0, -1, 0);
         } else {
           move_cursor(0, -cdir.y * cursor_spd, 0, cursor_move_r);
         }
@@ -245,7 +245,7 @@ public struct edit_control(string const& datadir0,
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, -1, 0, 0, 0, 1));
         } else if (mod_rshift) {
-          filling_modify(0, 1, 0);
+          filling_modify_size(0, 1, 0);
         } else {
           move_cursor(0, cdir.y * cursor_spd, 0, cursor_move_r);
         }
@@ -258,7 +258,7 @@ public struct edit_control(string const& datadir0,
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
         } else if (mod_rshift) {
-          filling_modify(0, 0, -1);
+          filling_modify_size(0, 0, -1);
         } else {
           move_cursor(0, 0, -cdir.z * cursor_spd, cursor_move_r);
         }
@@ -271,9 +271,13 @@ public struct edit_control(string const& datadir0,
         } else if (mod_ctrl) {
           rotate_range(glm::make_imat3(1, 0, 0, 0, 1, 0, 0, 0, -1));
         } else if (mod_rshift) {
-          filling_modify(0, 0, 1);
+          filling_modify_size(0, 0, 1);
         } else {
           move_cursor(0, 0, cdir.z * cursor_spd, cursor_move_r);
+        }
+      } else if (key == SDL_SCANCODE_T) {
+        if (mod_rshift) {
+          filling_modify_sort();
         }
       } else if (key == SDL_SCANCODE_0) {
         if (get_cursor_tpat()) {
@@ -381,11 +385,14 @@ public struct edit_control(string const& datadir0,
           message += " " + to_string(cp);
         }
       }
-      const fi = ttev->get_filling(ttev->get_cursor_pos().first);
-      // debug_log("fi=", fi);
-      if (fi.size().x != 0) {
-        message += " fi=" + to_string(
-          ttev->get_cursor_pos().first - fi.offset);
+      if (!ttev->get_cursor_tpat()) {
+        const fi = ttev->get_filling(ttev->get_cursor_pos().first);
+        // debug_log("fi=", fi);
+        if (fi.size().x != 0) {
+          message += " fi=" + to_string(
+            ttev->get_cursor_pos().first - fi.offset) + " " +
+            to_string(fi.fsort);
+        }
       }
     }
     msg_r = message;
@@ -458,8 +465,8 @@ public struct edit_control(string const& datadir0,
   private function void init()
   {
     dbg_editmode() {
-      debug_log("edit_mode", "voxtmap",
-        emt->vox.tmap_edit->data[0][0].get_size_uvec3());
+      const sz = emt->vox.tmap_edit->data[0][0].get_size_uvec3();
+      debug_log("edit_mode", "voxtmap", sz);
     }
     string buf;
     {
@@ -479,8 +486,10 @@ public struct edit_control(string const& datadir0,
       }
     }
     update_cursor_color();
-    debug_log("edit_mode: tpat_texture:", ttev->tpat_size);
-    debug_log("edit_mode: tmap_texture:", ttev->tmap_size);
+    const tpat_size = ttev->tpat_size;
+    const tmap_size = ttev->tpat_size;
+    debug_log("edit_mode: tpat_texture:", tpat_size);
+    debug_log("edit_mode: tmap_texture:", tmap_size);
   }
   private function void save_state()
   {
@@ -669,23 +678,25 @@ public struct edit_control(string const& datadir0,
       // 標準的なタイルの使いかただが、ttevはそれ以外の割り当て方法のテクスチャ
       // も読み書きできる。標準的な割り当て方法へ再配置するにはdedupを実行
       // する。
-      debug_log("maxscale", ttev->get_max_tile_scale_log2());
-      debug_log("tpat_size", ttev->tpat_size);
+      const tpat_size = ttev->tpat_size;
       const s = ttev->get_max_tile_scale_log2();
-      const n = get_num_assignable_tile(ttev->tpat_size, s);
+      const n = get_num_assignable_tile(tpat_size, s);
+      debug_log("maxscale", s);
+      debug_log("tpat_size", tpat_size);
       message = "maxscale " + to_string(s) + " assignable " + to_string(n)
-        + " tpat_size " + to_string(ttev->tpat_size);
+        + " tpat_size " + to_string(tpat_size);
     } else if (cmd == "maxscale" && toks.size() == 2) {
       // 最大タイルサイズを変更する。これを変更後dedupすると再配置される。
       uint const absmax_v = absmax_tile_scale_log2;
+      const tpat_size = ttev->tpat_size;
       const v = from_string{uint}(toks[1]);
       if (v <= absmax_v) {
         debug_log("setting maxscale", v);
-        debug_log("tpat_size", ttev->tpat_size);
+        debug_log("tpat_size", tpat_size);
         ttev->set_max_tile_scale_log2(v);
       }
       const s = ttev->get_max_tile_scale_log2();
-      const n = get_num_assignable_tile(ttev->tpat_size, s);
+      const n = get_num_assignable_tile(tpat_size, s);
       message = "maxscale " + to_string(s) + " assignable " + to_string(n);
     } else if (cmd == "dedup") {
       // タイルパターンの重複排除と再配置をおこなう。現在のmaxscale値に
@@ -1027,6 +1038,13 @@ public struct edit_control(string const& datadir0,
   }
   private function void paste_value(uint index_mask, merge_mode const& mmod)
   {
+    bool const clamp_grid_flag = true;
+      // destがtpatのとき、gridを超えない範囲でpasteする。
+    paste_value_clamp(index_mask, mmod, clamp_grid_flag);
+  }
+  private function void paste_value_clamp(uint index_mask,
+    merge_mode const& mmod, bool clamp_grid_flag)
+  {
     // 現在の選択領域の内容をカーソル位置にpasteする。カーソルがtpatにいる
     // ときは、カーソルと同一のgridの範囲にのみ書き込まれる。
     const cpos = ttev->get_cursor_pos().first;
@@ -1040,12 +1058,14 @@ public struct edit_control(string const& datadir0,
         debug_log("paste_value: no scale set");
         return;
       }
-      // ペースト先の領域をグリッド境界を超えないようにclamp
-      mi = clamp_grid(to_ivec3(cpos), mi_0);
-      mx = clamp_grid(to_ivec3(cpos), mx_0);
-      if (mi != mi_0 || mx != mx_0) {
-        debug_log("paste_value: clamp_grid mi", mi_0, mi);
-        debug_log("paste_value: clamp_grid mx", mx_0, mx);
+      if (clamp_grid_flag) {
+        // ペースト先の領域をグリッド境界を超えないようにclamp
+        mi = clamp_grid(to_ivec3(cpos), mi_0);
+        mx = clamp_grid(to_ivec3(cpos), mx_0);
+        if (mi != mi_0 || mx != mx_0) {
+          debug_log("paste_value: clamp_grid mi", mi_0, mi);
+          debug_log("paste_value: clamp_grid mx", mx_0, mx);
+        }
       }
     }
     // ペースト先の領域をテクスチャ境界でclamp
@@ -1124,7 +1144,7 @@ public struct edit_control(string const& datadir0,
     }
     // 元データをtpatへ貼り付ける
     set_cursor_tpat(true);
-    paste_value(0xffu, merge_mode_opaque());
+    paste_value_clamp(0xffu, merge_mode_opaque(), false);
     debug_log("convert_to_tpat: cur_tile_scale_log2:", cur_tile_scale_log2);
     // 元データが小さいときはタイルに収まる範囲で拡大する
     while (le_all_uvec3(copy_data.copy_size * 2u, tilesz)) {
@@ -1197,13 +1217,13 @@ public struct edit_control(string const& datadir0,
   private function void scale_range()
   {
     dbg_scale() {
-      debug_log("scale_range: p0: copy_data:", copy_data,
-        ttev->get_cursor_pos());
+      const curpos = ttev->get_cursor_pos();
+      debug_log("scale_range: p0: copy_data:", copy_data, curpos);
     }
     copy_value();
     dbg_scale() {
-      debug_log("scale_range: p1: copy_data:", copy_data,
-        ttev->get_cursor_pos());
+      const curpos = ttev->get_cursor_pos();
+      debug_log("scale_range: p1: copy_data:", copy_data, curpos);
     }
     farray{texture_data, multiword_num_words} stex;
     const szl2 = copy_data.tex[0].get_size_l2_uvec3() + make_uvec3(1, 1, 1);
@@ -1242,20 +1262,20 @@ public struct edit_control(string const& datadir0,
     if (o.y != 0u) { o.y += 1u; }
     if (o.z != 0u) { o.z += 1u; }
     dbg_scale() {
-      debug_log("scale_range: 0: copy_data:", copy_data,
-        ttev->get_cursor_pos());
+      const curpos = ttev->get_cursor_pos();
+      debug_log("scale_range: 0: copy_data:", copy_data, curpos);
     }
     paste_value(0xffu, merge_mode_opaque());
     dbg_scale() {
-      debug_log("scale_range: 1: copy_data:", copy_data,
-        ttev->get_cursor_pos());
+      const curpos = ttev->get_cursor_pos();
+      debug_log("scale_range: 1: copy_data:", copy_data, curpos);
     }
     // 選択領域を広げたので反映させるためにmove_cursorを呼ぶ
     glm::vec3 cursor_move_r;
     move_cursor(0, 0, 0, cursor_move_r);
     dbg_scale() {
-      debug_log("scale_range: 2: copy_data:", copy_data,
-        ttev->get_cursor_pos());
+      const curpos = ttev->get_cursor_pos();
+      debug_log("scale_range: 2: copy_data:", copy_data, curpos);
     }
   }
   private function void rotate_range(imat3 const& m)
@@ -1337,7 +1357,8 @@ public struct edit_control(string const& datadir0,
             const offset2 = make_ivec3(
               si(x * 2 + 1), si(y * 2 + 1), si(z * 2 + 1))
               - to_ivec3(sz); // offset値の2倍
-            sp.center += map{ivec3, operator::mul}(offset2, sp.scale) / 2;
+            sp.center += map{ivec3, core::operator::mul}(
+              offset2, sp.scale) / 2;
             has_sphere = true;
           }
           if (!is_space_voxel(v) && !is_node_reference(v)) {
@@ -1561,13 +1582,13 @@ public struct edit_control(string const& datadir0,
   }
   private function uvec3 get_cur_tpat_center() const
   {
-    return map{uvec3, operator::div}(
+    return map{uvec3, core::operator::div}(
       ttev->get_tpat_cursor_pos().first + ttev->get_tpat_cursor_pos().second,
       make_uvec3(2, 2, 2));
   }
   private function uvec3 get_cur_tmap_center() const
   {
-    return map{uvec3, operator::div}(
+    return map{uvec3, core::operator::div}(
       ttev->get_tmap_cursor_pos().first + ttev->get_tmap_cursor_pos().second,
       make_uvec3(2, 2, 2));
   }
@@ -1610,7 +1631,9 @@ public struct edit_control(string const& datadir0,
     gen_test_pattern_copydata();
       // パターン生成
     copy_value();
-    fill_fillings_range(*ttev, copy_data, rndp);
+    varray{subtexture_with_filling} fillsubs;
+    fillings_to_fillsubs(fillsubs, *ttev);
+    fill_fillings_range(fillsubs, copy_data, rndp);
       // 生成した領域にfill_fillingsを適用
     paste_value(0xff, merge_mode_opaque());
     ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
@@ -1634,12 +1657,14 @@ public struct edit_control(string const& datadir0,
     uvec3 const& upos, uvec3 const& usize, uvec3 const tmap_size,
     atlas_entry const& aent) const
   {
+    // aentにはatlasテクスチャのうちの一部の範囲で、物体に貼り付ける底面
+    // の頂点がテクスチャ座標で保持されている。
+    //
     // FIXME: boundaryだけでなくheightも超えないようにしなければならない。
     // 現状heightを超えているせいで生成領域が境界多面体をはみ出している。
     //
     // tmapのupos, usizeの範囲がstexにコピーされている。
     // debug_log("gen_test_pattern_atlas", stex.tex[0].get_size_uvec3());
-    const tms_max = fold_list{max}(1u, tmap_size);
     // 領域をクリアする
     range_foreach(stex.tex[0].get_size_uvec3()) void (uint x, uint y, uint z) {
       for (size_t i, mutable& tex: stex.tex) {
@@ -1647,6 +1672,9 @@ public struct edit_control(string const& datadir0,
       }
       stex.tex[0].set(x, y, z, make_space_voxel());
     }
+    const tms_max = fold_list{max}(1u, tmap_size);
+      // tmap_sizeのxyzのうち最大のもの。tmapオフセットをこれで割ると
+      // テクスチャ座標になる。
     color_param cp;
     cp.metalness = 0;
     cp.emission = 0;
@@ -1656,13 +1684,16 @@ public struct edit_control(string const& datadir0,
     cp.rgb.b = 8;
     for (const x: 0 .. usize.x) {
       for (const y: 0 .. usize.y) {
+        // tmap一画素の底面4頂点がすべて境界多角形の内側かどうか判定する
         bool inside = true;
         for (const dx: 0 .. 2u) {
           for (const dy: 0 .. 2u) {
+            // 頂点が境界多角形の内側であるか判定する
             const pbase =
               to_vec3_from_uvec3(
                 make_uvec3(x + dx + upos.x, y + dy + upos.y, 0u))
               / static_cast{float}(tms_max);
+              // 頂点の座標(tmapオフセット)をテクスチャ座標へ変換
             const pbase_xy = make_vec2(pbase.x, pbase.y);
             for (size_t i, const& bnd: aent.boundary) {
               vec2 const p0 = bnd;
@@ -1677,16 +1708,20 @@ public struct edit_control(string const& datadir0,
           }
         }
         if (inside) {
-          // debug_log("inside", x, y, usize);
+          // このtmap画素の4頂点すべてが境界多角形の内側だった。
+          // filledを書き込む。
           stex.tex[0].set(x, y, 0, make_filled_voxel());
           stex.tex[1].set(x, y, 0, encode_color_param(cp));
+          // debug_log("inside", x, y, usize);
         }
       }
     }
+    // filledの外周を滑らかにする
     procedural_chamfering(rndp, stex.tex, usize);
   }
   private function void gen_test_atlas()
   {
+    // atlasに登録されているすべての多角形範囲に対してパターンを書き込む
     debug_log("gen_test_atlas");
     set_cursor_tpat(false);
     const saved_cpos = ttev->get_cursor_pos();
@@ -1696,15 +1731,12 @@ public struct edit_control(string const& datadir0,
       debug_log("gen_test_atlas", upos, usize);
       ttev->set_cursor_pos(upos, upos + usize);
       copy_value();
-      // atlasのエントリ範囲
-      gen_test_pattern_atlas(copy_data, upos, usize, ttev->tmap_size,
-        ent); // TODO
-      // gen_test_pattern_copydata(); // TODO
-      // copy_value();
-      fill_fillings_range(*ttev, copy_data, rndp);
+      // 1個のatlasのエントリ範囲にパターンを書き込む
+      gen_test_pattern_atlas(copy_data, upos, usize, ttev->tmap_size, ent);
+      varray{subtexture_with_filling} fillsubs;
+      fillings_to_fillsubs(fillsubs, *ttev);
+      fill_fillings_range(fillsubs, copy_data, rndp);
       paste_value(0xff, merge_mode_opaque());
-      /*
-      */
     }
     ttev->set_cursor_pos(saved_cpos.first, saved_cpos.second);
   }
@@ -1737,7 +1769,9 @@ public struct edit_control(string const& datadir0,
   }
   private function void fill_fillings()
   {
-    fill_fillings_range(*ttev, copy_data, rndp);
+    varray{subtexture_with_filling} fillsubs;
+    fillings_to_fillsubs(fillsubs, *ttev);
+    fill_fillings_range(fillsubs, copy_data, rndp);
     paste_value(0xff, merge_mode_opaque());
   }
   private function void filling_erase()
@@ -1793,14 +1827,38 @@ public struct edit_control(string const& datadir0,
     }
     filling_set_cursor(fi, cursor_move_r);
   }
-  private function void filling_modify(int x, int y, int z)
+  private function void filling_modify_sort()
+  {
+    if (get_cursor_tpat()) {
+      return;
+    }
+    mutable fi = ttev->get_filling(ttev->get_cursor_pos().first);
+    if (fi.size().x == 0) {
+      debug_log("filling_modify_sort: not found");
+      return;
+    }
+    mutable s = static_cast{uint}(fi.fsort);
+    uint const num = m::size{m::values{filling_sort}};
+    s = (s + 1 < num) ? (s + 1) : 0;
+    debug_log("filling_modify_sort: filling sort", s, num);
+    fi.fsort = static_cast{filling_sort}(s);
+    if (!ttev->erase_filling(fi.offset)) {
+      debug_log("filling_modify_sort: erase fillings failed");
+    }
+    if (!ttev->set_filling(fi)) {
+      debug_log("filling_modify_sort: erase fillings failed");
+    }
+    ttev->set_cursor_filling(fi);
+
+  }
+  private function void filling_modify_size(int x, int y, int z)
   {
     if (get_cursor_tpat()) {
       return;
     }
     const fi0 = ttev->get_filling(ttev->get_cursor_pos().first);
     if (fi0.size().x == 0) {
-      debug_log("filling_modify: not found");
+      debug_log("filling_modify_size: not found");
       return;
     }
     mutable fi = fi0;
@@ -1832,7 +1890,7 @@ public struct edit_control(string const& datadir0,
     ttev->erase_filling(fi0.offset);
     ttev->set_filling(fi);
     ttev->set_cursor_filling(fi);
-    debug_log("filling_modify", fi.sizes);
+    debug_log("filling_modify_size", fi.sizes);
   }
   private function void filling_next(bool revert,
     glm::vec3 mutable& cursor_move_r)
@@ -1887,16 +1945,18 @@ sync_gl_mipmap_all(edit_mode_texture mutable& emt)
 {
   for (const i: 1 .. emt.vox.tpat_edit->data[0].size()) {
     for (const j, mutable& dataj: emt.vox.tpat_edit->data) {
-      debug_log("sync_gl_mipmap_all tpat", i, j, dataj[i].get_size_uvec3(),
-        emt.vox.tpat_edit->data[j][i].get_size_uvec3());
+      const sz0 = dataj[i].get_size_uvec3();
+      const sz1 = emt.vox.tpat_edit->data[j][i].get_size_uvec3();
+      debug_log("sync_gl_mipmap_all tpat", i, j, sz0, sz1);
       texture_data_sync_gl(dataj[i], si(i), uvec3(),
         emt.vox.tpat_edit->data[j][i].get_size_uvec3(), emt.glt_voxtpat);
     }
   }
   for (const i: 1 .. emt.vox.tmap_edit->data[0].size()) {
     for (const j, mutable& dataj: emt.vox.tmap_edit->data) {
-      debug_log("sync_gl_mipmap_all tmap", i, j, dataj[i].get_size_uvec3(),
-        emt.vox.tmap_edit->data[j][i].get_size_uvec3());
+      const sz0 = dataj[i].get_size_uvec3();
+      const sz1 = emt.vox.tpat_edit->data[j][i].get_size_uvec3();
+      debug_log("sync_gl_mipmap_all tmap", i, j, sz0, sz1);
       texture_data_sync_gl(dataj[i], si(i), uvec3(),
         emt.vox.tmap_edit->data[j][i].get_size_uvec3(), emt.glt_voxtmap);
     }

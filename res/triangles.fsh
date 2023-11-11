@@ -40,6 +40,8 @@ uniform vec3 light_dir;
 uniform float light_on;
 uniform float option_value;
 uniform float option_value2;
+uniform float option_value3;
+uniform float cur_layer;
 uniform float exposure;
 /*
 uniform float random_seed;
@@ -497,7 +499,7 @@ void main(void)
     int hit = -1;
     // float selfshadow_para = clamp(1.0 - dist_log2 * 0.1, 0.0, 1.0);
     float selfshadow_para = 0.0f;
-    if (vary_boundary_len < 1) { <%fragcolor/> = vec4(1.0, 0.0, 0.0, 1.0); return; } // FIXME
+    // if (vary_boundary_len < 1) { <%fragcolor/> = vec4(1.0, 0.0, 0.0, 1.0); return; } // FIXME
     //if (option_value2 >= 0.0) {
       // raycastで視線が衝突する位置と影を計算する
       hit = raycast_tilemap(pos, campos, dist_rnd, camera_local, light_local,
@@ -521,6 +523,9 @@ void main(void)
     <%if><%eq><%get_config dbgval/>1<%/>
     if (dbgval.a > 0.0) { <%fragcolor/> = dbgval; return; }
     <%/>
+    if (cur_layer < option_value3) {
+      <%fragcolor/> = vec4(0.0, 0.0, 0.8, 1.0); return;
+    }
     if (hit < 0) {
       // <%fragcolor/> = vec4(1.0); return;
       discard;

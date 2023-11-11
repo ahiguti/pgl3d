@@ -15,10 +15,10 @@ bullet/build3/vs2010/0_Bullet3Solution.slnをビルドすればよい
 // b2.exe toolset=msvc address-model=64 --stagedir=lib64-msvc-14.0 -j 4
 
 pgl3d_demoappのライブラリ検索パス
-C:\build\SDL\VisualC\SDL\x64\Release
-C:\build\SDL\VisualC\SDLmain\x64\Release
-C:\build\SDL_image\VisualC\x64\Release
-C:\build\SDL_ttf\VisualC\x64\Release
+C:\build\SDL2\VisualC\SDL\x64\Release
+C:\build\SDL2\VisualC\SDLmain\x64\Release
+C:\build\SDL2_image\VisualC\x64\Release
+C:\build\SDL2_ttf\VisualC\x64\Release
 C:\build\glew\lib\Release\x64
 C:\build\bullet\bin
 C:\build\boost\lib64-msvc-14.0
@@ -43,12 +43,6 @@ make
 
 apt install libx11-dev libglm-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
 apt install fonts-mplus libboost-dev
-
-
--------------------------
-SDL2.0.16
-
-SDL2.dllだけdynamic link, SDL2_imageとSDL2_ttfはstatic link。(なぜ？)
 
 -------------------------
 windowsバイナリをwineで動くようにビルドする

@@ -1,27 +1,27 @@
 public threaded namespace pgl3d::texture::voxel;
-public import common -;
-public import exception -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::meta m;
 public import glm -;
-public import numeric::fpmath -;
+public import core::numeric::fpmath -;
 public import pgl3d::engine::util -;
 public import pgl3d::texture::texture -;
 
 public metafunction texel_value uint;
 
-public threaded function {t} void
+public pure function {t} void
 set_distance(bool enable_short_circuit, t mutable& node)
 {
   for (const z : 0 .. node.get_depth()) {
     for (const y : 0 .. node.get_height()) {
       for (const x : 0 .. node.get_width()) {
-	set_distance_pos(enable_short_circuit, node, si(x), si(y), si(z));
+        set_distance_pos(enable_short_circuit, node, si(x), si(y), si(z));
       }
     }
   }
 }
 
-public threaded function {t} void
+public pure function {t} void
 update_distance(bool enable_short_circuit, t mutable& node,
   ivec3 mutable& mod_mi, ivec3 mutable& mod_mx, bool clear_flag)
 {
@@ -29,10 +29,10 @@ update_distance(bool enable_short_circuit, t mutable& node,
   mutable mod_mx_r = mod_mx;
   // clear_flagは範囲はすべて空白になったとわかっているとき真
   ivec3 const mi = map{ivec3, max}(
-    map{ivec3, operator::sub}(mod_mi, make_ivec3(15, 15, 15)),
+    map{ivec3, core::operator::sub}(mod_mi, make_ivec3(15, 15, 15)),
     make_ivec3(0, 0, 0));
   ivec3 const mx = map{ivec3, min}(
-    map{ivec3, operator::add}(mod_mx, make_ivec3(15, 15, 15)),
+    map{ivec3, core::operator::add}(mod_mx, make_ivec3(15, 15, 15)),
     make_ivec3(
       si(node.get_width() - 1),
       si(node.get_height() - 1),
@@ -45,24 +45,24 @@ update_distance(bool enable_short_circuit, t mutable& node,
   for (const z: mi.z .. mx.z + 1) {
     for (const y: mi.y .. mx.y + 1) {
       for (const x: mi.x .. mx.x + 1) {
-	const v = node.get(ui(x), ui(y), ui(z));
-	if (!is_space_voxel(v)) {
-	  continue;
-	}
-	dist_3d dv;
-	uint done = 0;
-	if (in_range3(x, y, z, mod_mi, mod_mx)) {
-	  /* 変更があった領域の内部。距離ゼロから計算 */
-	  if (enable_short_circuit) {
-	    short_circuit(node, dv, x, y, z, 0, -1, 0) ||
-	    short_circuit(node, dv, x, y, z, -1, 0, 0) ||
-	    short_circuit(node, dv, x, y, z, 0, 0, -1);
-	  }
-	} else if (clear_flag) {
-	  /* クリア。変更があった領域の外側。現在より伸ばせる可能性がある */
-	  dv = get_dist_3d(v);
-	  const spmi = make_ivec3(x - dv.xn, y - dv.yn, z - dv.zn);
-	  const spmx = make_ivec3(x + dv.xp, y + dv.yp, z + dv.zp);
+        const v = node.get(ui(x), ui(y), ui(z));
+        if (!is_space_voxel(v)) {
+          continue;
+        }
+        dist_3d dv;
+        uint done = 0;
+        if (in_range3(x, y, z, mod_mi, mod_mx)) {
+          /* 変更があった領域の内部。距離ゼロから計算 */
+          if (enable_short_circuit) {
+            short_circuit(node, dv, x, y, z, 0, -1, 0) ||
+            short_circuit(node, dv, x, y, z, -1, 0, 0) ||
+            short_circuit(node, dv, x, y, z, 0, 0, -1);
+          }
+        } else if (clear_flag) {
+          /* クリア。変更があった領域の外側。現在より伸ばせる可能性がある */
+          dv = get_dist_3d(v);
+          const spmi = make_ivec3(x - dv.xn, y - dv.yn, z - dv.zn);
+          const spmx = make_ivec3(x + dv.xp, y + dv.yp, z + dv.zp);
           /* 各方向について計算省略可能かどうかチェックする
              - 伸ばそうとする範囲と変更があった範囲が重ならないならdone
              - 伸ばす方向でない2軸について範囲がすでに重なってないならdone
@@ -70,7 +70,7 @@ update_distance(bool enable_short_circuit, t mutable& node,
           /*
           uint mask = 0;
           if (mask == 0 && has_intersect2(spmi.y, spmi.z, spmx.y, spmx.z,
-	      mod_mi.y, mod_mi.z, mod_mx.y, mod_mx.z)) {
+              mod_mi.y, mod_mi.z, mod_mx.y, mod_mx.z)) {
             if (in_range(x + dv.xp + 1, mod_mi.x, mod_mx.x)) {
               mask = 1u << 0u;
             } else if (in_range(x - dv.xn - 1, mod_mi.x, mod_mx.x)) {
@@ -78,15 +78,15 @@ update_distance(bool enable_short_circuit, t mutable& node,
             }
           }
           if (mask == 0 && has_intersect2(spmi.z, spmi.x, spmx.z, spmx.x,
-	      mod_mi.z, mod_mi.x, mod_mx.z, mod_mx.x)) {
+              mod_mi.z, mod_mi.x, mod_mx.z, mod_mx.x)) {
             if (in_range(y + dv.yp + 1, mod_mi.y, mod_mx.y)) {
               mask = 1u << 2u;
             } else if (in_range(y - dv.yn - 1, mod_mi.y, mod_mx.y)) {
               mask = 1u << 3u;
             }
           }
-	  if (mask == 0 && has_intersect2(spmi.x, spmi.y, spmx.x, spmx.y,
-	      mod_mi.x, mod_mi.y, mod_mx.x, mod_mx.y)) {
+          if (mask == 0 && has_intersect2(spmi.x, spmi.y, spmx.x, spmx.y,
+              mod_mi.x, mod_mi.y, mod_mx.x, mod_mx.y)) {
             if (in_range(z + dv.zp + 1, mod_mi.z, mod_mx.z)) {
               mask = 1u << 4u;
             } else if (in_range(z - dv.zn - 1, mod_mi.z, mod_mx.z)) {
@@ -98,48 +98,48 @@ update_distance(bool enable_short_circuit, t mutable& node,
             done = done ^ mask;
           }
           */
-	  if (!in_range(x + dv.xp + 1, mod_mi.x, mod_mx.x) ||
-	    !has_intersect2(spmi.y, spmi.z, spmx.y, spmx.z,
-	      mod_mi.y, mod_mi.z, mod_mx.y, mod_mx.z)) { done |= (1u << 0u); }
-	  if (!in_range(x - dv.xn - 1, mod_mi.x, mod_mx.x) ||
-	    !has_intersect2(spmi.y, spmi.z, spmx.y, spmx.z,
-	      mod_mi.y, mod_mi.z, mod_mx.y, mod_mx.z)) { done |= (1u << 1u); }
-	  if (!in_range(y + dv.yp + 1, mod_mi.y, mod_mx.y) ||
-	    !has_intersect2(spmi.z, spmi.x, spmx.z, spmx.x,
-	      mod_mi.z, mod_mi.x, mod_mx.z, mod_mx.x)) { done |= (1u << 2u); }
-	  if (!in_range(y - dv.yn - 1, mod_mi.y, mod_mx.y) ||
-	    !has_intersect2(spmi.z, spmi.x, spmx.z, spmx.x,
-	      mod_mi.z, mod_mi.x, mod_mx.z, mod_mx.x)) { done |= (1u << 3u); }
-	  if (!in_range(z + dv.zp + 1, mod_mi.z, mod_mx.z) ||
-	    !has_intersect2(spmi.x, spmi.y, spmx.x, spmx.y,
-	      mod_mi.x, mod_mi.y, mod_mx.x, mod_mx.y)) { done |= (1u << 4u); }
-	  if (!in_range(z - dv.zn - 1, mod_mi.z, mod_mx.z) ||
-	    !has_intersect2(spmi.x, spmi.y, spmx.x, spmx.y,
-	      mod_mi.x, mod_mi.y, mod_mx.x, mod_mx.y)) { done |= (1u << 5u); }
+          if (!in_range(x + dv.xp + 1, mod_mi.x, mod_mx.x) ||
+            !has_intersect2(spmi.y, spmi.z, spmx.y, spmx.z,
+              mod_mi.y, mod_mi.z, mod_mx.y, mod_mx.z)) { done |= (1u << 0u); }
+          if (!in_range(x - dv.xn - 1, mod_mi.x, mod_mx.x) ||
+            !has_intersect2(spmi.y, spmi.z, spmx.y, spmx.z,
+              mod_mi.y, mod_mi.z, mod_mx.y, mod_mx.z)) { done |= (1u << 1u); }
+          if (!in_range(y + dv.yp + 1, mod_mi.y, mod_mx.y) ||
+            !has_intersect2(spmi.z, spmi.x, spmx.z, spmx.x,
+              mod_mi.z, mod_mi.x, mod_mx.z, mod_mx.x)) { done |= (1u << 2u); }
+          if (!in_range(y - dv.yn - 1, mod_mi.y, mod_mx.y) ||
+            !has_intersect2(spmi.z, spmi.x, spmx.z, spmx.x,
+              mod_mi.z, mod_mi.x, mod_mx.z, mod_mx.x)) { done |= (1u << 3u); }
+          if (!in_range(z + dv.zp + 1, mod_mi.z, mod_mx.z) ||
+            !has_intersect2(spmi.x, spmi.y, spmx.x, spmx.y,
+              mod_mi.x, mod_mi.y, mod_mx.x, mod_mx.y)) { done |= (1u << 4u); }
+          if (!in_range(z - dv.zn - 1, mod_mi.z, mod_mx.z) ||
+            !has_intersect2(spmi.x, spmi.y, spmx.x, spmx.y,
+              mod_mi.x, mod_mi.y, mod_mx.x, mod_mx.y)) { done |= (1u << 5u); }
           if (done != (1u << 6u) - 1u) {
             const v = done ^ ((1u << 6u) - 1);
             // debug_log("clear_flag donemask=", to_hexstring(v), x, y, z, spmi, spmx, mod_mi, mod_mx);
           }
-	} else {
-	  /* 非クリア。変更があった領域の外側。距離ゼロから計算 */
-	  // TODO: もっと計算省略可能
-	  if (enable_short_circuit) {
-	    short_circuit(node, dv, x, y, z, 0, -1, 0) ||
-	    short_circuit(node, dv, x, y, z, -1, 0, 0) ||
-	    short_circuit(node, dv, x, y, z, 0, 0, -1);
-	  }
-	}
-	if (done != (1u << 6u) - 1u) {
+        } else {
+          /* 非クリア。変更があった領域の外側。距離ゼロから計算 */
+          // TODO: もっと計算省略可能
+          if (enable_short_circuit) {
+            short_circuit(node, dv, x, y, z, 0, -1, 0) ||
+            short_circuit(node, dv, x, y, z, -1, 0, 0) ||
+            short_circuit(node, dv, x, y, z, 0, 0, -1);
+          }
+        }
+        if (done != (1u << 6u) - 1u) {
           ++dbg_loop_cnt;
-	  const wv = distance_pos_dist(node, dv, x, y, z, done);
-	  if (wv != v) {
+          const wv = distance_pos_dist(node, dv, x, y, z, done);
+          if (wv != v) {
             ++dbg_update_cnt;
             // debug_log("dist update", x, y, z); // FIXME
-	    node.set(ui(x), ui(y), ui(z), wv);
-	    mod_mi_r = map{ivec3, min}(mod_mi_r, make_ivec3(x, y, z));
-	    mod_mx_r = map{ivec3, max}(mod_mx_r, make_ivec3(x, y, z));
-	  }
-	}
+            node.set(ui(x), ui(y), ui(z), wv);
+            mod_mi_r = map{ivec3, min}(mod_mi_r, make_ivec3(x, y, z));
+            mod_mx_r = map{ivec3, max}(mod_mx_r, make_ivec3(x, y, z));
+          }
+        }
       }
     }
   }
@@ -148,20 +148,20 @@ update_distance(bool enable_short_circuit, t mutable& node,
   // debug_log("dbg_loop_cnt", dbg_loop_cnt, "dbg_update_cnt", dbg_update_cnt); // FIXME
 }
 
-public threaded function bool
+public pure function bool
 in_range(int x, int mi, int mx)
 {
   return x >= mi && x <= mx;
 }
 
-public threaded function bool
+public pure function bool
 in_range3(int x, int y, int z, ivec3 const& mi, ivec3 const& mx)
 {
   return x >= mi.x && x <= mx.x && y >= mi.y && y <= mx.y &&
     z >= mi.z && z <= mx.z;
 }
 
-public threaded function bool 
+public pure function bool
 has_intersect2(int ax0, int ay0, int ax1, int ay1, int bx0, int by0,
   int bx1, int by1)
 {
@@ -170,7 +170,7 @@ has_intersect2(int ax0, int ay0, int ax1, int ay1, int bx0, int by0,
     has_intersect1(ay0, ay1, by0, by1);
 }
 
-public threaded function bool
+public pure function bool
 has_intersect1(int a0, int a1, int b0, int b1)
 {
   return max(a0, b0) <= min(a1, b1);
@@ -179,7 +179,7 @@ has_intersect1(int a0, int a1, int b0, int b1)
 metafunction ui static_cast{uint};
 metafunction si static_cast{int};
 
-public threaded struct dist_3d
+public pure struct dist_3d
 {
   public int xp;
   public int xn;
@@ -189,7 +189,7 @@ public threaded struct dist_3d
   public int zn;
 }
 
-public threaded function dist_3d
+public pure function dist_3d
 get_dist_3d(texel_value v)
 {
   dist_3d dv;
@@ -202,7 +202,7 @@ get_dist_3d(texel_value v)
   return dv;
 }
 
-public threaded function texel_value
+public pure function texel_value
 dist_3d_to_texel_value(dist_3d dv)
 {
   expand (sym: m::field_names{dist_3d}) {
@@ -215,7 +215,7 @@ dist_3d_to_texel_value(dist_3d dv)
   return wv;
 }
 
-threaded function {t} void
+pure function {t} void
 set_distance_pos(bool enable_short_circuit, t mutable& node,
   int x, int y, int z)
 {
@@ -236,7 +236,7 @@ set_distance_pos(bool enable_short_circuit, t mutable& node,
   node.set(ui(x), ui(y), ui(z), wv);
 }
 
-threaded function {t} bool
+pure function {t} bool
 short_circuit(t mutable&node, dist_3d mutable& dv,
   int x, int y, int z, int xd, int yd, int zd)
 {
@@ -278,7 +278,7 @@ short_circuit(t mutable&node, dist_3d mutable& dv,
   return true;
 }
 
-threaded function {t} texel_value
+pure function {t} texel_value
 distance_pos_dist(t const& node, dist_3d mutable& dv,
   int x, int y, int z, uint done)
 {
@@ -325,7 +325,7 @@ distance_pos_dist(t const& node, dist_3d mutable& dv,
   // node.set(ui(x), ui(y), ui(z), wv);
 }
 
-threaded function {t} void
+pure function {t} void
 debug_check(t const& node, int x, int y, int z,
   dist_3d const& dv)
 {
@@ -336,7 +336,7 @@ debug_check(t const& node, int x, int y, int z,
   }
 }
 
-threaded function {t} bool
+pure function {t} bool
 node_space(t const& node, int x0, int x1, int y0, int y1,
   int z0, int z1)
 {
@@ -351,16 +351,16 @@ node_space(t const& node, int x0, int x1, int y0, int y1,
   for (const z: ui(z0) .. ui(z1 + 1)) {
     for (const y: ui(y0) .. ui(y1 + 1)) {
       for (const x: ui(x0) .. ui(x1 + 1)) {
-	if (!is_space_voxel(node.get(x, y, z))) {
-	  return false;
-	}
+        if (!is_space_voxel(node.get(x, y, z))) {
+          return false;
+        }
       }
     }
   }
   return true;
 }
 
-threaded function {t} uint
+pure function {t} uint
 check_extend(t const& node, int x, int y, int z, int d,
   dist_3d mutable& dv, int dx, int dy, int dz)
 {
@@ -434,54 +434,54 @@ check_extend(t const& node, int x, int y, int z, int d,
   return 1;
 }
 
-public threaded function bool is_filled(texel_value v)
+public pure function bool is_filled(texel_value v)
 {
   return (v & 0xff000000) == 0xff000000;
 }
 
-public threaded function texel_value make_filled_voxel()
+public pure function texel_value make_filled_voxel()
 {
   return 0xff000000u;
 }
 
-public threaded function bool is_node_reference(texel_value v)
+public pure function bool is_node_reference(texel_value v)
 {
   return (v & 0xff000000) == 0x01000000;
 }
 
-public threaded function texel_value make_node_reference(texel_value v)
+public pure function texel_value make_node_reference(texel_value v)
 {
   return get_node_reference(v) | 0x01000000;
 }
 
-public threaded function uint get_node_reference(texel_value v)
+public pure function uint get_node_reference(texel_value v)
 {
   return v & 0x00ffffff;
 }
 
-public threaded function bool is_space_voxel(texel_value v)
+public pure function bool is_space_voxel(texel_value v)
 {
   return (v & 0xff000000) == 0x00000000;
 }
 
-public threaded function uint make_space_voxel()
+public pure function uint make_space_voxel()
 {
   return 0u;
 }
 
-public threaded function bool is_plane_node(uint v)
+public pure function bool is_plane_node(uint v)
 {
   const node_type = v >> 24u;
   return node_type >= 160 && node_type <= 254;
 }
 
-public threaded function bool is_sphere_node(uint v)
+public pure function bool is_sphere_node(uint v)
 {
   const node_type = v >> 24u;
   return node_type >= 2 && node_type <= 159;
 }
 
-public valuetype struct noderef_param()
+public pure valuetype struct noderef_param()
 {
   public uvec3 rot;
   public uvec3 sgn;
@@ -489,12 +489,12 @@ public valuetype struct noderef_param()
   public uvec3 coord;
 }
 
-public threaded function texel_value mask_noderef_coord(uint v)
+public pure function texel_value mask_noderef_coord(uint v)
 {
   return v & 0x1f1f1fu;
 }
 
-public threaded function uint get_noderef_scale(uint v)
+public pure function uint get_noderef_scale(uint v)
 {
   uint x = v & 0xffu;
   uint y = (v >> 8u) & 0xffu;
@@ -502,7 +502,7 @@ public threaded function uint get_noderef_scale(uint v)
   return ((x >> 5u) & 1u) | ((y >> 4u) & 2u) | ((z >> 3u) & 4u);
 }
 
-public threaded function noderef_param decode_noderef_param(uint v)
+public pure function noderef_param decode_noderef_param(uint v)
 {
   uint x = v & 0xffu;
   uint y = (v >> 8u) & 0xffu;
@@ -515,20 +515,20 @@ public threaded function noderef_param decode_noderef_param(uint v)
   return p;
 }
 
-public threaded function texel_value
+public pure function texel_value
 encode_noderef_param(noderef_param const& p)
 {
   uvec3 v;
-  v += map{uvec3, operator::shiftl}(p.rot, make_uvec3(7u, 7u, 7u));
-  v += map{uvec3, operator::shiftl}(p.sgn, make_uvec3(6u, 6u, 6u));
+  v += map{uvec3, core::operator::shiftl}(p.rot, make_uvec3(7u, 7u, 7u));
+  v += map{uvec3, core::operator::shiftl}(p.sgn, make_uvec3(6u, 6u, 6u));
   v.x |= (p.scale & 1u) << 5u;
   v.y |= (p.scale & 2u) << 4u;
   v.z |= (p.scale & 4u) << 3u;
-  v += map{uvec3, operator::and}(p.coord, make_uvec3(31u, 31u, 31u));
+  v += map{uvec3, core::operator::and}(p.coord, make_uvec3(31u, 31u, 31u));
   return make_node_reference((v.z << 16u) | (v.y << 8u) | v.x);
 }
 
-public threaded function imat3
+public pure function imat3
 noderef_param_get_imat3(noderef_param const& p)
 {
   // シェーダがtmat座標からtpat座標に変換する際に適用する変換を行列の形で
@@ -558,7 +558,7 @@ noderef_param_get_imat3(noderef_param const& p)
   return m;
 }
 
-public threaded function void
+public pure function void
 noderef_param_set_imat3(noderef_param mutable& p, imat3 const& ma)
 {
   /*
@@ -616,7 +616,7 @@ noderef_param_set_imat3(noderef_param mutable& p, imat3 const& ma)
   // debug_log("nrp set imate sgn=", p.sgn, "rot=", p.rot, "m=", m);
 }
 
-public threaded function void
+public pure function void
 test_noderef_param()
 {
   for (const xt: 0u .. 3u) {
@@ -675,7 +675,7 @@ test_noderef_param()
   debug_log("test_noderef_param done");
 }
 
-public valuetype struct plane_param()
+public pure valuetype struct plane_param()
 {
   public int dist = 0;
   public ivec3 nor = make_ivec3(-1, -1, -1);
@@ -698,7 +698,7 @@ public valuetype struct plane_param()
   }
 }
 
-public threaded function plane_param decode_plane_node(uint v)
+public pure function plane_param decode_plane_node(uint v)
 {
   plane_param p;
   if (!is_plane_node(v)) {
@@ -716,13 +716,13 @@ public threaded function plane_param decode_plane_node(uint v)
   return p;
 }
 
-private threaded function int mul_div(int a, int m, int d)
+private pure function int mul_div(int a, int m, int d)
 {
   // a * m / d 四捨五入
   return (a * m + d / 2) / d;
 }
 
-public threaded function void plane_param_fit(plane_param mutable& pp)
+public pure function void plane_param_fit(plane_param mutable& pp)
 {
   // xyzは-7から+7まで有効
   // dは-48から+48まで有効
@@ -763,7 +763,7 @@ public threaded function void plane_param_fit(plane_param mutable& pp)
   pp.dist = mul_div(pp.dist, best_v, max_xyz);
 }
 
-public threaded function uint encode_plane_node(plane_param pp)
+public pure function uint encode_plane_node(plane_param pp)
 {
   {
     const& n = pp.nor;
@@ -792,7 +792,7 @@ public threaded function uint encode_plane_node(plane_param pp)
   return v;
 }
 
-public threaded function uint make_plane_node(plane_param const& p,
+public pure function uint make_plane_node(plane_param const& p,
   ivec3 const& offset, int offset_mul)
 {
   const& nor = p.nor;
@@ -817,14 +817,14 @@ public threaded function uint make_plane_node(plane_param const& p,
   return encode_plane_node(pp);
 }
 
-public valuetype struct rgb8()
+public pure valuetype struct rgb8()
 {
   public uint b; // 8bit
   public uint g; // 8bit
   public uint r; // 8bit
 }
 
-public valuetype struct color_param()
+public pure valuetype struct color_param()
 {
   public uchar metalness; // 1bit
   public uchar emission;  // 1bit
@@ -846,7 +846,7 @@ public valuetype struct color_param()
   }
 }
 
-public threaded function color_param decode_color_param(uint v)
+public pure function color_param decode_color_param(uint v)
 {
   color_param p;
   p.metalness = static_cast{uchar}((v >> 31u) & 0x01u);
@@ -858,7 +858,7 @@ public threaded function color_param decode_color_param(uint v)
   return p;
 }
 
-public threaded function uint encode_color_param(color_param const& p0)
+public pure function uint encode_color_param(color_param const& p0)
 {
   mutable p = p0;
   uchar const uc0 = 0u;
@@ -879,7 +879,7 @@ public threaded function uint encode_color_param(color_param const& p0)
   return r;
 }
 
-public valuetype struct sphere_param()
+public pure valuetype struct sphere_param()
 {
   public int dist = 1;
   public bool ura = false;
@@ -898,17 +898,17 @@ public valuetype struct sphere_param()
   }
 }
 
-threaded function {t} t round(t v)
+pure function {t} t round(t v)
 {
   return v > 0.0 ? (v + 0.5) : (v - 0.5);
 }
 
-threaded function {t} t round_bias(t v, t b)
+pure function {t} t round_bias(t v, t b)
 {
   return v > 0.0 ? (v + b) : (v - b);
 }
 
-threaded function ivec3 sphere_scale(ivec3 v)
+pure function ivec3 sphere_scale(ivec3 v)
 {
   // それぞれ2bit。拡大率3は使い道が少ないので8に変換する。
   // この関数はtriangle-inc.fshの同名の関数に相当。
@@ -918,17 +918,17 @@ threaded function ivec3 sphere_scale(ivec3 v)
   return v;
 }
 
-public threaded function uint make_sphere_node(sphere_param const& p,
+public pure function uint make_sphere_node(sphere_param const& p,
   ivec3 const& offset, int offset_mul, uint modifier)
 {
   const psc = sphere_scale(p.scale);
   const c = p.center -
-    map{ivec3, operator::mul}(offset, psc) * offset_mul / 2;
+    map{ivec3, core::operator::mul}(offset, psc) * offset_mul / 2;
     // offset_mulは1ボクセルあたりのoffset値の変化する量。
   function int distance2(ivec3 const pos)
   {
     // posはシェーダでは0.5までの範囲。この関数は1までの範囲なので2倍された値。
-    const a_pt = map{ivec3, operator::mul}(psc, pos);
+    const a_pt = map{ivec3, core::operator::mul}(psc, pos);
       // シェーダのa_vtの二倍の値
     const c_pt = c + c; // シェーダのc_vtの二倍の値
     const ac_pt = c_pt - a_pt;
@@ -945,10 +945,10 @@ public threaded function uint make_sphere_node(sphere_param const& p,
   for (int z: -1 .. 2) {
     for (int y: -1 .. 2) {
       for (int x: -1 .. 2) {
-	const ivec3 pos = make_ivec3(x, y, z);
-	const v = collision(pos);
-	has_inside |= v < 0; // 球の中心からの距離がdistより小さい
-	has_outside |= v > 0; // 球の中心からの距離がdistより大きい
+        const ivec3 pos = make_ivec3(x, y, z);
+        const v = collision(pos);
+        has_inside |= v < 0; // 球の中心からの距離がdistより小さい
+        has_outside |= v > 0; // 球の中心からの距離がdistより大きい
       }
     }
   }
@@ -958,7 +958,7 @@ public threaded function uint make_sphere_node(sphere_param const& p,
     const r2 = p.dist * p.dist * 4; // 球の半径の2乗
     const rdiff = sqrt(static_cast{double}(d2))
       - sqrt(static_cast{double}(r2));
-    const inor = map{ivec3, operator::mul}(c, psc);
+    const inor = map{ivec3, core::operator::mul}(c, psc);
     // debug_log("sp inor", inor, c, psc);
     plane_param pp;
     if (true) {
@@ -983,11 +983,11 @@ public threaded function uint make_sphere_node(sphere_param const& p,
       pp.nor.z = clamp(si(round(nor.z)), -7, 7);
       /*
       {
-	ivec3 n;
-	n.x = clamp(inor.x / 4, -7, 7);
-	n.y = clamp(inor.y / 4, -7, 7);
-	n.z = clamp(inor.z / 4, -7, 7);
-	debug_log("n,ppnor,nor", n, pp.nor, nor);
+        ivec3 n;
+        n.x = clamp(inor.x / 4, -7, 7);
+        n.y = clamp(inor.y / 4, -7, 7);
+        n.z = clamp(inor.z / 4, -7, 7);
+        debug_log("n,ppnor,nor", n, pp.nor, nor);
       }
       */
     }
@@ -996,7 +996,7 @@ public threaded function uint make_sphere_node(sphere_param const& p,
     }
     function void dist_modify_one(int d, int x, int y, int z, int v) {
       if (p.dist != d) {
-	return;
+        return;
       }
       bool r;
       r |= check_one(x, y, z);
@@ -1006,7 +1006,7 @@ public threaded function uint make_sphere_node(sphere_param const& p,
       r |= check_one(z, x, y);
       r |= check_one(z, y, x);
       if (r) {
-	pp.dist += (pp.dist < 0) ? -v : v;
+        pp.dist += (pp.dist < 0) ? -v : v;
       }
     }
     const nd = sqrt(static_cast{double}(dot_int(pp.nor, pp.nor)));
@@ -1038,7 +1038,7 @@ public threaded function uint make_sphere_node(sphere_param const& p,
   }
 }
 
-threaded function {t, tv} bool pos3_inside_eq(t const p, tv mi, tv mx)
+pure function {t, tv} bool pos3_inside_eq(t const p, tv mi, tv mx)
 {
   return
     p.x >= mi && p.x <= mx &&
@@ -1046,7 +1046,7 @@ threaded function {t, tv} bool pos3_inside_eq(t const p, tv mi, tv mx)
     p.z >= mi && p.z <= mx;
 }
 
-public threaded function uint encode_sphere_node(sphere_param const& p)
+public pure function uint encode_sphere_node(sphere_param const& p)
 {
   // debug_log("encode_sphere", p);
   int node_type = p.dist + 1;
@@ -1066,7 +1066,7 @@ public threaded function uint encode_sphere_node(sphere_param const& p)
       p.scale.z < 0 || p.scale.z > 3) {
     return 0u;
   }
-  ivec3 rgb = map{ivec3, operator::mul}(p.scale, make_ivec3(64, 64, 64))
+  ivec3 rgb = map{ivec3, core::operator::mul}(p.scale, make_ivec3(64, 64, 64))
     + p.center + make_ivec3(32, 32, 32);
   uint r = ui(rgb.x);
   uint g = ui(rgb.y);
@@ -1076,7 +1076,7 @@ public threaded function uint encode_sphere_node(sphere_param const& p)
   return v;
 }
 
-public threaded function sphere_param decode_sphere_node(uint v)
+public pure function sphere_param decode_sphere_node(uint v)
 {
   sphere_param p;
   if (!is_sphere_node(v)) {

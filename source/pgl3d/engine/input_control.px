@@ -1,8 +1,8 @@
 public namespace pgl3d::engine::input_control "use-unsafe"; // FIXME?
-public import common -;
-public import exception -;
-public import numeric::fpmath -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::numeric::fpmath -;
+public import core::meta m;
 public import glm;
 public import pgl3d::engine::application -;
 public import pgl3d::engine::mainloop -;
@@ -38,7 +38,7 @@ input_control(io const& iop)
     if (fid < 2) {
       cur_pos[fid] = glm::make_vec2(x, y);
       pos_distance_max[fid] = max(glm::distance(cur_pos[fid], start_pos[fid]),
-	pos_distance_max[fid]);
+        pos_distance_max[fid]);
       // sdl_log("finger_motion", pos_distance_max);
       // sdl_log("finger_motion", x, y, fid, fng);
     } else {
@@ -77,25 +77,25 @@ input_control(io const& iop)
     }
     if (fid < 2) {
       if (pos_distance_max[fid] < 0.01f && fingdown[fid]) {
-	tap_finger = static_cast{int}(fid);
-	// sdl_log("finger_up tap", fid);
+        tap_finger = static_cast{int}(fid);
+        // sdl_log("finger_up tap", fid);
       }
       fingdown[fid] = false;
       // sdl_log("finger_up", fid, pos_distance_max[fid]);
       if (fid == 1) {
-	start_pos[0] = cur_pos[0];
-	fingerids.resize(1, 0);
-	fingdown[1] = false;
+        start_pos[0] = cur_pos[0];
+        fingerids.resize(1, SDL_FingerID());
+        fingdown[1] = false;
       } else {
-	fingerids.erase(0, 1);
-	if (fingerids.empty()) {
-	  fingdown[0] = false;
-	} else {
-	  cur_pos[0] = cur_pos[1];
-	  start_pos[0] = cur_pos[1];
-	  fingdown[0] = fingdown[1];
-	  fingdown[1] = false;
-	}
+        fingerids.erase(0, 1);
+        if (fingerids.empty()) {
+          fingdown[0] = false;
+        } else {
+          cur_pos[0] = cur_pos[1];
+          start_pos[0] = cur_pos[1];
+          fingdown[0] = fingdown[1];
+          fingdown[1] = false;
+        }
       }
       fingerdown_time[0] = 0;
       fingerdown_time[1] = 0;
@@ -116,9 +116,9 @@ input_control(io const& iop)
     }
     // sdl_log("onefinger", dx, dy);
     rot *= glm::make_quat_angle_axis(to_radians(dy * 5.0 * frame_speed),
-	1.0, 0.0, 0.0);
+        1.0, 0.0, 0.0);
     rot *= glm::make_quat_angle_axis(to_radians(dx * 5.0 * frame_speed),
-	0.0, 1.0, 0.0);
+        0.0, 1.0, 0.0);
     finger_xyrotate_delta.x = dx;
     finger_xyrotate_delta.y = dy;
   }
@@ -130,32 +130,32 @@ input_control(io const& iop)
     if (glm::dot(d0, d1) < 0.0f) {
       /* z move */
       if (finger_zmove_mode != 2) {
-	const distance_start = glm::distance(start_pos[0], start_pos[1]);
-	mutable distance_cur = glm::distance(cur_pos[0], cur_pos[1]);
-	if (distance_cur <= 0.0001f) {
-	  distance_cur = 0.0001f;
-	}
-	const rat = distance_start / distance_cur;
-	const prev = finger_zmove_delta;
-	if (rat > 1.2) {
-	  finger_zmove_delta += 0.001f * frame_speed;
-	  if (finger_zmove_delta >= 1.0) {
-	    finger_zmove_delta = 1.0;
-	  }
-	  finger_zmove_mode = 1;
-	} else if (rat < 0.8) {
-	  finger_zmove_delta -= 0.001f * frame_speed;
-	  if (finger_zmove_delta <= -1.0) {
-	    finger_zmove_delta = -1.0;
-	  }
-	  finger_zmove_mode = 1;
-	}
-	if ((prev < 0.0f && finger_zmove_delta > 0.0f) ||
-	  (prev > 0.0f && finger_zmove_delta < 0.0f)) {
-	  /* stop */
-	  finger_zmove_delta = 0.0f;
-	  finger_zmove_mode = 2;
-	}
+        const distance_start = glm::distance(start_pos[0], start_pos[1]);
+        mutable distance_cur = glm::distance(cur_pos[0], cur_pos[1]);
+        if (distance_cur <= 0.0001f) {
+          distance_cur = 0.0001f;
+        }
+        const rat = distance_start / distance_cur;
+        const prev = finger_zmove_delta;
+        if (rat > 1.2) {
+          finger_zmove_delta += 0.001f * frame_speed;
+          if (finger_zmove_delta >= 1.0) {
+            finger_zmove_delta = 1.0;
+          }
+          finger_zmove_mode = 1;
+        } else if (rat < 0.8) {
+          finger_zmove_delta -= 0.001f * frame_speed;
+          if (finger_zmove_delta <= -1.0) {
+            finger_zmove_delta = -1.0;
+          }
+          finger_zmove_mode = 1;
+        }
+        if ((prev < 0.0f && finger_zmove_delta > 0.0f) ||
+          (prev > 0.0f && finger_zmove_delta < 0.0f)) {
+          /* stop */
+          finger_zmove_delta = 0.0f;
+          finger_zmove_mode = 2;
+        }
       }
     } else {
       /* xy move */
@@ -163,9 +163,9 @@ input_control(io const& iop)
       const d1 = cur_pos[1] - start_pos[1];
       mutable avg = (d0 + d1) / 2.0f;
       const d = (glm::distance(start_pos[0], cur_pos[0]),
-	glm::distance(start_pos[1], cur_pos[0])) / 2.0f;
+        glm::distance(start_pos[1], cur_pos[0])) / 2.0f;
       if (d > 3.0) {
-	avg /= d / 3.0;
+        avg /= d / 3.0;
       }
       avg /= 32.0f;
       pos += angle * (glm::make_vec3(avg.x, -avg.y, 0.0) * frame_speed);
@@ -189,69 +189,69 @@ input_control(io const& iop)
     // sdl_log("action_step", fingdown[0], fingdown[1]);
     if (fingdown[0] && !fingdown[1]) {
       if (fingerdown_time[0] >= 2) {
-	finger_action_one_finger(pl.angle, frame_speed, 0);
+        finger_action_one_finger(pl.angle, frame_speed, 0);
       } else {
-	start_pos[0] = (start_pos[0] + cur_pos[0]) / 2.0f;
-	fingerdown_time[0] += 1;
+        start_pos[0] = (start_pos[0] + cur_pos[0]) / 2.0f;
+        fingerdown_time[0] += 1;
       }
       if (fingerids[0] == 0) {
-	// mouse button
-	/*
-	finger_zmove_delta -= 0.0001;
-	if (finger_zmove_delta <= -0.01) {
-	  finger_zmove_delta = -0.01;
-	}
-	*/
+        // mouse button
+        /*
+        finger_zmove_delta -= 0.0001;
+        if (finger_zmove_delta <= -0.01) {
+          finger_zmove_delta = -0.01;
+        }
+        */
       }
     } else if (!fingdown[0] && fingdown[1]) {
       if (fingerdown_time[1] >= 2) {
-	finger_action_one_finger(pl.angle, frame_speed, 0);
+        finger_action_one_finger(pl.angle, frame_speed, 0);
       } else {
-	start_pos[1] = (start_pos[1] + cur_pos[1]) / 2.0f;
-	fingerdown_time[1] += 1;
+        start_pos[1] = (start_pos[1] + cur_pos[1]) / 2.0f;
+        fingerdown_time[1] += 1;
       }
     } else if (fingdown[0] && fingdown[1]) {
       if (fingerdown_time[0] >= 2 && fingerdown_time[1] >= 2) {
-	finger_action_two_fingers(pl.angle, pl.position,
-	    frame_speed);
+        finger_action_two_fingers(pl.angle, pl.position,
+            frame_speed);
       } else {
-	start_pos[0] = (start_pos[0] + cur_pos[0]) / 2.0f;
-	fingerdown_time[0] += 1;
-	start_pos[1] = (start_pos[1] + cur_pos[1]) / 2.0f;
-	fingerdown_time[1] += 1;
+        start_pos[0] = (start_pos[0] + cur_pos[0]) / 2.0f;
+        fingerdown_time[0] += 1;
+        start_pos[1] = (start_pos[1] + cur_pos[1]) / 2.0f;
+        fingerdown_time[1] += 1;
       }
     } else {
       const len = glm::length(finger_xyrotate_delta);
       pl.angle *= glm::make_quat_angle_axis(
-	  to_radians(-finger_xyrotate_delta.y * 2.0 * frame_speed),
-	  1.0, 0.0, 0.0);
+          to_radians(-finger_xyrotate_delta.y * 2.0 * frame_speed),
+          1.0, 0.0, 0.0);
       pl.angle *= glm::make_quat_angle_axis(
-	  to_radians(-finger_xyrotate_delta.x * 2.0 * frame_speed),
-	  0.0, 1.0, 0.0);
+          to_radians(-finger_xyrotate_delta.x * 2.0 * frame_speed),
+          0.0, 1.0, 0.0);
       const decay = 0.03f * frame_speed;
       if (len < decay) {
-	finger_xyrotate_delta = glm::make_vec2(0.0f, 0.0f);
+        finger_xyrotate_delta = glm::make_vec2(0.0f, 0.0f);
       } else {
-	finger_xyrotate_delta -= finger_xyrotate_delta * decay / len;
+        finger_xyrotate_delta -= finger_xyrotate_delta * decay / len;
       }
     }
     /*
     if (pl.accel) {
       pl.accel_ratio = min(
-	  pl.accel_ratio + 0.003f * frame_speed, 1.0f);
+          pl.accel_ratio + 0.003f * frame_speed, 1.0f);
     } else {
       pl.accel_ratio = max(
-	  pl.accel_ratio - 0.003f * frame_speed, 0.01f);
+          pl.accel_ratio - 0.003f * frame_speed, 0.01f);
     }
     */
     /*
     pl.pos_delta = pl.angle.to_mat3()
-	* glm::make_vec3(0.0, 0.0, finger_zmove_delta);
+        * glm::make_vec3(0.0, 0.0, finger_zmove_delta);
     pl.position += pl.pos_delta * frame_speed;
     */
     /*
     target.translate_relative(glm::make_vec3(0.0, 0.0, finger_zmove_delta)
-	* frame_speed);
+        * frame_speed);
     */
   }
   public function void add_zdelta(float zaccel, float frame_speed)
@@ -295,15 +295,15 @@ input_control(io const& iop)
     }
     if (v < 0) {
       return static_cast{float}(v + joy_deadzone)
-	/ static_cast{float}(32768 - joy_deadzone);
+        / static_cast{float}(32768 - joy_deadzone);
     } else {
       return static_cast{float}(v - joy_deadzone)
-	/ static_cast{float}(32767 - joy_deadzone);
+        / static_cast{float}(32767 - joy_deadzone);
     }
   }
 }
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 input_control_target()
 {
   public glm::quat device_rot_prev = glm::make_quat_wxyz(1.0, 0.0, 0.0, 0.0);
@@ -348,7 +348,7 @@ public function void input_control_handle_event(input_control mutable& ictl,
   } else if (etype == SDL_FINGERMOTION) {
     if (m::or{is_android, is_ios}) {
       ictl.finger_motion(ev.tfinger.x, ev.tfinger.y,
-	  ev.tfinger.dx, ev.tfinger.dy, ev.tfinger.fingerId);
+          ev.tfinger.dx, ev.tfinger.dy, ev.tfinger.fingerId);
     }
   }
 }
@@ -385,10 +385,10 @@ public function void input_control_handle_keys(input_control mutable& ictl,
     }
     if (v < 0) {
       return static_cast{float}(v + joy_deadzone)
-	/ static_cast{float}(32768 - joy_deadzone);
+        / static_cast{float}(32768 - joy_deadzone);
     } else {
       return static_cast{float}(v - joy_deadzone)
-	/ static_cast{float}(32767 - joy_deadzone);
+        / static_cast{float}(32767 - joy_deadzone);
     }
   }
   float warp = 1.0f;

@@ -1,8 +1,8 @@
 private namespace pgl3d::sdl::sdlcontext "export-unsafe";
-public import common -;
-public import meta m;
-public import pointer::raw -;
-public import io::environ -;
+public import core::common -;
+public import core::meta m;
+public import core::pointer::raw -;
+public import core::io::environ -;
 public import opengl::compat -;
 public import opengl::glew -;
 public import pgl3d::opengl::glresource -;
@@ -96,23 +96,30 @@ public struct sdlcontext(pgl3d_config const& config0)
     if (config.get("height", 0, 0, 16384) != 0) {
       init_h = config.get("height", 0, 0, 16384);
     }
-
+    /*
+    // TODO: 例外投げる。動かない？
+    if (config.get("window_display", -1, -1, 32) >= 0) {
+      wflags |= SDL_WINDOWPOS_CENTERED_MASK;
+      wflags |= static_cast{SDL_Enum}(
+        config.get("window_display", -1, -1, 32));
+    }
+    */
     if (m::eq{is_gles, 0}) {
       SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
       SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,
-	SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_CONTEXT_PROFILE_CORE);
       glmajor = 4;
       glminor = 5;
       gles_flag = false;
     } else {
       if (m::is_true{is_emscripten}) {
-	/* emscripten: opengles 2.0 */
-	glmajor = 2;
-	glminor = 0;
+        /* emscripten: opengles 2.0 */
+        glmajor = 2;
+        glminor = 0;
       } else {
-	/* ios/android: opengles 3.2 */
-	glmajor = 3;
-	glminor = 2;
+        /* ios/android: opengles 3.2 */
+        glmajor = 3;
+        glminor = 2;
       }
       gles_flag = true;
     }
@@ -149,8 +156,8 @@ public struct sdlcontext(pgl3d_config const& config0)
       }
       verstr = cubptr_to_string(glGetString_nocheck(GL_VERSION));
       if (verstr.empty()) {
-	SDL_GL_DeleteContext(glctx);
-	return false;
+        SDL_GL_DeleteContext(glctx);
+        return false;
       }
       sdl_glcontext.reset(glctx);
       return true;
@@ -160,34 +167,34 @@ public struct sdlcontext(pgl3d_config const& config0)
     while (true) {
       create_context();
       if (!verstr.empty()) {
-	break;
+        break;
       }
       // fallback
       if (glminor > 0) {
-	--glminor;
+        --glminor;
       } else if (glmajor > 2) {
-	--glmajor;
-	if (m::eq{is_gles, 0}) {
-	  if (glmajor == 2) {
-	    glminor = 1;
-	  } else if (glmajor == 3) {
-	    glminor = 3;
-	  } else if (glmajor == 4) {
-	    glminor = 5;
-	  } else {
-	    glminor = 0;
-	  }
-	} else {
-	  if (glmajor == 2) {
-	    glminor = 0;
-	  } else if (glmajor == 3) {
-	    glminor = 2;
-	  } else {
-	    glminor = 0;
-	  }
-	}
+        --glmajor;
+        if (m::eq{is_gles, 0}) {
+          if (glmajor == 2) {
+            glminor = 1;
+          } else if (glmajor == 3) {
+            glminor = 3;
+          } else if (glmajor == 4) {
+            glminor = 5;
+          } else {
+            glminor = 0;
+          }
+        } else {
+          if (glmajor == 2) {
+            glminor = 0;
+          } else if (glmajor == 3) {
+            glminor = 2;
+          } else {
+            glminor = 0;
+          }
+        }
       } else {
-	break;
+        break;
       }
     }
 
@@ -210,10 +217,10 @@ public struct sdlcontext(pgl3d_config const& config0)
       sdl_log("vn", vn0, vn1, vn2);
       string_split{'.'}(vn0, glmajor, glminor);
       if (glmajor == 0) {
-	string_split{'.'}(vn1, glmajor, glminor);
-	if (glmajor == 0) {
-	  string_split{'.'}(vn2, glmajor, glminor);
-	}
+        string_split{'.'}(vn1, glmajor, glminor);
+        if (glmajor == 0) {
+          string_split{'.'}(vn2, glmajor, glminor);
+        }
       }
     }
     const vendor = cubptr_to_string(glGetString_nocheck(GL_VENDOR));
@@ -238,7 +245,7 @@ public struct sdlcontext(pgl3d_config const& config0)
     glGetIntegerv(GL_NUM_EXTENSIONS, address(num_ext));
     for (int i: 0 .. num_ext) {
       sdl_log("GL_EXTENSION", cubptr_to_string(glGetStringi(GL_EXTENSIONS,
-	static_cast{uint}(i))));
+        static_cast{uint}(i))));
     }
     */
     if (find_substr(to_lower(vendor), "nvidia") == vendor.size()) {
@@ -254,11 +261,12 @@ public struct sdlcontext(pgl3d_config const& config0)
     const n = SDL_NumJoysticks();
     for (const i: 0 .. n) {
       const j = SDL_JoystickOpen(i);
-      debug_log("joystick", i, ccharptr_to_string(SDL_JoystickName(j)));
+      const jn = ccharptr_to_string(SDL_JoystickName(j));
+      debug_log("joystick", i, jn);
       const hndp = make_handle_type();
       joystick_info inf;
       hndp->reset(j);
-      inf.id_string = ccharptr_to_string(SDL_JoystickName(j));
+      inf.id_string = jn;
       inf.num_axes = static_cast{uint}(max(SDL_JoystickNumAxes(j), 0));
       inf.num_buttons = static_cast{uint}(max(SDL_JoystickNumButtons(j), 0));
       inf.num_hats = static_cast{uint}(max(SDL_JoystickNumHats(j), 0));

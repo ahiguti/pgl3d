@@ -1,20 +1,20 @@
 private threaded namespace pgl3d::drawer::motion_blur "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
 // FIXME: drawstep化に追従
 
-private tsvaluetype struct motion_blur_vertex_attributes()
+private pure tsvaluetype struct motion_blur_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct motion_blur_instance_attributes()
+private pure tsvaluetype struct motion_blur_instance_attributes()
 {
 }
 
-private tsvaluetype struct motion_blur_uniforms()
+private pure tsvaluetype struct motion_blur_uniforms()
 {
   public glm::vec2 pixel_delta;
   public int sampler_tex; // array
@@ -31,7 +31,9 @@ public struct drawer_motion_blur(shader_config const& glc,
   public varray{ptr{gl_framebuffer}} ppfbos;
   public size_t const num_frames = 4u;
   motion_blur_shader_ptr sdr_re = init_motion_blur_shader(glc, num_frames);
-  vbid_t const vbid_motion_blur = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_motion_blur = ds.vbid_pool->intern("vbid_motion_blur");
+  vsid_t const vsid_generic_filter =
+    ds.vsid_pool->intern("vsid_generic_filter");
   init(ds);
   function void init(drawer_shared const& ds) {
     const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
@@ -42,7 +44,7 @@ public struct drawer_motion_blur(shader_config const& glc,
       ppfbos.push_back(make_ptr{gl_framebuffer}());
     }
   }
-  public function vbid_t get_vbid() const { return vbid_motion_blur; }
+  public function vbid_t get_drawer_vbid() const { return vbid_motion_blur; }
   public function vbid_t get_instances_vbid() const {
     return vbid_motion_blur; }
   public function vbid_t get_vertices_vbid() const { return vbid_motion_blur; }
@@ -51,12 +53,12 @@ public struct drawer_motion_blur(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_motion_blur"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattrs;
     farray{motion_blur_vertex_attributes, 4} vs;
@@ -115,7 +117,7 @@ public struct drawer_motion_blur(shader_config const& glc,
     // debug_log("delta", pixel_delta);
     glUniform2fv(sdr.u_pixel_delta, 1, pixel_delta.to_crawptr());
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
-    bo.draw(0, sdr);
+    bo.draw_single_instance(vsid_generic_filter, sdr);
     cur_ppfbo += 1;
     if (cur_ppfbo >= ppfbos.size()) {
       cur_ppfbo = 0;

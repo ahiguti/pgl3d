@@ -1,8 +1,8 @@
 #!/usr/bin/env pxc
 
 public namespace gaussian;
-import common -;
-import numeric::fpmath -;
+import core::common -;
+import core::numeric::fpmath -;
 
 const s = 1.5;
 const k = 15;

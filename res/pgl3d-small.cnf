@@ -1,12 +1,3 @@
-datadir=..
-# enable_heartbeat_thread=1
-# async_motion_thread=1
-gldebug=0
-debug_mask=0
-
-#window_x=2000
-#window_y=100
-
 edit_mode=0
 option_value2=-1
 #edit_mode=1
@@ -16,18 +7,17 @@ auto_reload=1
 capture_filter=0
 aberration_filter=0
 
-virt_scale=1.0
+dbgval=0
+gldebug=1
 
-# motion_serial=Arduino Due
+motion_serial=Arduino Due
 
 raycast_layer=32
-#raycast_layer=2
-#raycast_layer=0
 
-glfinish=0
+glfinish=1
 enable_raycast_zprepass=0
-enable_dbgui=1
-vsync=-1
+enable_dbgui=0
+vsync=1
 fullscreen=0
 width=1280
 height=720
@@ -49,18 +39,17 @@ highdpi=1
 #voxel_pat_w=10
 #voxel_pat_h=9
 #voxel_pat_d=9
-# 7,8,6
-voxel_map_w=7
+# 8,8,6
+voxel_map_w=8
 voxel_map_h=8
 voxel_map_d=6
-voxel_pat_w=9
-voxel_pat_h=9
-voxel_pat_d=9
+voxel_pat_w=8
+voxel_pat_h=8
+voxel_pat_d=8
 
 #large_shadow=1
 
 #framestat_threshold=2.0
-
 dummy_flip=1
 update_frag_depth=1
 shadow=1
@@ -74,15 +63,16 @@ shadow_ms=1
 shadowmap_distance=8.0
 normalmapping=1
 light_fixed=0
-perspective_wh=0.01
-perspective_near=0.01
-perspective_far=1000
+perspective_wh=0.1
+perspective_near=0.1
+perspective_far=10000
 
 fps=60
 frame_sleep=0
 blur_param=0.8
 blur_filter=1
 bokeh=0
+virt_scale=1.0
 blur_shadow=0
 fxaa_filter=1
 motion_blur_filter=0

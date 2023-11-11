@@ -1,15 +1,15 @@
 public threaded namespace pgl3d::stempl::stempl;
-public import common -;
-public import exception -;
+public import core::common -;
+public import core::exception -;
 
-public threaded union stempl_expr
+public pure union stempl_expr
 {
   public unit nil;
   public ptr{string} literal;
   public ptr{stempl_cons} cons;
 }
 
-public mtvaluetype struct
+public pure mtvaluetype struct
 stempl_exception(string const& error0, size_t offset0)
 <runtime_error>
 {
@@ -36,14 +36,14 @@ stempl_exception(string const& error0, size_t offset0)
   }
 }
 
-public threaded struct stempl_cons()
+public pure struct stempl_cons()
 {
   public size_t offset;
   public string symbol;
   public varray{stempl_expr} args;
 }
 
-public threaded function stempl_expr
+public pure function stempl_expr
 stempl_parse(cstrref const& src)
 {
   stempl_expr r;
@@ -58,7 +58,7 @@ stempl_parse(cstrref const& src)
   return r;
 }
 
-public threaded function string
+public pure function string
 stempl_expr_dump(stempl_expr const& expr)
 {
   string r;
@@ -66,7 +66,7 @@ stempl_expr_dump(stempl_expr const& expr)
   return r;
 }
 
-public threaded function void
+public pure function void
 stempl_expr_dump_append(stempl_expr const& expr, string mutable& r)
 {
   if (case expr.literal) {
@@ -87,7 +87,7 @@ stempl_expr_dump_append(stempl_expr const& expr, string mutable& r)
   }
 }
 
-private threaded function pair{size_t, size_t}
+private pure function pair{size_t, size_t}
 calc_line(cstrref const& src, size_t offset)
 {
   size_t i = 0;
@@ -103,7 +103,7 @@ calc_line(cstrref const& src, size_t offset)
   return pair(lcnt, lbegin);
 }
 
-private threaded function bool
+private pure function bool
 parse_cons(varray{stempl_expr} mutable& arr, cstrref const& src,
   size_t mutable& i)
 {
@@ -116,7 +116,7 @@ parse_cons(varray{stempl_expr} mutable& arr, cstrref const& src,
   return false; //no end tag
 }
 
-private threaded function string
+private pure function string
 slice_to_string(cstrref const& src, size_t i0, size_t i1)
 {
   // TODO: is there a better way?
@@ -124,7 +124,7 @@ slice_to_string(cstrref const& src, size_t i0, size_t i1)
   return s;
 }
 
-private threaded function bool
+private pure function bool
 parse_expr_list(varray{stempl_expr} mutable& arr, cstrref const& src,
   size_t mutable& i)
 {
@@ -136,39 +136,39 @@ parse_expr_list(varray{stempl_expr} mutable& arr, cstrref const& src,
     if (ibegin != i) {
       // literal
       if (!is_literal_to_skip(src, ibegin, i)) {
-	stempl_expr e;
-	e.literal = make_ptr{string}(slice_to_string(src, ibegin, i));
-	arr.push_back(e);
-	// debug_log("stempl literal", *e.literal, arr.size());
+        stempl_expr e;
+        e.literal = make_ptr{string}(slice_to_string(src, ibegin, i));
+        arr.push_back(e);
+        // debug_log("stempl literal", *e.literal, arr.size());
       }
     }
     if (has_tag) {
       if (i + 3 < srclen && src[i + 2] == '/' && src[i + 3] == '>') {
-	// found end tag
-	i += 4;
-	// debug_log("stempl endtag");
-	return true;
+        // found end tag
+        i += 4;
+        // debug_log("stempl endtag");
+        return true;
       }
       const tstart = i;
       i += 2; // skip '<%'
       const tend = find_mapped(src, i, '>');
       if (tend == i) {
-	// found delimiter
-	i += 1;
-	continue;
+        // found delimiter
+        i += 1;
+        continue;
       }
       if (tend == srclen) {
-	throw stempl_exception("syntax error", tend);
+        throw stempl_exception("syntax error", tend);
       }
       const is_eetag = (src[tend - 1] == '/'); // empty element tag
       const consp = make_ptr{stempl_cons}();
       mutable& cons = *consp;
       parse_tag(cons, src, i, is_eetag ? tend - 1 : tend);
-      i = tend + 1; 
+      i = tend + 1;
       if (!is_eetag) {
-	if (!parse_expr_list(cons.args, src, i)) {
-	  throw stempl_exception("missing end tag", tstart);
-	}
+        if (!parse_expr_list(cons.args, src, i)) {
+          throw stempl_exception("missing end tag", tstart);
+        }
       }
       stempl_expr e;
       e.cons = consp;
@@ -179,7 +179,7 @@ parse_expr_list(varray{stempl_expr} mutable& arr, cstrref const& src,
   return false; // no end tag
 }
 
-private threaded function void
+private pure function void
 parse_tag(stempl_cons mutable& cons, cstrref const& src, size_t i0, size_t i1)
 {
   mutable i = i0;
@@ -196,7 +196,7 @@ parse_tag(stempl_cons mutable& cons, cstrref const& src, size_t i0, size_t i1)
   }
 }
 
-private threaded function void
+private pure function void
 skip_nonspace(cstrref const& src, size_t mutable& i, size_t iend)
 {
   while (i < iend && src[i] > ' ') {
@@ -204,7 +204,7 @@ skip_nonspace(cstrref const& src, size_t mutable& i, size_t iend)
   }
 }
 
-private threaded function void
+private pure function void
 skip_space(cstrref const& src, size_t mutable& i, size_t iend)
 {
   while (i < iend && src[i] <= ' ') {
@@ -212,7 +212,7 @@ skip_space(cstrref const& src, size_t mutable& i, size_t iend)
   }
 }
 
-private threaded function bool
+private pure function bool
 is_literal_to_skip(cstrref const& src, size_t i0, size_t i1)
 {
   for (const i: i0 .. i1) {
@@ -224,7 +224,7 @@ is_literal_to_skip(cstrref const& src, size_t i0, size_t i1)
   return true;
 }
 
-private threaded function bool
+private pure function bool
 find_tag(cstrref const& src, size_t mutable& i)
 {
   const len = src.size();

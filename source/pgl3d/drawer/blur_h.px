@@ -1,20 +1,20 @@
 private threaded namespace pgl3d::drawer::blur_h "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
 private metafunction enable_white_count 0;
 
-private tsvaluetype struct blur_h_vertex_attributes()
+private pure tsvaluetype struct blur_h_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct blur_h_instance_attributes()
+private pure tsvaluetype struct blur_h_instance_attributes()
 {
 }
 
-private tsvaluetype struct blur_h_uniforms()
+private pure tsvaluetype struct blur_h_uniforms()
 {
   public glm::vec2 pixel_delta;
   public int sampler_tex;
@@ -41,7 +41,9 @@ public struct drawer_blur_h(shader_config const& glc,
   option{cptr{gl_framebuffer}} srcfbo;
   option{cptr{gl_framebuffer}} src2fbo;
   blur_h_shader_ptr sdr_re = init_blur_h_shader(glc, direction_v);
-  vbid_t const vbid_blur_h = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_blur_h = ds.vbid_pool->intern("vbid_blur_h");
+  vsid_t const vsid_generic_filter =
+    ds.vsid_pool->intern("vsid_generic_filter");
   auto_buffer white_count;
   init(ds);
   function void init(drawer_shared const& ds) {
@@ -60,7 +62,7 @@ public struct drawer_blur_h(shader_config const& glc,
       debug_log("white_count buf", white_count.get());
     }
   }
-  public function vbid_t get_vbid() const { return vbid_blur_h; }
+  public function vbid_t get_drawer_vbid() const { return vbid_blur_h; }
   public function vbid_t get_instances_vbid() const { return vbid_blur_h; }
   public function vbid_t get_vertices_vbid() const { return vbid_blur_h; }
   public function prepare_instance_data_funcptr
@@ -68,13 +70,14 @@ public struct drawer_blur_h(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_generic_filter"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
+    // debug_log("blur_h make_builtin_vertex_sets", vsid);
     farray{vertex_attr, 4} dummy_vattr;
     farray{blur_h_vertex_attributes, 4} vs;
     vs[0].vert = glm::make_vec2(-1.0, -1.0);
@@ -101,9 +104,9 @@ public struct drawer_blur_h(shader_config const& glc,
       glActiveTexture(GL_TEXTURE0);
       glBindTexture(GL_TEXTURE_2D, ppfbo->texture_color.get());
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-	static_cast{int}(GL_LINEAR));
+        static_cast{int}(GL_LINEAR));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-	static_cast{int}(GL_LINEAR));
+        static_cast{int}(GL_LINEAR));
     }
     if (enable_shadow_blur) {
       sppfbo->width = glc.shadowmap_resolution;
@@ -157,7 +160,7 @@ public struct drawer_blur_h(shader_config const& glc,
       }
     }
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
-    bo.draw(0, sdr);
+    bo.draw_single_instance(vsid_generic_filter, sdr);
     if (direction_v) {
       if (m::ne{enable_white_count, 0}) {
         GLuint wc = 0;

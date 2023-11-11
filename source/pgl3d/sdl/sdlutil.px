@@ -1,26 +1,26 @@
 public threaded namespace pgl3d::sdl::sdlutil "use-unsafe";
-public import common -;
+public import core::common -;
 private import opengl::base -;
-private import pointer::raw -;
-private import pointer::raw_unsafe -;
+private import core::pointer::raw -;
+private import core::pointer::raw_unsafe -;
 private import sdl2::api_base -;
 private import sdl2::api_types -;
 private import sdl2::api_functions -;
 private import sdl2::api_wrappers -;
 private import sdl2::misc -;
-public import meta m;
-public import meta::vararg v;
+public import core::meta m;
+public import core::meta::vararg v;
 
 public metafunction sdl_get_ticks SDL_GetTicks;
 
-public threaded function {tlist} void
+public pure function {tlist} void
 sdl_log(expand(v::arg_decls_bycref{tlist}))
 {
   const s = string_join{"\t"}(expand(a: v::arg_names{m::size{tlist}}; a));
     sdl_log_impl(s);
 }
 
-private threaded function void sdl_log_impl(cstrref const& s0)
+private pure function void sdl_log_impl(cstrref const& s0)
 {
   // SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, s);
   cstrref s = s0;
@@ -118,11 +118,11 @@ public function bool sdl_load_file(string const& fname,
   while (true) {
     const osz = buf_r.size();
     size_t rsz = 16u * 1024u * 1024u;
-    buf_r.resize(osz + rsz, 0);
+    buf_r.resize(osz + rsz, uchar());
     const r = SDL_RWread(fp.get(), (buf_r.to_rawptr() + osz).to_voidptr(), 1u,
       rsz);
     if (r != rsz) {
-      buf_r.resize(osz + r, 0);
+      buf_r.resize(osz + r, uchar());
       break;
     }
   }
@@ -140,7 +140,7 @@ private metafunction pod_sizeof{t}
     m::error{"sizeof"}};
 
 public function {tlist} bool
-sdl_save_file(expand(meta::vararg::arg_decls_byref{tlist}))
+sdl_save_file(expand(v::arg_decls_byref{tlist}))
 {
   sdl_file fp;
   string fn = a0;
@@ -171,7 +171,7 @@ sdl_save_file(expand(meta::vararg::arg_decls_byref{tlist}))
       sli.increment_front(wsz);
     }
   }
-  expand(a: meta::slice{meta::vararg::arg_names{meta::size{tlist}}, 1}) {
+  expand(a: m::slice{v::arg_names{m::size{tlist}}, 1}) {
     write_slice(a.crange());
   }
   if (fp.close() != 0) {

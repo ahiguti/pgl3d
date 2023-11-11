@@ -1,14 +1,14 @@
 private threaded namespace pgl3d::opengl::gltexture "export-unsafe";
-public import common -;
-public import pointer::raw -;
-public import pointer::raw_unsafe -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::pointer::raw -;
+public import core::pointer::raw_unsafe -;
+public import core::numeric::fpmath -;
 public import glm;
 public import glm::raw;
-public import io::time -;
-public import exception -;
-public import meta m;
-public import pointer::tfuncptr -;
+public import core::io::time -;
+public import core::exception -;
+public import core::meta m;
+public import core::pointer::tfuncptr -;
 public import opengl::compat -;
 public import pgl3d::opengl::glresource -;
 public import pgl3d::opengl::glshader -;
@@ -279,8 +279,8 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
       }
       const e0 = static_cast{int}(glGetError());
       glTexImage3D(target, mipmap_level, cast_int(iformat),
-	cast_int(tex_w), cast_int(tex_h), cast_int(tex_d),
-	0, format, pixtype, crawp.to_cvoidptr());
+        cast_int(tex_w), cast_int(tex_h), cast_int(tex_d),
+        0, format, pixtype, crawp.to_cvoidptr());
       const e1 = static_cast{int}(glGetError());
       dbg_3dtex() {
         debug_log("3dtex post", tex_w, tex_h, tex_d, e0, e1);
@@ -293,8 +293,8 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
       target == GL_TEXTURE_CUBE_MAP_NEGATIVE_Y ||
       target == GL_TEXTURE_CUBE_MAP_NEGATIVE_Z) {
       glTexImage2D(target, mipmap_level, cast_int(iformat),
-	cast_int(tex_w), cast_int(tex_h),
-	0, format, pixtype, crawp.to_cvoidptr());
+        cast_int(tex_w), cast_int(tex_h),
+        0, format, pixtype, crawp.to_cvoidptr());
     } else if (target == GL_TEXTURE_1D) {
       glTexImage1D(target, mipmap_level, cast_int(iformat),
         cast_int(tex_w),
@@ -316,9 +316,9 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
     glTexParameteri(target, GL_TEXTURE_MIN_FILTER, cast_int(min_filter));
     if (m::is_true{is_gl3_or_gles3}) {
       if (tds_sz > 1) {
-	glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
-	glTexParameteri(target, GL_TEXTURE_MAX_LEVEL,
-	  cast_int(tds_sz - 1));
+        glTexParameteri(target, GL_TEXTURE_BASE_LEVEL, 0);
+        glTexParameteri(target, GL_TEXTURE_MAX_LEVEL,
+          cast_int(tds_sz - 1));
       }
     }
   }

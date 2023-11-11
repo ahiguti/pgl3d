@@ -1,6 +1,6 @@
 private threaded namespace pgl3d::edit_mode::update_dist "use-unsafe";
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
 
@@ -28,7 +28,7 @@ texture_data_clear_range_recalc_distance_quick(t mutable& dest,
   }
 }
 
-public threaded function {t} pair{ivec3, ivec3}
+public pure function {t} pair{ivec3, ivec3}
 texture_data_fill_range_recalc_distance_quick(t mutable& dest,
   uvec3 const& dpos, uvec3 const& sz, uint v)
 {

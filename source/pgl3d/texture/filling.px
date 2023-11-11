@@ -1,6 +1,6 @@
 private threaded namespace pgl3d::texture::filling;
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import glm -;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::texture -;
@@ -13,7 +13,7 @@ public metafunction filling_texture array3_pot{varray{ushort}, 0};
   // 記録する。
 
 // filling_sortはfillingの種類を保持する列挙型。
-public valuetype enum filling_sort {
+public pure valuetype enum filling_sort {
   filling_sort_none = 0,
   filling_sort_cuboid = 1,
   filling_sort_wire = 2,
@@ -21,7 +21,7 @@ public valuetype enum filling_sort {
 
 // fillingはtmap上の範囲を表すデータで、fillingとして登録されたものは
 // ランダムなテクスチャパターン生成のもととして使われる。
-public valuetype struct filling {
+public pure valuetype struct filling {
   public uvec3 offset; // パターンの起点がtmapのどのオフセットにあるか
   public farray{uint, 9} sizes;
     // x0, x1, x2, y0, y1, y2, z0, z1, z2 の順。XYZそれぞれの軸方向の大きさを
@@ -40,7 +40,7 @@ public valuetype struct filling {
   }
 }
 
-public threaded function bool filling_is_seed_filling(filling const& fi) {
+public pure function bool filling_is_seed_filling(filling const& fi) {
   // filling生成種を格納するためのfillingであるかどうかを返す。filling生成種
   // はそれらを複数配置して1x1からnxmサイズのfillingを自動生成するときの種と
   // なるもの。
@@ -58,7 +58,9 @@ public threaded function bool filling_is_seed_filling(filling const& fi) {
   return false;
 }
 
-public multithreaded interface filling_map_i filling_map {
+// tmapと同じサイズの三次元配列にfillingの情報を保持する。配列要素には
+// filling型の情報をエンコードした数値を格納する。
+public pure multithreaded interface filling_map_i filling_map {
   public function uvec3 get_size_l2() const;
   public function void set_size_l2(uvec3 const& p);
   public function ushort get(uvec3 const& p) const;
@@ -68,7 +70,7 @@ public multithreaded interface filling_map_i filling_map {
   public function bool erase_filling(uvec3 const& p);
 }
 
-public multithreaded struct filling_map <filling_map_i> public {
+public pure multithreaded struct filling_map <filling_map_i> public {
   public function {tpl} void append_to_string(string mutable& o) const {
     serialize_sequence{tpl}(tex, o);
   }
@@ -114,6 +116,7 @@ public multithreaded struct filling_map <filling_map_i> public {
           r.sizes[i * 3 + j] = dsz[j];
         }
       }
+      r.fsort = static_cast{filling_sort}(decode_filling_sort(v));
     }
     return r;
   }
@@ -145,7 +148,8 @@ public multithreaded struct filling_map <filling_map_i> public {
       const dx = calc_one_dir(fi.sizes[0u .. 3u], x);
       const dy = calc_one_dir(fi.sizes[3u .. 6u], y);
       const dz = calc_one_dir(fi.sizes[6u .. 9u], z);
-      const dv = encode_filling_dir(dx, dy, dz);
+      const dv = encode_filling_dir_sort(dx, dy, dz,
+        static_cast{uint}(fi.fsort));
       tex.set(p.x + x, p.y + y, p.z + z, dv);
     }
     return true;
@@ -342,12 +346,13 @@ public multithreaded struct filling_map <filling_map_i> public {
   filling_texture tex;
 }
 
-private threaded function ushort encode_filling_dir(uint x, uint y, uint z)
+private pure function ushort
+encode_filling_dir_sort(uint x, uint y, uint z, uint s)
 {
-  return static_cast{ushort}((z << 8) | (y << 4) | (x << 0));
+  return static_cast{ushort}((s << 12) | (z << 8) | (y << 4) | (x << 0));
 }
 
-private threaded function uint decode_filling_dir(ushort v, uint d)
+private pure function uint decode_filling_dir(ushort v, uint d)
 {
   if (d == 1) {
     v >>= 4;
@@ -360,11 +365,17 @@ private threaded function uint decode_filling_dir(ushort v, uint d)
   return v;
 }
 
-private threaded function uvec3 decode_filling_value(ushort v)
+private pure function uint decode_filling_sort(ushort v)
+{
+  return (v >> 12) & 0x0f;
+}
+/*
+private pure function uvec3 decode_filling_value(ushort v)
 {
   return make_uvec3(
     decode_filling_dir(v, 0),
     decode_filling_dir(v, 1),
     decode_filling_dir(v, 2));
 }
+*/
 

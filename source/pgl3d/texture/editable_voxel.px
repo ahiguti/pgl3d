@@ -1,14 +1,15 @@
 public threaded namespace pgl3d::texture::editable_voxel "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
+public import core::meta::vararg va;
 public import glm -;
 public import sdl2::api_types -;
-public import text::serialize::compact_pod -;
+public import core::text::serialize::compact_pod -;
 public import pgl3d::texture::texture -;
 public import pgl3d::texture::voxel -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
-public import pointer::tfuncptr -;
+public import core::pointer::tfuncptr -;
 
 public metafunction texture_reshaped array3_pot{varray{uint}, 0};
   // TODO: test reshape
@@ -24,19 +25,19 @@ public metafunction texture_value_index
 public metafunction multiword_num_words 2;
 public metafunction multiword farray{texel_value, multiword_num_words};
 
-public threaded function {tlist} multiword
-make_multiword(expand(meta::vararg::arg_decls_bycref{tlist}))
+public pure function {tlist} multiword
+make_multiword(expand(va::arg_decls_bycref{tlist}))
 {
   multiword r;
   uint i;
-  expand (a: meta::vararg::arg_names{meta::size{tlist}}) {
+  expand (a: va::arg_names{m::size{tlist}}) {
     r[i] = a;
     ++i;
   }
   return r;
 }
 
-public multithreaded struct modified_range
+public pure multithreaded struct modified_range
 {
   private uvec3 merged_modified_pos;
   private uvec3 merged_modified_sz;
@@ -81,26 +82,26 @@ public multithreaded struct modified_range
   }
 }
 
-private threaded function uint
+private pure function uint
 merge_mode_f_opaque(uint ov, uint v)
 {
   return v;
 }
 
-private threaded function uint
+private pure function uint
 merge_mode_f_or_ori(uint ov, uint v)
 {
   return is_space_voxel(ov) ? v : ov;
 }
 
 public metafunction merge_mode
-pointer::tfuncptr::tfuncptr_matching_function{merge_mode_f_opaque};
+  tfuncptr_matching_function{merge_mode_f_opaque};
 public metafunction merge_mode_opaque
-pointer::tfuncptr::make_tfuncptr{merge_mode_f_opaque};
+  make_tfuncptr{merge_mode_f_opaque};
 public metafunction merge_mode_or_ori
-pointer::tfuncptr::make_tfuncptr{merge_mode_f_or_ori};
+  make_tfuncptr{merge_mode_f_or_ori};
 
-public multithreaded struct
+public pure multithreaded struct
 texture_edit()
 {
   /* 更新可能なボクセルデータのテクスチャを保持するクラス。更新されたら
@@ -123,8 +124,8 @@ texture_edit()
   }
   public function void resize_texture(uvec3 szl2, bool enable_short_circuit)
   {
-    debug_log("texture_edit resize_texture: ", szl2,
-      data[0][0].get_size_l2_uvec3());
+    const& data00sz = data[0][0].get_size_l2_uvec3();
+    debug_log("texture_edit resize_texture: ", szl2, data00sz);
     tex_mip_words ttex;
     const nmip = data[0].size();
     for (const i, mutable& ttex_w: ttex) {
@@ -233,7 +234,7 @@ texture_edit()
     }
     for (const i, mutable& dataw: data) {
       texture_data_fill_range(dataw[0], dpos, sz, v[i]);
-      
+
     }
     dbg_dist() {
       debug_log("fill_range", dpos, sz);
@@ -286,7 +287,7 @@ texture_edit()
       recalc_distance_range(true, dpos, sz, false);
     } else {
       modified.set_modified(to_ivec3(dpos),
-	to_ivec3(dpos + sz - make_uvec3(1, 1, 1)));
+        to_ivec3(dpos + sz - make_uvec3(1, 1, 1)));
     }
   }
   private function void recalc_distance_range(bool enable_short_circuit,
@@ -315,7 +316,7 @@ texture_edit()
   }
 }
 
-public multithreaded struct
+public pure multithreaded struct
 texture_update()
 {
   // テクスチャ更新の情報をスレッド越しに渡すための構造体。詳細後でつめる。
@@ -327,10 +328,10 @@ public metafunction texture_updates varray{texture_update};
 
 /* private */
 
-metafunction ui static_cast{uint}; 
-metafunction si static_cast{int}; 
+metafunction ui static_cast{uint};
+metafunction si static_cast{int};
 
-private threaded function {t0, t1} bool texture_data_copy_range_check_modified(
+private pure function {t0, t1} bool texture_data_copy_range_check_modified(
   t0 mutable& dest,
   uvec3 const& dpos, t1 const& src, uvec3 const& spos,
   uvec3 const& sz, merge_mode const& mmod)
@@ -339,18 +340,18 @@ private threaded function {t0, t1} bool texture_data_copy_range_check_modified(
   for (uint z: 0 .. sz.z) {
     for (uint y: 0 .. sz.y) {
       for (uint x: 0 .. sz.x) {
-	const v = src.get(spos.x + x, spos.y + y, spos.z + z);
-	const ov = dest.get(dpos.x + x, dpos.y + y, dpos.z + z);
+        const v = src.get(spos.x + x, spos.y + y, spos.z + z);
+        const ov = dest.get(dpos.x + x, dpos.y + y, dpos.z + z);
         const nv = mmod(ov, v);
-	modified |= (ov != nv);
-	dest.set(dpos.x + x, dpos.y + y, dpos.z + z, nv);
+        modified |= (ov != nv);
+        dest.set(dpos.x + x, dpos.y + y, dpos.z + z, nv);
       }
     }
   }
   return modified;
 }
 
-private threaded function {t0, t1} void texture_data_copy_range_secondary(
+private pure function {t0, t1} void texture_data_copy_range_secondary(
   t0 const& dest_pri, t0 mutable& dest_sec,
   uvec3 const& dpos, t1 const& src_sec, uvec3 const& spos,
   uvec3 const& sz)
@@ -358,37 +359,37 @@ private threaded function {t0, t1} void texture_data_copy_range_secondary(
   for (uint z: 0 .. sz.z) {
     for (uint y: 0 .. sz.y) {
       for (uint x: 0 .. sz.x) {
-	const ov = dest_pri.get(dpos.x + x, dpos.y + y, dpos.z + z);
-	if (is_space_voxel(ov) || is_node_reference(ov)) {
-	  continue;
-	}
-	const v = src_sec.get(spos.x + x, spos.y + y, spos.z + z);
-	dest_sec.set(dpos.x + x, dpos.y + y, dpos.z + z, v);
+        const ov = dest_pri.get(dpos.x + x, dpos.y + y, dpos.z + z);
+        if (is_space_voxel(ov) || is_node_reference(ov)) {
+          continue;
+        }
+        const v = src_sec.get(spos.x + x, spos.y + y, spos.z + z);
+        dest_sec.set(dpos.x + x, dpos.y + y, dpos.z + z, v);
       }
     }
   }
 }
 
 // vecutil.px
-private threaded function bool lt_all_uvec3(uvec3 const& a, uvec3 const& b)
+private pure function bool lt_all_uvec3(uvec3 const& a, uvec3 const& b)
 {
-  return map{monoid_and{bool}, operator::lt}(a, b);
+  return map_fold{monoid_and{bool}, core::operator::lt}(a, b);
   // return a.x < b.x && a.y < b.y && a.z < b.z;
 }
 
 // vecutil.px
-private threaded function bool le_all_uvec3(uvec3 const& a, uvec3 const& b)
+private pure function bool le_all_uvec3(uvec3 const& a, uvec3 const& b)
 {
-  return map{monoid_and{bool}, operator::le}(a, b);
+  return map_fold{monoid_and{bool}, core::operator::le}(a, b);
   // return a.x <= b.x && a.y <= b.y && a.z <= b.z;
 }
 
-private threaded function bool empty_range(uvec3 const& a)
+private pure function bool empty_range(uvec3 const& a)
 {
   return a.x == 0 || a.y == 0 || a.z == 0;
 }
 
-private threaded function {t} uvec3
+private pure function {t} uvec3
 clamp_size(t const& data, uvec3 const& pos, uvec3 const& sz)
 {
   const tsz = data.get_size_uvec3();

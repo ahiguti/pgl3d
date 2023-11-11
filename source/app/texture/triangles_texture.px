@@ -1,9 +1,9 @@
 public threaded namespace app::texture::triangles_texture;
-public import common -;
+public import core::common -;
 public import pgl3d::exports_threaded -;
-public import text::serialize::compact_pod -;
+public import core::text::serialize::compact_pod -;
 public import glm -;
-public import meta m;
+public import core::meta m;
 public import app::texture::tile -;
 
 struct app_textures(bool edit_mode, int mw, int mh, int md, int pw,
@@ -59,6 +59,16 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
   const enable_short_circuit = cfg.get("short_circuit", 0, 0, 1) != 0;
   {
     {
+      const& msz = txs.voxtmap_size_l2;
+      const& psz = txs.voxtpat_size_l2;
+      const msz_p = static_cast{ulong}(1u) << (msz.x + msz.y + msz.z);
+      const psz_p = static_cast{ulong}(1u) << (psz.x + psz.y + psz.z);
+      const sz_p = (msz_p + psz_p) * 8 / 7;
+        // 3d mipmapを作るので 1/8 + 1/(8*8) + 1/(8*8*8) + ...
+      const sz_bytes = sz_p * 8;
+      debug_log("voxel texture", sz_bytes / (1000u * 1000u), "mbytes");
+    }
+    {
       // サイズの合った保存データがあればロードする
       const& msz = txs.voxtmap_size_l2;
       const& psz = txs.voxtpat_size_l2;
@@ -72,7 +82,7 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
         + to_string(psz.z) + ".raw";
       // 旧フォーマットのデータ。
       string fn_v0 = datadir + "/edit_voxel_" + to_string(msz.x) + "_"
-	+ to_string(msz.y) + "_" + to_string(msz.z) + ".raw";
+        + to_string(msz.y) + "_" + to_string(msz.z) + ".raw";
       debug_log("load fn:", fn, fn_v0);
       // ファイルの中身のテクスチャサイズがtxs.voxtmap_size_l2と
       // txs.voxtpat_size_l2に一致していなかったらリサイズされる。
@@ -105,10 +115,10 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
       mutable& voxtmap_sec = txs.vox->tmap_edit->data[1][0];
       debug_log("generate raw texture");
       prepare_texture_data_3d_tpat(edit_mode, voxtpat_pri, voxtpat_sec,
-	txs.voxtile_size_l2, txs.voxtpat_size_l2 - txs.voxtile_size_l2);
+        txs.voxtile_size_l2, txs.voxtpat_size_l2 - txs.voxtile_size_l2);
       debug_log("tpat done");
       prepare_texture_data_3d_tmap(edit_mode, voxtmap_pri, voxtmap_sec,
-	txs.voxtile_size_l2, txs.voxtpat_size_l2 - txs.voxtile_size_l2,
+        txs.voxtile_size_l2, txs.voxtpat_size_l2 - txs.voxtile_size_l2,
         txs.voxtmap_size_l2);
       debug_log("tmap done");
       debug_log("tmap 0,0,1", to_hexstring(voxtmap_pri.get(0, 0, 1)));
@@ -118,28 +128,28 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
       string buf;
       sdl_load_file(datadir + "/edit_common_tpat.raw", buf);
       if (!buf.empty()) {
-	debug_log("loaded common tpat");
-	*txs.vox->tpat_edit = from_string_compact_pod{texture_edit}(buf);
+        debug_log("loaded common tpat");
+        *txs.vox->tpat_edit = from_string_compact_pod{texture_edit}(buf);
       }
       buf.clear();
       sdl_load_file(datadir + "/edit_common_tmpri.raw", buf);
       if (!buf.empty()) {
-	debug_log("loaded common tmpri");
-	texture_data tmpri = from_string_compact_pod{texture_data}(buf);
-	const sz = map{uvec3, min}(tmpri.get_size_uvec3(),
-	  txs.vox->tmap_edit->data[0][0].get_size_uvec3());
-	texture_data_copy_range(txs.vox->tmap_edit->data[0][0], uvec3(),
-	  tmpri, uvec3(), sz);
+        debug_log("loaded common tmpri");
+        texture_data tmpri = from_string_compact_pod{texture_data}(buf);
+        const sz = map{uvec3, min}(tmpri.get_size_uvec3(),
+          txs.vox->tmap_edit->data[0][0].get_size_uvec3());
+        texture_data_copy_range(txs.vox->tmap_edit->data[0][0], uvec3(),
+          tmpri, uvec3(), sz);
       }
       buf.clear();
       sdl_load_file(datadir + "/edit_common_tmsec.raw", buf);
       if (!buf.empty()) {
-	debug_log("loaded common tmsec");
-	texture_data tmsec = from_string_compact_pod{texture_data}(buf);
-	const sz = map{uvec3, min}(tmsec.get_size_uvec3(),
-	  txs.vox->tmap_edit->data[1][0].get_size_uvec3());
-	texture_data_copy_range(txs.vox->tmap_edit->data[1][0], uvec3(),
-	  tmsec, uvec3(), sz);
+        debug_log("loaded common tmsec");
+        texture_data tmsec = from_string_compact_pod{texture_data}(buf);
+        const sz = map{uvec3, min}(tmsec.get_size_uvec3(),
+          txs.vox->tmap_edit->data[1][0].get_size_uvec3());
+        texture_data_copy_range(txs.vox->tmap_edit->data[1][0], uvec3(),
+          tmsec, uvec3(), sz);
       }
     }
     /*
@@ -148,12 +158,12 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
       const& tpat = *tex_voxtpat;
       mutable& tmap = *tex_voxtmap;
       for (const x: 0 .. tpat.get_width()) {
-	for (const y: 0 .. tpat.get_height()) {
-	  for (const z: 0 .. tpat.get_depth()) {
-	    // debug_log("x,y,z", x, y, z);
-	    tmap.set(x, y, z, tpat.get(x, y, z));
-	  }
-	}
+        for (const y: 0 .. tpat.get_height()) {
+          for (const z: 0 .. tpat.get_depth()) {
+            // debug_log("x,y,z", x, y, z);
+            tmap.set(x, y, z, tpat.get(x, y, z));
+          }
+        }
       }
     }
     */
@@ -163,14 +173,14 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
       mutable& tmap = *tex_voxtmap;
       const rnd = make_ptr{rand_generator}(333U);
       for (const i: 0 .. 4096 * 128) {
-	const x = rnd->generate() % tmap.get_width();
-	const y = rnd->generate() % tmap.get_height();
-	const z = rnd->generate() % tmap.get_depth();
-	const px = rnd->generate() % tpat.get_width();
-	const py = rnd->generate() % tpat.get_height();
-	const pz = rnd->generate() % tpat.get_depth();
-	tmap.set(x, y, z, make_node_reference(
-	  (pz << 16) | (py << 8) | (px << 0)));
+        const x = rnd->generate() % tmap.get_width();
+        const y = rnd->generate() % tmap.get_height();
+        const z = rnd->generate() % tmap.get_depth();
+        const px = rnd->generate() % tpat.get_width();
+        const py = rnd->generate() % tpat.get_height();
+        const pz = rnd->generate() % tpat.get_depth();
+        tmap.set(x, y, z, make_node_reference(
+          (pz << 16) | (py << 8) | (px << 0)));
       }
     }
     */
@@ -184,51 +194,51 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
       // TODO: remove
     {
       tdest.set_size_l2(tsrc.get_width_l2() - 1, tsrc.get_height_l2() - 1,
-	tsrc.get_depth_l2() - 1);
+        tsrc.get_depth_l2() - 1);
       tdestax.set_size_l2(tsrc.get_width_l2() - 1, tsrc.get_height_l2() - 1,
-	tsrc.get_depth_l2() - 1);
+        tsrc.get_depth_l2() - 1);
       for (const z: 0 .. tdest.get_depth()) {
-	for (const y: 0 .. tdest.get_height()) {
-	  for (const x: 0 .. tdest.get_width()) {
-	    uint cnt = 0;
-	    uvec3 color;
-	    for (const i: 0u .. 8u) {
-	      const x1 = x * 2 + (i & 1);
-	      const y1 = y * 2 + ((i >> 1) & 1);
-	      const z1 = z * 2 + ((i >> 2) & 1);
-	      mutable v = tsrc.get(x1, y1, z1);
-	      mutable vax = tsrcax.get(x1, y1, z1);
-	      if (is_space_voxel(v)) {
-		continue;
-	      } else if (is_node_reference(v)) {
-		const nr = get_node_reference(v);
-		uvec3 pos = make_uvec3((nr >> 0) & 0xff, (nr >> 8) & 0xff,
-		  (nr >> 16) & 0xff);
-		pos = map{uvec3, operator::shiftr}(pos,
-		  make_uvec3(tile_size_l2, tile_size_l2, tile_size_l2));
-		v = tpat_mipmax.get(pos.x, pos.y, pos.z);
-		vax = tpatax_mipmax.get(pos.x, pos.y, pos.z);
-		if (is_space_voxel(v)) {
-		  continue; // possible?
-		}
-	      }
-	      ++cnt;
-	      color.x += (vax >>  0) & 0xff;
-	      color.y += (vax >>  8) & 0xff;
-	      color.z += (vax >> 16) & 0xff;
-	    }
-	    if (cnt == 0) {
-	      tdest.set(x, y, z, 0u);
-	      tdestax.set(x, y, z, 0u);
-	    } else {
-	      color = map{uvec3, operator::div}(color,
-		make_uvec3(cnt, cnt, cnt));
-	      uint cval = (color.x << 0) | (color.y << 8) | (color.z << 16);
-	      tdest.set(x, y, z, cval | 0xff000000u);
-	      tdestax.set(x, y, z, cval);
-	    }
-	  }
-	}
+        for (const y: 0 .. tdest.get_height()) {
+          for (const x: 0 .. tdest.get_width()) {
+            uint cnt = 0;
+            uvec3 color;
+            for (const i: 0u .. 8u) {
+              const x1 = x * 2 + (i & 1);
+              const y1 = y * 2 + ((i >> 1) & 1);
+              const z1 = z * 2 + ((i >> 2) & 1);
+              mutable v = tsrc.get(x1, y1, z1);
+              mutable vax = tsrcax.get(x1, y1, z1);
+              if (is_space_voxel(v)) {
+                continue;
+              } else if (is_node_reference(v)) {
+                const nr = get_node_reference(v);
+                uvec3 pos = make_uvec3((nr >> 0) & 0xff, (nr >> 8) & 0xff,
+                  (nr >> 16) & 0xff);
+                pos = map{uvec3, operator::shiftr}(pos,
+                  make_uvec3(tile_size_l2, tile_size_l2, tile_size_l2));
+                v = tpat_mipmax.get(pos.x, pos.y, pos.z);
+                vax = tpatax_mipmax.get(pos.x, pos.y, pos.z);
+                if (is_space_voxel(v)) {
+                  continue; // possible?
+                }
+              }
+              ++cnt;
+              color.x += (vax >>  0) & 0xff;
+              color.y += (vax >>  8) & 0xff;
+              color.z += (vax >> 16) & 0xff;
+            }
+            if (cnt == 0) {
+              tdest.set(x, y, z, 0u);
+              tdestax.set(x, y, z, 0u);
+            } else {
+              color = map{uvec3, operator::div}(color,
+                make_uvec3(cnt, cnt, cnt));
+              uint cval = (color.x << 0) | (color.y << 8) | (color.z << 16);
+              tdest.set(x, y, z, cval | 0xff000000u);
+              tdestax.set(x, y, z, cval);
+            }
+          }
+        }
       }
     }
     */
@@ -236,12 +246,12 @@ prepare_raycasting_texture_data(pgl3d_config const& cfg,
     for (const i, mutable& pri: txs.vox->tpat_edit->data[0]) {
       mutable& aux = txs.vox->tpat_edit->data[1][i];
       prepare_voxel_tpat(pri, aux, tpat_miplevel_max, static_cast{uint}(i),
-	enable_calc_distance, enable_short_circuit);
+        enable_calc_distance, enable_short_circuit);
     }
     for (const i, mutable& pri: txs.vox->tmap_edit->data[0]) {
       mutable& aux = txs.vox->tmap_edit->data[1][i];
       prepare_voxel_tmap(pri, aux, tmap_miplevel_max,
-	static_cast{uint}(i), enable_calc_distance, enable_short_circuit);
+        static_cast{uint}(i), enable_calc_distance, enable_short_circuit);
     }
     {
       const& msz = txs.voxtmap_size_l2;
@@ -272,25 +282,25 @@ function void dump_cnt(texture_reshaped const& t, string msg)
   for (const z: 0 .. t.get_depth()) {
     for (const y: 0 .. t.get_height()) {
       for (const x: 0 .. t.get_width()) {
-	const v = t.get(x, y, z);
-	if ((v & 0xff000000) == 0x00000000) {
-	  sp_cnt += 1;
-	  if ((v & 0x00ffffff) != 0) {
-	    di_cnt += 1;
-	  }
-	} else if ((v & 0xff000000) == 0xff000000) {
-	  co_cnt += 1;
-	  // debug_log("co", x, y, z, to_hexstring(v));
-	} else if ((v & 0xff000000) == 0x01000000) {
-	  re_cnt += 1;
-	} else {
-	}
-	/*
-	if (x >= t.get_width() - 16 && y >= t.get_height() - 16 && z >= t.get_depth() - 16) {
-	  dist_3d dv = get_dist_3d(v);
-	  debug_log(msg, x - (t.get_width() - 16), y - (t.get_height() - 16), z - (t.get_depth() - 16), dv);
-	}
-	*/
+        const v = t.get(x, y, z);
+        if ((v & 0xff000000) == 0x00000000) {
+          sp_cnt += 1;
+          if ((v & 0x00ffffff) != 0) {
+            di_cnt += 1;
+          }
+        } else if ((v & 0xff000000) == 0xff000000) {
+          co_cnt += 1;
+          // debug_log("co", x, y, z, to_hexstring(v));
+        } else if ((v & 0xff000000) == 0x01000000) {
+          re_cnt += 1;
+        } else {
+        }
+        /*
+        if (x >= t.get_width() - 16 && y >= t.get_height() - 16 && z >= t.get_depth() - 16) {
+          dist_3d dv = get_dist_3d(v);
+          debug_log(msg, x - (t.get_width() - 16), y - (t.get_height() - 16), z - (t.get_depth() - 16), dv);
+        }
+        */
       }
     }
   }
@@ -330,9 +340,9 @@ function void prepare_voxel_tpat(texture_reshaped mutable& tpat,
     for (const by: 0 .. tpat.get_height() >> sh) {
       for (const bx: 0 .. tpat.get_width() >> sh) {
         // copy to tile
-	for (const z: 0 .. 1u << sh) {
+        for (const z: 0 .. 1u << sh) {
           for (const y: 0 .. 1u << sh) {
-	    for (const x: 0 .. 1u << sh) {
+            for (const x: 0 .. 1u << sh) {
               tile.set(x, y, z, tpat.get(
                 (bx << sh) + x,
                 (by << sh) + y,
@@ -341,13 +351,13 @@ function void prepare_voxel_tpat(texture_reshaped mutable& tpat,
           }
         }
         // set distance
-	if (enable_calc_distance) {
-	  set_distance(enable_short_circuit, tile);
-	}
+        if (enable_calc_distance) {
+          set_distance(enable_short_circuit, tile);
+        }
         // copy back to tpat
-	for (const z: 0 .. 1u << sh) {
+        for (const z: 0 .. 1u << sh) {
           for (const y: 0 .. 1u << sh) {
-	    for (const x: 0 .. 1u << sh) {
+            for (const x: 0 .. 1u << sh) {
               tpat.set(
                 (bx << sh) + x,
                 (by << sh) + y,
@@ -376,7 +386,7 @@ prepare_parallax_mapping_texture_data(app_textures mutable& txs)
     mutable& tnoise = *txs.tex_noise;
     for (const x: 0 .. 256u) {
       for (const y: 0 .. 256u) {
-	debug_log(x, y, to_hexstring(tnoise.get(x, y, 0)));
+        debug_log(x, y, to_hexstring(tnoise.get(x, y, 0)));
       }
     }
   }
@@ -497,11 +507,11 @@ function void parallax_set_clearance(texture_data mutable& td)
     for (const bx : 0 .. td.get_width() / tile_size) {
       for (const y : 0 .. tile_size) {
         for (const x : 0 .. tile_size) {
-	  /*
+          /*
           const offset = (by * tile_size + y) * td.get_height()
             + (bx * tile_size + x);
           const v0 = td.get_index(offset);
-	  */
+          */
           const v0 = td.get(bx * tile_size + x, by * tile_size + y, 0);
           const depth0 = (v0 >> 16) & 0xffU;
           // clearance values
@@ -516,12 +526,12 @@ function void parallax_set_clearance(texture_data mutable& td)
           // TODO: too slow
           for (const y1 : y1_min .. y1_max) {
             for (const x1 : x1_min .. x1_max) {
-	      /*
+              /*
               const offset1 = (by * tile_size + y1) * td.get_height()
                 + (bx * tile_size + x1);
               const v1 = td.get_index(offset1);
-	      */
-	      const v1 = td.get(bx * tile_size + x1, by * tile_size + y1, 0);
+              */
+              const v1 = td.get(bx * tile_size + x1, by * tile_size + y1, 0);
               const depth1 = v1 >> 16 & 0xffU;
               if (depth1 >= depth0) {
                 continue;
@@ -542,12 +552,12 @@ function void parallax_set_clearance(texture_data mutable& td)
           c_pn = min(c_pn, 15);
           c_pp = min(c_pp, 15);
           // W = unused(8), Z = depth(8), Y = CNN(4) CNP(4), X = CPN(4) CPP(4)
-	  /*
+          /*
           td.set_index(offset, (depth0 << 16) |
             (c_nn << 12) | (c_np << 8) | (c_pn << 4) | (c_pp << 0));
-	  */
+          */
           td.set(bx * tile_size + x, by * tile_size + y, 0,
-	    (depth0 << 16) |
+            (depth0 << 16) |
             (c_nn << 12) | (c_np << 8) | (c_pn << 4) | (c_pp << 0));
           if (by == 0 && bx == 0) {
             // debug_log("cl", x, y, depth0, to_hexstring(data[offset]));

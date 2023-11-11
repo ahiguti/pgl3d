@@ -1,19 +1,19 @@
 private threaded namespace pgl3d::drawer::particle "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct particle_uniforms()
+private pure tsvaluetype struct particle_uniforms()
 {
   public float point_size_base;
 }
 
-private tsvaluetype struct particle_instance_attributes()
+private pure tsvaluetype struct particle_instance_attributes()
 {
   public glm::mat4 model_matrix = mat4_identity(); // vp applied
 }
 
-private tsvaluetype struct particle_vertex_attributes()
+private pure tsvaluetype struct particle_vertex_attributes()
 {
   public glm::vec3 position;
 }
@@ -26,7 +26,7 @@ public struct drawer_particle(shader_config const& glc,
   ptr{glm::uvec2} const psize = psize0;
   particle_shader_ptr sdr_sp = init_particle_shader(glc);
   vbid_t const vbid_particle = ds.vbid_pool->intern_create("vbid_particle");
-  public function vbid_t get_vbid() const { return vbid_particle; }
+  public function vbid_t get_drawer_vbid() const { return vbid_particle; }
   public function vbid_t get_instances_vbid() const { return vbid_particle; }
   public function vbid_t get_vertices_vbid() const { return vbid_particle; }
   public function prepare_instance_data_funcptr
@@ -34,11 +34,11 @@ public struct drawer_particle(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_particle}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(true, false);
+    return make_tattr_vertex_buffer{tattr}(true, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const { return ""; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const { }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr) { }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
   {
     return make_dgf_particle_filler(vptr);
@@ -48,7 +48,7 @@ public struct drawer_particle(shader_config const& glc,
     return texture_info();
   }
   public function void resize_screen(shader_config const& glc)
-  { 
+  {
   }
   public function bool reload_shaders(shader_config const& glc)
   {
@@ -63,7 +63,7 @@ public struct drawer_particle(shader_config const& glc,
     const& sz = *psize;
     glUniform1f(sdr.u_point_size_base,
       0.1f * static_cast{float}(max(sz.x, sz.y)));
-    ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    ddata.draw_all_vs_all_inst(sdr, get_vertices_vbid(), get_instances_vbid());
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
@@ -71,7 +71,7 @@ public struct drawer_particle(shader_config const& glc,
   }
 }
 
-private threaded function void
+private pure function void
 dgf_particle_internal(ptr{vertices} const& vptr, bool flat_flag,
   poly_t const& poly, mesh_index const& mp)
 {
@@ -82,10 +82,10 @@ dgf_particle_internal(ptr{vertices} const& vptr, bool flat_flag,
   }
 }
 
-private threaded function dgf_filler
+private pure function dgf_filler
 make_dgf_particle_filler(ptr{vertices} const& vptr)
 {
-  return make_callable_ptr{dgf_particle_internal, 1}(vptr);
+  return make_pure_callable_ptr{dgf_particle_internal, 1}(vptr);
 }
 
 metafunction particle_shader_ptr
@@ -119,7 +119,7 @@ init_particle_shader(shader_config const& g)
     "particle");
 }
 
-private threaded function void prepare_instance_data_particle(
+private pure function void prepare_instance_data_particle(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {

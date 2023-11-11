@@ -1,11 +1,11 @@
 public threaded namespace pgl3d::engine::pxc_backtrace "use-unsafe";
-public import numeric::integral -;
-public import container::array -;
+public import core::numeric::integral -;
+public import core::container::array -;
 
-public threaded function extern "::pxcrt::dump_pxc_backtrace" void
+public pure function extern "::pxcrt::dump_pxc_backtrace" void
 dump_pxc_backtrace();
 
-public threaded function
+public pure function
 extern "::pxcrt::dump_pxc_backtrace_all_threads" void
 dump_pxc_backtrace_all_threads(int depth);
 

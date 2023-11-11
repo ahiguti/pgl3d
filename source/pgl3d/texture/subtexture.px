@@ -1,9 +1,9 @@
 public threaded namespace pgl3d::texture::subtexture "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 public import glm -;
 public import sdl2::api_types -;
-public import text::serialize::compact_pod -;
+public import core::text::serialize::compact_pod -;
 public import pgl3d::texture::texture -;
 public import pgl3d::texture::editable_voxel -;
 public import pgl3d::texture::voxel -;
@@ -11,7 +11,7 @@ public import pgl3d::texture::filling -;
 public import pgl3d::engine::util -;
 public import pgl3d::sdl::sdlutil -;
 
-public valuetype struct subtexture {
+public pure valuetype struct subtexture {
   // テクスチャの一部をコピーペーストするために保持するデータ
   public metafunction num_tex multiword_num_words;
   public farray{texture_data, num_tex} tex;
@@ -22,7 +22,7 @@ public valuetype struct subtexture {
     // コピー元がfilling登録されているときにここにその情報を保持する
 }
 
-public valuetype struct subtexture_v1 {
+public pure valuetype struct subtexture_v1 {
   public texture_data tex_pri;
   public texture_data tex_sec;
   public uvec3 copy_size; // can be smaller than tex_pri.

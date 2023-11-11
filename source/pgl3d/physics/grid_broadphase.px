@@ -1,15 +1,15 @@
 public namespace pgl3d::physics::grid_broadphase "use-unsafe";
-public import common -;
+public import core::common -;
 public import glm -;
-public import numeric::fpmath -;
-public import pointer::raw -;
-public import meta m;
+public import core::numeric::fpmath -;
+public import core::pointer::raw -;
+public import core::meta m;
 
 public metafunction col_id_type uint;
 public metafunction filling_index_type uint;
 public metafunction geom_index_type uint;
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 filling_entry(geom_index_type pos0, filling_index_type next_filling0,
   col_id_type id0)
 {
@@ -18,12 +18,12 @@ filling_entry(geom_index_type pos0, filling_index_type next_filling0,
   public col_id_type id = id0;
 }
 
-public threaded function filling_index_type filling_none()
+public pure function filling_index_type filling_none()
 {
   return static_cast{filling_index_type}(-1);
 }
 
-public multithreaded struct
+public pure multithreaded struct
 grid_broadphase(uint split_log2_0, float mesh_size0)
 {
   public varray{filling_index_type} pos_to_filling; // [split * split * split]
@@ -81,7 +81,7 @@ grid_broadphase(uint split_log2_0, float mesh_size0)
   }
 }
 
-public threaded function {func} void
+public pure function {func} void
 grid_broadphase_quantize_foreach(grid_broadphase const& bp,
   vec3 const& aabb_min, vec3 const& aabb_max)
 {
@@ -107,9 +107,9 @@ grid_broadphase_quantize_foreach(grid_broadphase const& bp,
     while (true) {
       filling_index_type z = z0;
       while (true) {
-	if (func(x, y, z)) { return; }
-	if (z == z1) { break; }
-	z = (z + 1) & mask;
+        if (func(x, y, z)) { return; }
+        if (z == z1) { break; }
+        z = (z + 1) & mask;
       }
       if (y == y1) { break; }
       y = (y + 1) & mask;
@@ -119,7 +119,7 @@ grid_broadphase_quantize_foreach(grid_broadphase const& bp,
   }
 }
 
-public threaded function void
+public pure function void
 grid_broadphase_add(grid_broadphase mutable& bp, col_id_type id,
   vec3 const& aabb_min, vec3 const& aabb_max)
 {
@@ -131,7 +131,7 @@ grid_broadphase_add(grid_broadphase mutable& bp, col_id_type id,
   bp.quantize_foreach{cb}(aabb_min, aabb_max);
 }
 
-public threaded function {t} void
+public pure function {t} void
 grid_broadphase_add_objects(grid_broadphase mutable& bp,
   t const& objects)
 {
@@ -141,7 +141,7 @@ grid_broadphase_add_objects(grid_broadphase mutable& bp,
   }
 }
 
-public threaded function {func} void
+public pure function {func} void
 grid_broadphase_collision_pairs_foreach(grid_broadphase const& bp)
 {
   size_t j = bp.fillings.size();
@@ -153,14 +153,14 @@ grid_broadphase_collision_pairs_foreach(grid_broadphase const& bp)
     while (k != filling_none()) {
       const& kfilling = fil[k];
       if (func(jfilling.id, kfilling.id)) {
-	return;
+        return;
       }
       k = kfilling.next_filling;
     }
   }
 }
 
-public threaded function {func} void
+public pure function {func} void
 grid_broadphase_find(grid_broadphase const& bp, vec3 const& aabb_min,
   vec3 const& aabb_max)
 {
@@ -171,7 +171,7 @@ grid_broadphase_find(grid_broadphase const& bp, vec3 const& aabb_min,
     while (fi != filling_none()) {
       const& fe = bp.fillings[fi];
       if (func(fe.id)) {
-	return true;
+        return true;
       }
       fi = fe.next_filling;
     }
@@ -180,7 +180,7 @@ grid_broadphase_find(grid_broadphase const& bp, vec3 const& aabb_min,
   bp.quantize_foreach{cb}(aabb_min, aabb_max);
 }
 
-public threaded function void
+public pure function void
 grid_broadphase_prefetch(grid_broadphase const& bp, vec3 const& aabb_min,
   vec3 const& aabb_max)
 {
@@ -197,7 +197,7 @@ grid_broadphase_prefetch(grid_broadphase const& bp, vec3 const& aabb_min,
   bp.quantize_foreach{cb}(aabb_min, aabb_max);
 }
 
-public threaded function {t} void
+public pure function {t} void
 grid_broadphase_get_collision_pairs(grid_broadphase const& bp,
   t const& objects, tree_set{pair{col_id_type, col_id_type}} mutable& pairs)
 {
@@ -213,7 +213,7 @@ grid_broadphase_get_collision_pairs(grid_broadphase const& bp,
   bp.collision_pairs_foreach{cb}();
 }
 
-public threaded function {t0, t1} col_id_type
+public pure function {t0, t1} col_id_type
 grid_broadphase_find_first(grid_broadphase const& bp,
   cslice{t0} const& objects, t1 const& obj)
 {
@@ -231,26 +231,26 @@ grid_broadphase_find_first(grid_broadphase const& bp,
   return r;
 }
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 aabb
 {
   public vec3 aabb_min;
   public vec3 aabb_max;
 }
 
-public threaded function vec3
+public pure function vec3
 aabb_get_aabb_min(aabb const& a)
 {
   return a.aabb_min;
 }
 
-public threaded function vec3
+public pure function vec3
 aabb_get_aabb_max(aabb const& a)
 {
   return a.aabb_max;
 }
 
-public threaded function bool
+public pure function bool
 aabb_collide(aabb const& a, aabb const& b)
 {
   return
@@ -273,14 +273,14 @@ aabb_collide(aabb const& a, aabb const& b)
 */
 }
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 sphere
 {
   public vec3 center;
   public float radius;
 }
 
-public threaded function bool
+public pure function bool
 sphere_collide(sphere const& a, sphere const& b)
 {
   const diff = a.center - b.center;
@@ -289,7 +289,7 @@ sphere_collide(sphere const& a, sphere const& b)
   return dist2 < radius * radius;
 }
 
-public threaded function vec3
+public pure function vec3
 sphere_get_aabb_min(sphere const& a)
 {
   vec3 r = a.center;
@@ -299,7 +299,7 @@ sphere_get_aabb_min(sphere const& a)
   return r;
 }
 
-public threaded function vec3
+public pure function vec3
 sphere_get_aabb_max(sphere const& a)
 {
   vec3 r = a.center;
@@ -309,14 +309,14 @@ sphere_get_aabb_max(sphere const& a)
   return r;
 }
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 sphere_inf
 {
   public vec3 center;
   public float radius;
 }
 
-public threaded function bool
+public pure function bool
 sphere_inf_collide(sphere_inf const& a, sphere_inf const& b)
 {
   const d = a.center - b.center;
@@ -324,7 +324,7 @@ sphere_inf_collide(sphere_inf const& a, sphere_inf const& b)
   return norm < a.radius + b.radius;
 }
 
-public threaded function vec3
+public pure function vec3
 sphere_inf_get_aabb_min(sphere_inf const& a)
 {
   vec3 r = a.center;
@@ -334,7 +334,7 @@ sphere_inf_get_aabb_min(sphere_inf const& a)
   return r;
 }
 
-public threaded function vec3
+public pure function vec3
 sphere_inf_get_aabb_max(sphere_inf const& a)
 {
   vec3 r = a.center;
@@ -349,7 +349,7 @@ sphere_inf_get_aabb_max(sphere_inf const& a)
 public metafunction rand_generator_ptr ptr{rand_generator};
 public metafunction make_rand_generator make_ptr{rand_generator};
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 rand_generator(uint seed0)
 {
   private uint seed = seed0;
@@ -383,15 +383,15 @@ public function void do_test()
   }
   grid_broadphase broadphase = grid_broadphase(6, 10.0f);
   tree_set{pair{col_id_type, col_id_type}} pairs;
-  const t0 = io::system.gettimeofday_double();
+  const t0 = thread_io().gettimeofday_double();
   for (const loop: 0 .. test_loop) {
     broadphase.add_objects(test_data);
     broadphase.get_collision_pairs(test_data, pairs);
     if (loop == 0) {
       for (const& p, const& m: pairs) {
-	// println("near", p.first, p.second, test_data[p.first].center,
-	//   test_data[p.second].center);
-	// println("near", p.first, p.second);
+        // println("near", p.first, p.second, test_data[p.first].center,
+        //   test_data[p.second].center);
+        // println("near", p.first, p.second);
       }
     }
     // println("test", loop, broadphase.fillings.size());
@@ -402,7 +402,7 @@ public function void do_test()
     pairs.clear();
 
   }
-  const t1 = io::system.gettimeofday_double();
+  const t1 = thread_io().gettimeofday_double();
   println("time", t1 - t0, "test_size", test_size, "test_loop", test_loop);
   {
     /* check results */
@@ -412,15 +412,15 @@ public function void do_test()
       const& d0 = test_data[i];
       size_t j;
       for (j = i + 1; j < test_data.size(); ++j) {
-	const& d1 = test_data[j];
-	if (d0.collide(d1)) {
-	  ++cnt;
-	}
+        const& d1 = test_data[j];
+        if (d0.collide(d1)) {
+          ++cnt;
+        }
       }
     }
     println("chk cnt", cnt);
   }
-  const t2 = io::system.gettimeofday_double();
+  const t2 = thread_io().gettimeofday_double();
   println("chk time", t2 - t1);
 }
 

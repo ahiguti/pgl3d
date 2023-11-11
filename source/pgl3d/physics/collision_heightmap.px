@@ -1,9 +1,9 @@
 public threaded namespace pgl3d::physics::collision_heightmap;
-public import common -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::numeric::fpmath -;
 public import glm;
 
-public threaded struct
+public pure struct
 collision_heightmap()
 {
   public glm::vec3 aabb_min;
@@ -21,7 +21,7 @@ collision_heightmap()
   public uint z_isize;
 }
 
-public threaded function bool
+public pure function bool
 collision_heightmap_collide(collision_heightmap const& hm,
   glm::vec3 const& pos, float radius)
 {
@@ -47,7 +47,7 @@ collision_heightmap_collide(collision_heightmap const& hm,
   return r;
 }
 
-threaded function bool
+pure function bool
 collide_one(uint ix, uint iy, float z, uint x_isize, uint y_isize,
   cslice{float} const& zmin_arr, cslice{float} const& zmax_arr)
 {
@@ -59,7 +59,7 @@ collide_one(uint ix, uint iy, float z, uint x_isize, uint y_isize,
 }
 
 
-public threaded function collision_heightmap
+public pure function collision_heightmap
 make_collision_heightmap(float mesh_size0, cslice{float} const v)
 {
   mutable hm = collision_heightmap();
@@ -144,7 +144,7 @@ make_collision_heightmap(float mesh_size0, cslice{float} const v)
   return hm;
 }
 
-threaded function void
+pure function void
 examine_tri(glm::vec3 const& a0, glm::vec3 const& b0, glm::vec3 const& c0,
   uint x_isize, uint y_isize, float mesh_size, glm::vec3 const& aabb_min,
   glm::vec3 const& aabb_max, varray{float} mutable& zmin,
@@ -195,13 +195,13 @@ examine_tri(glm::vec3 const& a0, glm::vec3 const& b0, glm::vec3 const& c0,
       const ix = static_cast{uint}(floor(px));
       const iy = static_cast{uint}(floor(py));
       if (ix >= x_isize || iy >= y_isize) {
-	continue;
+        continue;
       }
       const offset = iy * x_isize + ix;
       const pzs = pz * mesh_size + aabb_min.z;
       /*
       if (dbg_i == 0) {
-	debug_log("px,py,pz,ix,iy", px, py, pz, ix, iy, pzs, zmin[offset], zmax[offset]);
+        debug_log("px,py,pz,ix,iy", px, py, pz, ix, iy, pzs, zmin[offset], zmax[offset]);
       }
       */
       zmin[offset] = min(zmin[offset], pzs);
@@ -210,7 +210,7 @@ examine_tri(glm::vec3 const& a0, glm::vec3 const& b0, glm::vec3 const& c0,
   }
 }
 
-threaded function pair{float, float}
+pure function pair{float, float}
 calc_range(float ax, float bx)
 {
   if (ax > bx) { swap(ax, bx); }

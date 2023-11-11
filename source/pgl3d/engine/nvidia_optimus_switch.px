@@ -1,5 +1,5 @@
 public namespace pgl3d::engine::nvidia_optimus_switch "use-unsafe";
-public import common -;
+public import core::common -;
 
 extern "implementation" inline
 

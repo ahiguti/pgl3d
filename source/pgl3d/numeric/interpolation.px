@@ -1,20 +1,20 @@
 public threaded namespace pgl3d::numeric::interpolation "use-unsafe";
-public import common -;
-public import exception -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::meta m;
 
 public function extern "pgl3d$n::numeric$n::interpolation$n::test_spline" void
 test_spline();
 
-public multithreaded struct
+public pure valuetype struct
 extern "pgl3d$n::numeric$n::interpolation$n::%"
 cubic_b_spline(cslice{float} const& points, float t0, float h) { }
 
-public threaded function
+public pure function
 extern "pgl3d$n::numeric$n::interpolation$n::%"
 float cubic_b_spline_call__(
   cubic_b_spline const& spl, float x);
-public threaded function
+public pure function
 extern "pgl3d$n::numeric$n::interpolation$n::%"
 float cubic_b_spline_prime(
   cubic_b_spline const& spl, float x);

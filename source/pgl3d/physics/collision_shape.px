@@ -1,17 +1,17 @@
 public namespace pgl3d::physics::collision_shape "use-unsafe";
-public import common -;
-public import exception -;
-public import pointer::raw -;
-public import meta m;
-public import meta::vararg va;
-public import numeric::fpmath -;
-public import procedure::thread::async_task -;
+public import core::common -;
+public import core::exception -;
+public import core::pointer::raw -;
+public import core::meta m;
+public import core::meta::vararg va;
+public import core::numeric::fpmath -;
+public import core::callable::thread::async_task -;
 public import glm;
-private import meta::platform mp;
+private import core::meta::platform mp;
 private import bullet_physics::base -;
 private import bullet_physics::constants -;
 private import bullet_physics::api +;
-private import pointer::raw_unsafe -;
+private import core::pointer::raw_unsafe -;
 private import pgl3d::geometry::funcs -;
 private import pgl3d::texture::editable_voxel -;
 private import pgl3d::engine::util -;
@@ -20,7 +20,7 @@ private import pgl3d::physics::collision_gjk -;
 private import pgl3d::physics::collision_heightmap -;
 private import pgl3d::physics::collision_voxel -;
 
-public threaded interface collision_shape_i
+public pure interface collision_shape_i
 {
   public function crawptr{btCollisionShape} get() const;
   public function float get_radius() const;
@@ -30,19 +30,19 @@ public threaded interface collision_shape_i
   public function bool is_voxel() const;
 }
 
-public threaded interface
+public pure interface
 triangle_mesh_i triangle_mesh
 {
   public function void add_triangle(cslice{float} const& v);
 }
 
-public threaded function ptr{triangle_mesh_i}
+public pure function ptr{triangle_mesh_i}
 make_triangle_mesh()
 {
   return make_ptr{triangle_mesh}();
 }
 
-public threaded function ptr{collision_shape_i}
+public pure function ptr{collision_shape_i}
 make_triangle_mesh_shape(cslice{float} const& v, cslice{uint} const& e)
 {
   ptr{triangle_mesh_i} trmesh = make_triangle_mesh();
@@ -56,7 +56,7 @@ make_triangle_mesh_shape(cslice{float} const& v, cslice{uint} const& e)
     pointer_downcast{ptr{triangle_mesh}}(trmesh), triangles);
 }
 
-public threaded function ptr{collision_shape_i}
+public pure function ptr{collision_shape_i}
 make_sphere_shape(cslice{float} const& v, cslice{uint} const& e)
 {
   const radius = calc_radius(v);
@@ -65,7 +65,7 @@ make_sphere_shape(cslice{float} const& v, cslice{uint} const& e)
   return r;
 }
 
-private threaded function float
+private pure function float
 calc_radius(cslice{float} const& v)
 {
   float radius_sq = 0.0f;
@@ -78,7 +78,7 @@ calc_radius(cslice{float} const& v)
   return sqrt(radius_sq);
 }
 
-public threaded function ptr{collision_shape_i}
+public pure function ptr{collision_shape_i}
 make_box_shape(cslice{float} const& v, cslice{uint} const& e)
 {
   const aabb = calc_aabb(v);
@@ -89,7 +89,7 @@ make_box_shape(cslice{float} const& v, cslice{uint} const& e)
   return make_ptr{box_shape}(btVector3_(x, y, z), sqrt(radius_sq));
 }
 
-private threaded function pair{glm::vec3, glm::vec3}
+private pure function pair{glm::vec3, glm::vec3}
 calc_aabb(cslice{float} const& v)
 {
   if (v.size() < 3) {
@@ -109,7 +109,7 @@ calc_aabb(cslice{float} const& v)
   return pair(mi, mx);
 }
 
-private threaded struct
+private pure struct
 convex_hull_shape(cslice{float} const& v, cslice{float} const& triangles,
   float const radius0)
   <collision_shape_i>
@@ -154,7 +154,7 @@ convex_hull_shape(cslice{float} const& v, cslice{float} const& triangles,
   }
 }
 
-public threaded function ptr{collision_shape_i}
+public pure function ptr{collision_shape_i}
 make_convex_hull_shape(cslice{float} const& v, cslice{uint} const& e)
 {
   varray{float} triangles;
@@ -175,7 +175,7 @@ make_convex_hull_shape(cslice{float} const& v, cslice{uint} const& e)
   return make_ptr{convex_hull_shape}(v, triangles, sqrt(sqmax));
 }
 
-private threaded struct
+private pure struct
 voxel_shape(cslice{float} const& v, cslice{float} const& obj_triangles,
   float const radius0, cslice{float} const& tan_triangles,
   glm::mat4 const& obj_to_tan)
@@ -189,7 +189,7 @@ voxel_shape(cslice{float} const& v, cslice{float} const& obj_triangles,
   public pair{glm::vec3, glm::vec3} const tan_aabb = calc_aabb(tan_triangles);
   public collision_voxel const col_vox
     = collision_voxel(obj_aabb.first, obj_aabb.second, tan_aabb.first,
-	tan_aabb.second, obj_to_tan);
+        tan_aabb.second, obj_to_tan);
   public function crawptr{btCollisionShape} get() const
   {
     return caddress(value);
@@ -216,7 +216,7 @@ voxel_shape(cslice{float} const& v, cslice{float} const& obj_triangles,
     if (!aabb_col) {
       /*
       debug_log("vox near_collision !aabb", radius, pos,
-	obj_aabb.first, obj_aabb.second);
+        obj_aabb.first, obj_aabb.second);
       */
       return false;
     }
@@ -233,7 +233,7 @@ voxel_shape(cslice{float} const& v, cslice{float} const& obj_triangles,
   }
 }
 
-public threaded function ptr{collision_shape_i}
+public pure function ptr{collision_shape_i}
 make_voxel_shape(cslice{vertex_attr} const& va, cslice{uint} const& e)
 {
   varray{float} obj_triangles;
@@ -281,7 +281,7 @@ make_voxel_shape(cslice{vertex_attr} const& va, cslice{uint} const& e)
     tex_triangles, tex_to_obj.inverse());
 }
 
-private threaded struct {t}
+private pure struct {t}
 collision_shape_tmpl(expand(m::args{t}))
   <collision_shape_i>
 {
@@ -310,7 +310,7 @@ collision_shape_tmpl(expand(m::args{t}))
   }
 }
 
-private threaded struct
+private pure struct
 box_shape(btVector3 const& ext0, float radius0)
   <collision_shape_i>
 {
@@ -343,7 +343,7 @@ box_shape(btVector3 const& ext0, float radius0)
   }
 }
 
-private threaded function {f} void
+private pure function {f} void
 triangles_foreach(cslice{float} const& v, cslice{uint} const& e)
 {
   size_t eidx = 0;
@@ -364,7 +364,7 @@ triangles_foreach(cslice{float} const& v, cslice{uint} const& e)
   }
 }
 
-private threaded struct
+private pure struct
 triangle_mesh()
 <triangle_mesh_i>
 {
@@ -389,7 +389,7 @@ triangle_mesh()
   }
 }
 
-private threaded struct
+private pure struct
 triangle_mesh_shape(ptr{triangle_mesh} const& mesh0,
   cslice{float} const& triangles)
   <collision_shape_i>

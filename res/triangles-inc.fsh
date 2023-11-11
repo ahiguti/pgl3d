@@ -697,10 +697,13 @@ int raycast_tilemap(
         // そのようにしないと境界に格子状の影ができる。
         // 底面に1回hitしたとき影が差すようにする。
         // (TODO: この動作でほかに問題ないか?)
-        if (hit > 1 || hit_ground) {
+        // FIXME: この下のif条件絞りをなくさないとmiplevel0固定のときに影
+        // が消える。条件絞りを無くしておくのでaabb境界の影の問題を調べる
+        // べし。
+        // if (hit > 1 || hit_ground) {
           lstr_para = lstr_para * selfshadow_para;
           // dbgval = vec4(1.0, 1.0, 0.0, 1.0);
-        }
+        // }
         break;
       }
       hit_nor = -dir;

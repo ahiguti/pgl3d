@@ -1,16 +1,16 @@
 public namespace pgl3d::physics::collision_gjk "export-unsafe";
-public import common -;
+public import core::common -;
 private import bullet_physics::base -;
 private import bullet_physics::constants -;
 private import bullet_physics::api +;
 private import bullet_physics::all -;
-public import pointer::raw -;
-private import pointer::raw_unsafe -;
-public import meta m;
-public import meta::vararg va;
-public import numeric::fpmath -;
+public import core::pointer::raw -;
+private import core::pointer::raw_unsafe -;
+public import core::meta m;
+public import core::meta::vararg va;
+public import core::numeric::fpmath -;
 
-public threaded struct collision_gjk()
+public pure struct collision_gjk()
 {
   private btVoronoiSimplexSolver simplex_solver;
   private btSphereShape sphere_shape = btSphereShape(1.0f);

@@ -1,11 +1,11 @@
 public threaded namespace pgl3d::texture::generator;
-public import common -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::numeric::fpmath -;
 public import pgl3d::numeric::interpolation -;
 public import pgl3d::texture::texture -;
 public import pgl3d::engine::util -;
 public import glm -;
-public import meta m;
+public import core::meta m;
 
 metafunction enable_dbg 0;
 
@@ -15,7 +15,7 @@ metafunction ui static_cast{uint};
 metafunction si static_cast{int};
 
 // ランダムな形状を生成する。x方向については対称になる。
-public threaded function {t} void
+public pure function {t} void
 generate_rand_spline(ptr{rand_generator} const& rndp,
   t mutable& tex, uvec3 const& texsz, ivec3 split, bool clear_flag,
   float thr_param)
@@ -152,7 +152,8 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
         float zf = zsz == 1 ? 0.0f :
           static_cast{float}(z * 2 - zsz + 1)
           / static_cast{float}(zsz - 1);
-        dbg("z=", z, "zf=", zf, "pz=", (*sz)(zf));
+        const& szp = *sz;
+        dbg("z=", z, "zf=", zf, "pz=", szp(zf));
         float v = 0.0f;
         v += ((*sx)(xf) + (*sx)(-xf)) * 0.5f; // * (0.5f + xf * xf * 0.5f);
         v += (*sy)(yf); // * (0.2f + yf * yf * 0.5f);
@@ -219,7 +220,7 @@ generate_rand_spline(ptr{rand_generator} const& rndp,
   }
 }
 
-private threaded function float smooth_bump(float x)
+private pure function float smooth_bump(float x)
 {
   float d = 1.0f - x * x;
   if (d <= 0.0f) {
@@ -229,7 +230,7 @@ private threaded function float smooth_bump(float x)
   return v;
 }
 
-private threaded function float thr_coefficient(float x, float y, float z)
+private pure function float thr_coefficient(float x, float y, float z)
 {
   // return (x * x + y * y) / 2.0f;
   /*

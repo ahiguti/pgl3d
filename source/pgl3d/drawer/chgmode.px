@@ -1,7 +1,7 @@
 private threaded namespace pgl3d::drawer::chgmode "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
 
 private struct chgmode_attributes { }
@@ -16,7 +16,7 @@ public struct drawer_chgmode(shader_config const& glc,
   bool mode_zprepass = mode == "zprepass";
   bool mode_solid = mode == "solid";
   bool mode_blend = mode == "blend";
-  public function vbid_t get_vbid() const { return vbid_invalid(); }
+  public function vbid_t get_drawer_vbid() const { return vbid_invalid(); }
   public function vbid_t get_instances_vbid() const { return vbid_invalid(); }
   public function vbid_t get_vertices_vbid() const { return vbid_invalid(); }
   init(ds);
@@ -31,11 +31,12 @@ public struct drawer_chgmode(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{chgmode_attributes}(false, false);
+    return make_tattr_vertex_buffer{chgmode_attributes}(false,
+      get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const { return string(); }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const { }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr) { }
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const
   {
     return make_dgf_noop(vptr);

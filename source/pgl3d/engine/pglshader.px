@@ -1,14 +1,14 @@
 private namespace pgl3d::engine::pglshader "export-unsafe";
-public import common -;
-public import pointer::raw -;
-public import pointer::raw_unsafe -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::pointer::raw -;
+public import core::pointer::raw_unsafe -;
+public import core::numeric::fpmath -;
 public import glm;
 public import glm::raw;
-public import io::time -;
-public import exception -;
-public import meta m;
-public import pointer::tfuncptr -;
+public import core::io::time -;
+public import core::exception -;
+public import core::meta m;
+public import core::pointer::tfuncptr -;
 public import opengl::compat -;
 public import pgl3d::geometry::funcs -;
 public import pgl3d::opengl::glresource -;
@@ -22,6 +22,9 @@ public import pgl3d::drawer::base -;
 public import pgl3d::drawer::setfb -;
 public import pgl3d::engine::pglbase -;
 public import pgl3d::engine::intern_pool -;
+
+private import pgl3d::physics::collision_shape -;
+  // shapeの半径計算のために make_voxel_shape を使う
 
 public struct
 pglshader(shader_config const& sconf0, drawer_shared const& ds0,
@@ -47,7 +50,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     ptr{vertex_buffer} const& p) {
     if (ddata.vertex_buffers.size() <= static_cast{size_t}(vbid)) {
       ddata.vertex_buffers.resize(vbid + 1u,
-        make_ptr{vertex_buffer}(0u, false, false));
+        make_ptr{vertex_buffer}(0u, false, vbid_invalid(), false));
     }
     ddata.vertex_buffers[vbid] = p;
   }
@@ -55,7 +58,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   init();
   private function void init()
   {
-    sdl_log("pglshader init");
+    debug_log("pglshader init");
     /*
     {
       int val;
@@ -69,31 +72,31 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     {
       int val;
       glGetIntegerv(GL_MAX_VERTEX_UNIFORM_VECTORS, address(val));
-      sdl_log("GL_MAX_VERTEX_UNIFORM_VECTORS", val);
+      debug_log("GL_MAX_VERTEX_UNIFORM_VECTORS", val);
     }
     */
     /*
     {
       int val;
       glGetIntegerv(GL_DEPTH_BITS, address(val));
-      sdl_log("depth bits", val);
+      debug_log("depth bits", val);
     }
     */
     if (m::is_true{is_gl3_or_gles3}) {
       vtxarr.generate();
       glBindVertexArray(vtxarr.get());
-      sdl_log("glBindVertexArray", vtxarr.get());
+      debug_log("glBindVertexArray", vtxarr.get());
     }
     if (m::not{is_gles}) {
       farray{float, 2} arr;
       float step;
       glGetFloatv(GL_POINT_SIZE_RANGE, arr.to_rawptr());
       glGetFloatv(GL_POINT_SIZE_GRANULARITY, address(step));
-      sdl_log("GL_POINT_SIZE_RANGE", arr, step);
+      debug_log("GL_POINT_SIZE_RANGE", arr, step);
     }
     if (m::and{is_gl3_or_gles3, m::not{is_gles}}) {
       if (glc.enable_msaa != 0) {
-	glEnable(GL_MULTISAMPLE);
+        glEnable(GL_MULTISAMPLE);
       }
     }
     if (m::not{is_gles}) {
@@ -101,9 +104,9 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
        * 有効にしないと動作しないので有効にしておく。 */
       const vendor = cubptr_to_string(glGetString_nocheck(GL_VENDOR));
       if (find_substr(to_lower(vendor), "intel") != vendor.size()) {
-	glEnable_nocheck(GL_POINT_SPRITE);
+        glEnable_nocheck(GL_POINT_SPRITE);
         const e = glGetError();
-	sdl_log("GL_POINT_SPRITE enabled e=", static_cast{int}(e));
+        debug_log("GL_POINT_SPRITE enabled e=", static_cast{int}(e));
       }
       glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
     }
@@ -122,13 +125,13 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
         lastpass_index = i;
       }
     }
-    sdl_log("pglshader init done");
+    debug_log("pglshader init done");
   }
   public function void prepare(node_factory mutable& nfac_r)
   {
     prepare_builtin_vertex_sets();
     prepare_vertex_buffers();
-    prepare_whole_instances();
+    prepare_insts_allfmt();
     prepare_node_factory(nfac_r);
   }
   private function void prepare_builtin_vertex_sets()
@@ -136,11 +139,11 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     for (const vbid, const& p: drawsteps_by_vbid) {
       const name = p.step->builtin_vertex_set_name();
       if (name.empty()) {
-	continue;
+        continue;
       }
-      const vtx = make_vertices(vbid, name);
-      p.step->make_builtin_vertex_sets(vtx);
-      debug_log("make builtin vertex set", name);
+      const vsid_vtx = make_vertices_assign_vsid(vbid, name);
+      p.step->make_builtin_vertex_sets(vsid_vtx.first, vsid_vtx.second);
+      debug_log("make builtin vertex set", name, vbid, vsid_vtx.first);
     }
   }
   private function void prepare_vertex_buffers()
@@ -149,47 +152,50 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
       bo->create_vbo();
     }
   }
-  private function void prepare_whole_instances()
+  private function void prepare_insts_allfmt()
   {
-    ddata.local_whole_instances.resize(
-      ddata.vertex_buffers.size(), bo_instances_type());
+    ddata.local_insts_allfmt.resize(
+      ddata.vertex_buffers.size(), instances_per_format());
     for (const i, const& bo: ddata.vertex_buffers) {
-      mutable& instances = ddata.local_whole_instances[i];
-      for (const j: 0 .. bo->vs_arr.size()) {
-	instances.push_back(instance_data());
+      mutable& instances = ddata.local_insts_allfmt[i];
+      for (const j: 0 .. bo->vsid_to_vs.size()) {
+        instances.push_back(instance_data());
       }
     }
   }
   private function void prepare_node_factory(node_factory mutable& nf) const
   {
-    for (const vbid, const& bop: ddata.vertex_buffers) {
-      for (const& n, const id: bop->vs_names) {
-	if (bop->is_sub_drawer) {
-	  // sub_drawer vbid must not used for joint_id
-	  debug_log("is_sub_drawer skipped", n, "vbid=", vbid);
-	  continue;
-	}
-	joint_id_type jid;
-	jid.vbid = static_cast{vbid_t}(vbid);
-	jid.vsid = id;
-	mutable& ent = nf.name_to_id[n];
-	if (ent.vbid != vbid_invalid()) {
-	  debug_log("warning: duplicated node name", n, ent, jid);
-	}
-	ent = jid;
-	// nf.name_to_id[n] = jid;
+    for (const vbid, const& vbp: ddata.vertex_buffers) {
+      for (const& n, const vsid: vbp->vs_names) {
+        if (vbp->is_sub_drawer) {
+          // sub_drawer vbid must not used for joint_id
+          debug_log("is_sub_drawer skipped", n, "vbid=", vbid);
+          continue;
+        }
+        joint_id_type jid;
+        jid.vbid = vbp->instances_vbid; // drawerのget_instances_vbid()値。
+        jid.vsid = vsid;
+        mutable& ent = nf.name_to_joint_id[n];
+        if (ent.vbid != vbid_invalid()) {
+          debug_log("warning: duplicated node name", n, ent, jid);
+        }
+        ent = jid;
       }
       nf.binfo.push_back(node_buffer_info());
+      // node_factoryは、jointの先もつながったsceneオブジェクトを生成
+      // するためのファクトリ。ここではその雛形を作っている。
       node_buffer_info mutable& nbi = nf.binfo[nf.binfo.size() - 1];
-      for (const i, const& vsp: bop->vs_arr) {
-	nbi.vs_arr.push_back(node_vs_info());
-	node_vs_info mutable& nvi = nbi.vs_arr[nbi.vs_arr.size() - 1];
-	for (const j, const& nj: vsp->vtxs->joints) {
-	  node_joint_info nji;
-	  nji.joint_id = find_joint_id_by_name(nj.joint_name);
-	  nji.trans = nj.trans;
-	  nvi.joints.push_back(nji);
-	}
+      nbi.vsid_to_vs.resize(vbp->vsid_to_vs.size(), node_vs_info());
+      for (const i, const& ovsp: vbp->vsid_to_vs) {
+        if (const& vsp: ovsp.some) {
+          node_vs_info mutable& nvi = nbi.vsid_to_vs[i];
+          for (const j, const& nj: vsp->vtxs->joints) {
+            node_joint_info nji;
+            nji.joint_id = find_joint_id_by_name(nj.joint_name);
+            nji.trans = nj.trans;
+            nvi.joints.push_back(nji);
+          }
+        }
       }
     }
   }
@@ -197,11 +203,11 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     const
   {
     joint_id_type scene_id;
-    for (const i, const& bo: ddata.vertex_buffers) {
+    for (const _, const& vbp: ddata.vertex_buffers) {
       // sub-drawer vbid must not used for joint_id
-      if (!bo->is_sub_drawer && bo->has_name(name)) {
-        scene_id.vbid = static_cast{vbid_t}(i);
-        scene_id.vsid = bo->get_id_by_name(name);
+      if (!vbp->is_sub_drawer && vbp->has_name(name)) {
+        scene_id.vbid = vbp->instances_vbid;
+        scene_id.vsid = vbp->get_id_by_name(name);
         break;
       }
     }
@@ -210,20 +216,26 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   public function cptr{vertices} get_nonempty_vertices(cstrref const& name)
     const
   {
-    joint_id_type scene_id;
-    for (const i, const& bo: ddata.vertex_buffers) {
+    debug_log("get_nonempty_vertices", name);
+    for (const i, const& vbp: ddata.vertex_buffers) {
       // allow sub-drawer vbid
-      if (bo->has_name(name)) {
-        scene_id.vbid = static_cast{vbid_t}(i);
-        scene_id.vsid = bo->get_id_by_name(name);
-	if (!ddata.vertex_buffers[scene_id.vbid]->get_vertices(scene_id.vsid)
-	    ->vertex_values.empty()) {
-	  break;
-	}
+      if (vbp->has_name(name)) {
+        const vbid = static_cast{vbid_t}(i);
+        const vsid = vbp->get_id_by_name(name);
+        option{cptr{vertices}} const ovp =
+          ddata.vertex_buffers[vbid]->get_vertices(vsid);
+        if (const vp: ovp.some) {
+          if (!vp->vertex_values.empty()) {
+            debug_log("INFO: get_nonempty_vertices", name, "nonempty", vsid);
+            return vp;
+          } else {
+            debug_log("WARNING: get_nonempty_vertices", name, "empty", vsid);
+            return vp;
+          }
+        }
       }
     }
-    return ddata.vertex_buffers[scene_id.vbid]
-      ->get_vertices(scene_id.vsid);
+    throw runtime_error_template{"pglshader::get_nonempty_vertices"}("");
   }
   public function joint_id_type get_joint_id(cstrref const& name) const {
     return find_joint_id_by_name(name);
@@ -233,19 +245,61 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     tree_map{string, joint_id_type} r;
     for (const vbid, const& vb: ddata.vertex_buffers) {
       for (const& vsname, const vsid: vb->vs_names) {
-	joint_id_type jid;
-	jid.vbid = static_cast{vbid_t}(vbid);
-	jid.vsid = vsid;
-	r.insert(vsname, jid);
+        joint_id_type jid;
+        jid.vbid = static_cast{vbid_t}(vbid);
+        jid.vsid = vsid;
+        r.insert(vsname, jid);
       }
     }
     return r;
   }
-  public function ptr{vertices} make_vertices(vbid_t vbid,
-    cstrref const& shape_name)
+  public function tree_map{vsid_t, float} get_vs_radius() const
   {
-    // debug_log("make_vertices", name, vbid);
-    return ddata.vertex_buffers[vbid]->make_if(shape_name)->vtxs;
+    // 各vsidについて、頂点データに外接する球の半径を計算する
+    tree_map{vsid_t, float} vs_radius;
+    for (const i, const& vbp: ddata.vertex_buffers) {
+      const vbid = static_cast{vbid_t}(i);
+      if (vbp->is_sub_drawer) {
+        continue;
+      }
+      for (const j, const& ovsp: vbp->vsid_to_vs) {
+        const vsid = static_cast{vsid_t}(j);
+        if (const& vsp: ovsp.some) {
+          cptr{vertices} const vtxs = vsp->vtxs;
+          if (!vtxs->vertex_attrs.empty() && vtxs->vertex_attrs[0].is_tconv) {
+            // is_tconvはaabb_or_tconvフィールドがtconvを表しているとき真。
+            // 半径を計算するために、いったんvoxel_shapeを作る。
+            const voxsh = make_voxel_shape(vtxs->vertex_attrs, vtxs->elements);
+            float radius = voxsh->get_radius();
+            radius = max(radius, vs_radius[vsid]);
+            vs_radius[vsid] = radius;
+            debug_log("shape_0", vsid, "radius", radius);
+          } else {
+            // is_tconvでないとき
+            const& p = vtxs->positions;
+            float radius = 0.0f;
+            for (size_t i : 0 .. p.size() / 3) {
+              const oi = i * 3;
+              const vec = glm::make_vec3(p[oi], p[oi+1], p[oi+2]);
+              debug_log("shape_1", vsid, "vec", vec);
+              radius = max(radius, glm::length(vec));
+            }
+            radius = max(radius, vs_radius[vsid]);
+            debug_log("shape_1", vsid, "radius", radius);
+            vs_radius[vsid] = radius;
+          }
+        }
+      }
+    }
+    return vs_radius;
+  }
+  public function pair{vsid_t, ptr{vertices}} make_vertices_assign_vsid(
+    vbid_t vbid, cstrref const& shape_name)
+  {
+    vsid_t const vsid = ds.vsid_pool->intern(shape_name);
+    debug_log("pglshader::make_vertices_assign_vsid", shape_name, vbid, vsid);
+    return pair(vsid,
+      ddata.vertex_buffers[vbid]->make_vs(vsid, shape_name)->vtxs);
   }
   public function void make_vertex_set(cslice{string} const& dr_names,
     cstrref const& shape_name, gf_poly const& expr)
@@ -264,9 +318,9 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     varray{dgf_filler} fillers;
     for (const i, const& dr_name: dr_names) {
       const vbid = ds.vbid_pool->to_id(dr_name);
-      debug_log("make_vertex_set", dr_name);
+      debug_log("make_vertex_set", dr_name, shape_name);
       const dp = *drawsteps_by_vbid.equal_range(vbid);
-      ptr{vertices} vptr = make_vertices(vbid, shape_name);
+      ptr{vertices} vptr = make_vertices_assign_vsid(vbid, shape_name).second;
       dgf_filler filler = dp.step->make_filler(vptr);
       vptrs.push_back(vptr);
       fillers.push_back(filler);
@@ -280,7 +334,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     cslice{float} const& verts, size_t nfpv, cslice{uint} const& elems)
   {
     const vbid = ds.vbid_pool->to_id(dr_name);
-    ptr{vertices} vptr = make_vertices(vbid, shape_name);
+    ptr{vertices} vptr = make_vertices_assign_vsid(vbid, shape_name).second;
     vptr->set_triangles(vattrs, verts, nfpv, elems);
   }
   public function texture_info get_texture_info(cstrref const& name) const
@@ -289,12 +343,12 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
     for (const vbid, const& p: drawsteps_by_vbid) {
       r = p.step->get_texture_info(name);
       if (r.surface_w != 0) {
-	break;
+        break;
       }
     }
     return r;
   }
-  public function vbid_t get_vbid(cstrref const& name) const
+  public function vbid_t get_drawer_vbid(cstrref const& name) const
   {
     if (ds.vbid_pool->exists(name)) {
       return ds.vbid_pool->to_id(name);
@@ -304,31 +358,9 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   }
   public function void resize_screen()
   {
-    /*
-    const virt_scale = glc.conf.get("virt_scale", 1.0f, 0.125f, 16.0f);
-    const virt_width = static_cast{int}(static_cast{float}(disp_width)
-      / virt_scale);
-    const virt_height = static_cast{int}(static_cast{float}(disp_height)
-      / virt_scale);
-    const sm_size = glc.shadowmap_resolution;
-    sdl_log("disp size", disp_width, disp_height);
-    sdl_log("virt size", virt_width, virt_height);
-    */
-    /*
-    cam.virt_width = virt_width;
-    cam.virt_height = virt_height;
-    cam.display_width = disp_width;
-    cam.display_height = disp_height;
-    cam.window_width = w_width;
-    cam.window_height = w_height;
-    cam.shadowmap_size = sm_size;
-    */
     for (const i, const& pd: drawsteps) {
       pd.step->resize_screen(glc);
     }
-    /*
-    update_mvp(glc, cam);
-    */
   }
   public function bool reload_shaders()
   {
@@ -356,7 +388,7 @@ pglshader_draw_frame_lastpass(pglshader mutable& pgs)
 public function void
 pglshader_frame_begin(pglshader mutable& pgs)
 {
-  pgs.ddata.agg_ibuffer.frame_begin(pgs.ddata.local_whole_instances);
+  pgs.ddata.agg_ibuffer.frame_begin(pgs.ddata.local_insts_allfmt);
 }
 
 public function void
@@ -393,9 +425,9 @@ get_drawsteps_by_vbid(drawer_shared const& ds,
 {
   tree_map{vbid_t, drawstep_cond} r;
   for (const i: 0 .. drawsteps.size()) {
-    const e = drawstep_cond(drawsteps[i].cond, 
+    const e = drawstep_cond(drawsteps[i].cond,
       pointer_downcast{ptr{drawstep_i}}(drawsteps[i].step));
-    const vbid = e.step->get_vbid();
+    const vbid = e.step->get_drawer_vbid();
     if (vbid != vbid_invalid()) {
       r.insert(vbid, e); // 同じvbidがすでにあった場合はinsertされない
     }
@@ -414,7 +446,7 @@ downcast_drawsteps(varray{drawer_cond} const& drawsteps)
   return r;
 }
 
-private threaded struct
+private pure struct
 build_context_impl(varray{ptr{vertices}} mutable& vptrs0,
   varray{dgf_filler} mutable& fillers0)
   <build_context_i>
@@ -426,18 +458,24 @@ build_context_impl(varray{ptr{vertices}} mutable& vptrs0,
   function void fill_or_joint(bool flat_flag, bool polyjoint, size_t n,
     string const& joint_name, poly_t const& poly, mesh_index const& mp) const
   {
+    // ポリゴンメッシュ一枚をvptrs[n]に登録する。ポリゴン各頂点の頂点データ
+    // を登録するか、jointの基準面または基準点として登録するか、のいずれか。
     if (joint_name.empty()) {
-      // debug_log("fill n=", n);
+      // debug_log("fill n=", n, fillers.size());
       fillers[n](flat_flag, poly, mp);
+        // fillers[n]は、polyを引数に取り、それをdrawer固有の形式の頂点データ
+        // へと変換し、vptrs[n]へのpush_polygon_distinct呼び出しなどで頂点
+        // データを登録する。頂点データはgpuに置かれるデータと物理エンジンが
+        // 参照するためのものの両方を含む。
     } else if (polyjoint) {
       // debug_log("polyjoint n=", joint_name);
       for (const i, const& vptr: vptrs) {
-	dgf_poly_joint_internal(vptr, joint_name, poly, mp);
+        dgf_poly_joint_internal(vptr, joint_name, poly, mp);
       }
     } else {
       // debug_log("pointjoint n=", joint_name);
       for (const i, const& vptr: vptrs) {
-	dgf_point_joint_internal(vptr, joint_name, poly, mp);
+        dgf_point_joint_internal(vptr, joint_name, poly, mp);
       }
     }
   }
@@ -448,7 +486,7 @@ build_context_impl(varray{ptr{vertices}} mutable& vptrs0,
   }
 }
 
-private threaded function void
+private pure function void
 dgf_poly_joint_internal(ptr{vertices} const& vptr, string const& joint_name,
   poly_t const& poly, mesh_index const& mp)
 {
@@ -460,7 +498,7 @@ dgf_poly_joint_internal(ptr{vertices} const& vptr, string const& joint_name,
   vptr->push_joint(e);
 }
 
-private threaded function void
+private pure function void
 dgf_point_joint_internal(ptr{vertices} const& vptr, string const& joint_name,
   poly_t const& poly, mesh_index const& mp)
 {

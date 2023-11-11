@@ -1,6 +1,6 @@
 public threaded namespace pgl3d::engine::pglbase;
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 public import glm;
 public import pgl3d::opengl::glvertex *;
 public import pgl3d::geometry::funcs *;
@@ -10,15 +10,24 @@ public import pgl3d::engine::intern_pool -;
 public import pgl3d::engine::util -;
 public import pgl3d::texture::texture -;
 
-public multithreaded struct instance_data
+public pure multithreaded struct instance_data
 {
   public varray{float} instance_buffer;
   public size_t glbuffer_offset_float;
 }
 
-public metafunction bo_instances_type varray{instance_data};
+/*
+public pure valuetype enum instance_format {
+  instance_format_f4 = 0,
+  instance_format_f9 = 1,
+  instance_format_f16 = 2,
+  instance_format_num = 3,
+}
+*/
+
+public metafunction instances_per_format varray{instance_data};
   // バッファオブジェクト毎(drawer毎)のインスタンスデータ
-public metafunction whole_instances_type varray{bo_instances_type};
+public metafunction instances_all_format varray{instances_per_format};
   // 全バッファオブジェクト(drawer)のインスタンスデータ。vbidで引く。
 
 /*
@@ -29,7 +38,7 @@ public metafunction frame_parameters_type varray{varray{float}};
 
 public metafunction max_num_shadowmaps 8;
 
-public tsvaluetype struct position_angle()
+public pure tsvaluetype struct position_angle()
 {
   public glm::vec3 position;
   public glm::quat angle = glm::make_quat_wxyz(1.0, 0.0, 0.0, 0.0);
@@ -51,7 +60,7 @@ public tsvaluetype struct position_angle()
   }
 }
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 perspective()
 {
   public float near;
@@ -61,7 +70,7 @@ perspective()
 }
 
 /*
-private threaded function farray{glm::mat4, max_num_shadowmaps}
+private pure function farray{glm::mat4, max_num_shadowmaps}
 init_sm_proj()
 {
   glm::mat4 v = mat4_identity();
@@ -70,7 +79,7 @@ init_sm_proj()
 }
 */
 
-public multithreaded struct
+public pure multithreaded struct
 projection_info()
 {
   public perspective camera_pers;
@@ -93,6 +102,7 @@ projection_info()
   public float exposure = 1.0f;
   public float option_value = 0.0f;
   public float option_value2 = -1.0f;
+  public float option_value3 = 0.0f;
   init();
   private function void init()
   {
@@ -102,7 +112,7 @@ projection_info()
   }
 }
 
-public tsvaluetype struct
+public pure tsvaluetype struct
 texture_info()
 {
   public uint surface_w;
@@ -121,9 +131,10 @@ public interface make_vertices_i
   public function cptr{vertices} get_nonempty_vertices(cstrref const& name)
     const;
   public function tree_map{string, joint_id_type} get_name_to_joint_id() const;
+  public function tree_map{vsid_t, float} get_vs_radius() const;
   public function joint_id_type get_joint_id(cstrref const& name) const;
   public function texture_info get_texture_info(cstrref const& name) const;
-  public function vbid_t get_vbid(cstrref const& name) const;
+  public function vbid_t get_drawer_vbid(cstrref const& name) const;
 }
 
 public interface app_ctrl_i
@@ -134,7 +145,7 @@ public interface app_ctrl_i
   public function void geometry_changed();
 }
 
-public threaded struct node_common_data()
+public pure struct node_common_data()
 {
   public glm::mat4 vp = mat4_identity();
   public size_t stat_num_objects;
@@ -154,7 +165,7 @@ public interface edit_control_i {
   public function bool is_textinput_mode() const;
 }
 
-public threaded struct joystick_info {
+public pure valuetype struct joystick_info {
   public string id_string;
   public uint num_axes;
   public uint num_buttons;
@@ -162,7 +173,7 @@ public threaded struct joystick_info {
   public uint num_balls;
 }
 
-public threaded struct joystick_state {
+public pure valuetype struct joystick_state {
   public varray{bool} enable_axes;
   public varray{short} axes;
   public varray{bool} buttons;

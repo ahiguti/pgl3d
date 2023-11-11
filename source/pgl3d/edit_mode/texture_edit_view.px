@@ -1,6 +1,6 @@
 private threaded namespace pgl3d::edit_mode::texture_edit_view "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::update_dist -;
 private import pgl3d::edit_mode::vecutil -;
@@ -136,13 +136,13 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
     uint const prev_z = cursor_mx.z;
     uint const next_z = mx.z;
     uint const blk_size = 64u;
-    const prev_blk = map{uvec3, operator::div}(get_cursor(),
+    const prev_blk = map{uvec3, core::operator::div}(get_cursor(),
       make_uvec3(blk_size, blk_size, blk_size));
-    const next_blk = map{uvec3, operator::div}(c0,
+    const next_blk = map{uvec3, core::operator::div}(c0,
       make_uvec3(blk_size, blk_size, blk_size));
-    const prev_blk_base = map{uvec3, operator::mul}(prev_blk,
+    const prev_blk_base = map{uvec3, core::operator::mul}(prev_blk,
       make_uvec3(blk_size, blk_size, blk_size));
-    const next_blk_base = map{uvec3, operator::mul}(next_blk,
+    const next_blk_base = map{uvec3, core::operator::mul}(next_blk,
       make_uvec3(blk_size, blk_size, blk_size));
     if (prev_blk != next_blk) {
       /* まず古いブロックの穴を埋め戻す */
@@ -155,7 +155,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
           make_uvec3(rx, ry, prev_z + 1),
           make_uvec3(blk_size, blk_size, tex_sz.z - prev_z - 1));
         }
-        modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z + 1)), 
+        modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z + 1)),
           make_ivec3(si(rx + blk_size) - 1, si(ry + blk_size) - 1,
             si(tex_sz.z) - 1));
       }
@@ -205,7 +205,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
         /* next_z + 15までの空白領域は距離を更新 */
       texture_data_clear_range_recalc_distance_quick(tview[0],
         make_uvec3(rx, ry, zmi), make_uvec3(blk_size, blk_size, zmx + 1 - zmi));
-      modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z) + 1), 
+      modified.set_modified(make_ivec3(si(rx), si(ry), si(prev_z) + 1),
         make_ivec3(si(rx + blk_size) - 1, si(ry + blk_size) - 1, si(zmx)));
     }
     cursor_0 = c0;

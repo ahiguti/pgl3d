@@ -1,14 +1,14 @@
 private threaded namespace pgl3d::drawer::base "export-unsafe";
-public import common *;
-public import pointer::raw *;
-public import pointer::raw_unsafe *;
-public import numeric::fpmath *;
+public import core::common *;
+public import core::pointer::raw *;
+public import core::pointer::raw_unsafe *;
+public import core::numeric::fpmath *;
 public import glm *;
 public import glm::raw *;
-public import io::time *;
-public import exception *;
-public import meta m;
-public import pointer::tfuncptr *;
+public import core::io::time *;
+public import core::exception *;
+public import core::meta m;
+public import core::pointer::tfuncptr *;
 public import opengl::base *;
 public import opengl::compat *;
 public import pgl3d::opengl::glresource *;
@@ -41,7 +41,7 @@ public metafunction make_textures_ptr
 
 public struct draw_data(shader_config const& glc)
 {
-  public whole_instances_type local_whole_instances;
+  public instances_all_format local_insts_allfmt;
   public varray{ptr{vertex_buffer}} vertex_buffers;
   public aggregated_ibuffer agg_ibuffer
     = aggregated_ibuffer(glc.enable_instanced, glc.enable_uniform_instancing);
@@ -49,23 +49,24 @@ public struct draw_data(shader_config const& glc)
   public uint toplevel_fb;
   public option{cptr{gl_framebuffer}} cur_target_fb;
     // 現在bindされているframebuffer。noneのときはtoplevel_fbが描画対象
-  public function void draw(glshader_i mutable& sdr, vbid_t vert_vbid,
-    vbid_t inst_vbid) const
+  public function size_t draw_all_vs_all_inst(glshader_i mutable& sdr,
+    vbid_t vert_vbid, vbid_t inst_vbid) const
   {
-    const& vb = *vertex_buffers[vert_vbid];
-    const& ib = local_whole_instances[inst_vbid];
-    agg_ibuffer.draw(sdr, vb, ib);
+    // 各drawstepから呼ばれる。glUseProgramなどは実行済み。
+    vertex_buffer const& vb = *vertex_buffers[vert_vbid];
+    instances_per_format const& instfmt = local_insts_allfmt[inst_vbid];
+    return agg_ibuffer.draw_all_vs_all_inst(sdr, vb, instfmt);
+      // vert_vbidで指定されたvertex_bufferの各vertex_set vsidについて、その
+      // vsidの各instance(instfmt[vsid])をglDrawElementsなどで描画する。
   }
 }
 
 // drawer間で共有するリソース
 public struct drawer_shared()
 {
-  public textures_ptr const textures
-    = make_textures_ptr();
+  public textures_ptr const textures = make_textures_ptr();
     // テクスチャデータを連想配列に保持し共有する
-  public resource_pool_ptr const gl_resources
-    = make_ptr{resource_pool}();
+  public resource_pool_ptr const gl_resources = make_ptr{resource_pool}();
     // GLのテクスチャとフレームバッファを連想配列に保持し共有する
   public tptr{tiled_voxel_texture} const tvt
     = make_tptr{tiled_voxel_texture}();
@@ -73,6 +74,18 @@ public struct drawer_shared()
     = make_ptr{edit_mode_texture}();
   public ptr{intern_pool{vbid_t}} const vbid_pool
     = make_ptr{intern_pool{vbid_t}}();
+  public ptr{intern_pool{vsid_t}} const vsid_pool
+    = make_ptr{intern_pool{vsid_t}}();
+  public function {t} string id_to_string(t v) const
+  {
+    if (m::eq{t, vbid_t}) {
+      return vbid_pool->to_string(v) + "(" + to_string(v) + ")";
+    } else if (m::eq{t, vsid_t}) {
+      return vsid_pool->to_string(v) + "(" + to_string(v) + ")";
+    } else {
+      m::error{"invalid argument"};
+    }
+  }
 }
 
 public enum draw_step {
@@ -86,20 +99,20 @@ public enum draw_step {
 }
 
 public metafunction dgf_filler
-  callable_ptr{void, {bool, poly_t, mesh_index}};
+  pure_callable_ptr{void, {bool, poly_t, mesh_index}};
 
 public metafunction drawer_ptr ptr{pgldrawer_export_i};
 
 public interface drawstep_i <pgldrawer_export_i>
 {
-  public function vbid_t get_vbid() const;
-    /* drawer実装固有の名前を返す */
+  public function vbid_t get_drawer_vbid() const;
+    /* drawer実装固有の名前を返す。subdrawerも固有のものを返す。 */
   public function vbid_t get_instances_vbid() const;
     /* これで示されたvbid用のインスタンスデータで描画する。通常は
-     * get_vbid()と一致するが、複数のdrawer実装で同じインスタンス
+     * get_drawer_vbid()と一致するが、複数のdrawer実装で同じインスタンス
      * データを描きたいときには代表するdrawer実装のvbid名を返す。 */
   public function vbid_t get_vertices_vbid() const;
-    /* これで示された頂点データを使って描画する。通常はget_vbid()と
+    /* これで示された頂点データを使って描画する。通常はget_drawer_vbid()と
      * 一致するが、複数のdrawer実装で同じ頂点データを描きたいときには代表
      * するdrawer実装のvbid名を返す。 */
   public function prepare_instance_data_funcptr
@@ -109,8 +122,8 @@ public interface drawstep_i <pgldrawer_export_i>
     /* 頂点データを作る??? */
   public function string builtin_vertex_set_name() const;
     /* empty if no builtin vertex set */
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const;
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr);
     /* called when builtin_vertex_set_name is not empty */
   public function dgf_filler make_filler(ptr{vertices} const& vptr) const;
     /* 頂点データを1ポリゴン等ぶんセットする関数オブジェクトを返す。ジオメ
@@ -144,9 +157,9 @@ public struct drawer_cond(
 }
 
 public metafunction prepare_instance_data_funcptr
-  pointer::tfuncptr::tfuncptr_matching_function{prepare_instance_data_noop};
+  tfuncptr_matching_function{prepare_instance_data_noop};
 
-public threaded function void prepare_instance_data_noop(
+public pure function void prepare_instance_data_noop(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {
@@ -155,13 +168,13 @@ public threaded function void prepare_instance_data_noop(
 public metafunction prepinstf_table varray{prepare_instance_data_funcptr};
 
 public function {tattr} ptr{vertex_buffer}
-make_tattr_vertex_buffer(bool points_mode, bool is_sub)
-{ 
+make_tattr_vertex_buffer(bool points_mode, vbid_t instances_vbid, bool is_sub)
+{
   return make_ptr{vertex_buffer}(static_cast{size_t}(num_float_struct{tattr}),
-    points_mode, is_sub);
+    points_mode, instances_vbid, is_sub);
 }
 
-public threaded function {tattr} void
+public pure function {tattr} void
 dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
   bool override_uvw, poly_t const& poly, mesh_index const& mp)
 {
@@ -244,8 +257,8 @@ dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
       // debug_log("p3", p3);
       // debug_log("lx,ly", lx, ly, lxm, lym);
       function vec3 to_uvw(vec3 const& pos) {
-	const v = pos - pos0;
-	return make_vec3(dot(v, ex), dot(v, ey), 1.0f);
+        const v = pos - pos0;
+        return make_vec3(dot(v, ex), dot(v, ey), 1.0f);
       }
       const aabb = make_vec4(0.0f, 0.0f, lxm, lym);
       vtxs[0].uvw = to_uvw(p0);
@@ -262,19 +275,19 @@ dgf_fill_tattr_internal(ptr{vertices} const& vptr, bool flat_flag,
   vptr->push_polygon_distinct{tattr, 1}(poly, vtxs);
 }
 
-public threaded function void
+public pure function void
 dgf_noop(ptr{vertices} const& vptr, bool flat_flag, poly_t const& poly,
   mesh_index const& mp)
 {
 }
 
-public threaded function dgf_filler
+public pure function dgf_filler
 make_dgf_noop(ptr{vertices} const& vptr)
 {
-  return make_callable_ptr{dgf_noop, 1}(vptr);
+  return make_pure_callable_ptr{dgf_noop, 1}(vptr);
 }
 
-public threaded function {t} void
+public pure function {t} void
 buffer_append(varray{float} mutable& arr, t const& v)
 {
   if (m::eq{t, float}) {
@@ -289,13 +302,13 @@ buffer_append(varray{float} mutable& arr, t const& v)
     arr.append(v.to_cslice());
   } else {
     expand (sym: m::field_names{t})
-    { 
+    {
       buffer_append(arr, v.sym);
     }
   }
 }
 
-public threaded function void prepare_instance_data_default(
+public pure function void prepare_instance_data_default(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {
@@ -337,7 +350,7 @@ reloader(cptr{shader_config} const& sconf0,
       r.some = make_glshader_ptr(prog_v, prog_f, attrib_to_avoid, debug_level);
     } catch (runtime_error ex) {
       sdl_log("failed to load shader '" + fn_v + "' '" + fn_f + "': "
-	+ ex.message());
+        + ex.message());
     }
     return r;
   }
@@ -345,7 +358,7 @@ reloader(cptr{shader_config} const& sconf0,
   private tree_map{string, string} bindings = bindings0;
   private string fn_v = fn_v0;
   private string fn_f = fn_f0;
-  private string attrib_to_avoid = attrib_to_avoid0; 
+  private string attrib_to_avoid = attrib_to_avoid0;
   private int debug_level = debug_level0;
   private string prog_v;
   private string prog_f;
@@ -369,8 +382,9 @@ load_shader_program(shader_config const& g,
       s = sev.eval(se);
     } catch (stempl_exception ex) {
       const offset = ex.offset;
-      const s0 = s[0 .. offset];
-      const s1 = s[offset .. s.size()];
+      const& s_c = s;
+      const s0 = s_c[0 .. offset];
+      const s1 = s_c[offset .. s.size()];
       debug_log("load_shader_program:", ex.message(),
         "\n" + s0 + "[ERROR]" + s1);
       throw ex;
@@ -407,11 +421,11 @@ extract_import(stempl_expr mutable& se, int rec_limit)
   if (const tcons: se.cons) {
     for (const i, mutable& e: tcons->args) {
       if (!case e.cons) {
-	continue;
+        continue;
       }
       const ccons = e.cons;
       if (ccons->symbol != "import") {
-	continue;
+        continue;
       }
       const fn = *ccons->args[0].literal; // TODO: error message
       string s;

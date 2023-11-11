@@ -1,6 +1,6 @@
 private threaded namespace pgl3d::edit_mode::texutil "use-unsafe";
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import glm -;
 private import pgl3d::texture::texture -;
 private import pgl3d::texture::voxel -;
@@ -76,7 +76,7 @@ shrink_voxel_value(tsrc const& stex, texture_data_float const& svol,
           pp = p;
         } else if (is_sphere_node(v)) {
           mutable p = decode_sphere_node(v);
-          p.center += map{ivec3, operator::mul}(offset, p.scale) / 2;
+          p.center += map{ivec3, core::operator::mul}(offset, p.scale) / 2;
           p.center /= 2;
           p.dist /= 2;
           ++count_sphere;
@@ -256,17 +256,17 @@ rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
   for (const z: 0 .. sz.z) {
     for (const y: 0 .. sz.y) {
       for (const x: 0 .. sz.x) {
-	const vp = rotate_voxel_value(m, spri.get(x, y, z));
-	const va = ssec.get(x, y, z);
-	const p = rotate_offset(m, glm::make_ivec3(si(x), si(y), si(z)), sz);
-	dbg_rotate() {
-	  debug_log("rotate_texture_range", x, y, z, p, vp, va);
-	}
-	const up = to_uvec3(p);
-	// if (lt_all_uvec3(up, sz)) {
-	  dpri.set(ui(p.x), ui(p.y), ui(p.z), vp);
-	  dsec.set(ui(p.x), ui(p.y), ui(p.z), va);
-	// }
+        const vp = rotate_voxel_value(m, spri.get(x, y, z));
+        const va = ssec.get(x, y, z);
+        const p = rotate_offset(m, glm::make_ivec3(si(x), si(y), si(z)), sz);
+        dbg_rotate() {
+          debug_log("rotate_texture_range", x, y, z, p, vp, va);
+        }
+        const up = to_uvec3(p);
+        // if (lt_all_uvec3(up, sz)) {
+          dpri.set(ui(p.x), ui(p.y), ui(p.z), vp);
+          dsec.set(ui(p.x), ui(p.y), ui(p.z), va);
+        // }
       }
     }
   }
@@ -279,7 +279,7 @@ rotate_offset(imat3 const& m, ivec3 const& v, uvec3 const& sz)
   const dsz = map{ivec3, abs{int}}(m * ssz);
   const vs = v * 2 - ssz;
   const vm = m * vs + dsz;
-  const r = map{glm::ivec3, operator::div}(vm, glm::make_ivec3(2, 2, 2));
+  const r = map{glm::ivec3, core::operator::div}(vm, glm::make_ivec3(2, 2, 2));
   // debug_log("rotate", sz, v, r);
   return r;
 }

@@ -2,19 +2,113 @@
 ---------------------------------------------------------------------------
 TODO
 
-- edit_mode_util::get_tpat_refsが16倍以外をサポートしないのを修正
+- raycastのmiplevel計算を正確に。
+  - 距離 Z unit の位置のworld座標 1 unit が何pixelにあたるのか
+  - 物体の 1 voxel がworld座標で 何 unit にあたるのか
 
-- fillingsに登録したパターンをedit対象テクスチャから独立した形で保存
+- FIXME: heartbeat_thread()はdebug_io()ではなくthread_io()を使い、pureではなく
+  threadedにする。
+  - procedure/callable.pxのcallableがpureなのはthreadedにするのが正しい？
+  - ほかにdebug_io()を使っている箇所も同様に修正
+  - async_taskのthreading属性変更に問題はないか確認
 
-- メモ: 165Hz vsync windowsで少しカクつく。ubuntuではマルチディスプレイだと
-  テアリングが出るがシングルだとなめらか。(done)
-  - windowsでかくつくのはnvapi_gpu_usageが原因
+- pxc: map関数を改名して整理
+
+- 重い処理をバックグラウンドスレッドへ
+
+- imgui
+
+- raycast_layer=0のほうが常に速いのでは？
+
+- 変数builtin_vsidのつかいかたをblur_hに合わせる。drawer複数インスタンス
+  作成されたときにも動作するように。
+
+- edit_mode_textureはスレッド間で共有できるようにする。voxelテクスチャの
+  距離計算のような重い処理を別スレッドで実行できるように。
+
+- メモ: nvidia optimus, ubuntu
+  __NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia ./build_exec.sh
+  PRIME synchronization有効にするには、
+  modprobe nvidia-drm modeset=1
+  https://forums.developer.nvidia.com/t/prime-and-prime-synchronization/44423
+
+- メモ: 
+  どのディスプレイにvsync同期するか
+  __GL_SYNC_DISPLAY_DEVICE
+  https://download.nvidia.com/XFree86/Linux-x86_64/450.80.02/README/openglenvvariables.html
+
+- Persistent mapping
+  - https://www.khronos.org/opengl/wiki/Buffer_Object#Persistent_mapping
+
+- メモ: Pixel Buffer Object
+  - https://www.khronos.org/opengl/wiki/OpenGL_and_multithreading
+  - https://registry.khronos.org/OpenGL/extensions/ARB/ARB_pixel_buffer_object.txt
+    This extension does not add any new functionality to buffer objects
+    themselves.  It simply adds two new targets to which buffer objects
+    can be bound: GL_PIXEL_PACK_BUFFER and GL_PIXEL_UNPACK_BUFFER.  When a
+    buffer object is bound to the GL_PIXEL_PACK_BUFFER target, commands
+    such as glReadPixels pack (write) their data into a buffer object.
+    When a buffer object is bound to the GL_PIXEL_UNPACK_BUFFER target,
+    commands such as glDrawPixels and glTexImage2D unpack (read) their
+    data from a buffer object.
+  - GL_PIXEL_UNPACK_BUFFERターゲットにbuffer objectをbindすると、
+    glTexImage2D(..., const void *data) がbuffer objectからの転送になる。
+  - GL_PIXEL_PACK_BUFFERターゲットにbuffer objectをbindすると、
+    glReadPixels(..., void *data) がbuffer objectへの転送になる。
+  - buffer objectはglMapBuffer/glUnmapBufferでCPUとGPUで受け渡しする。
+    glReadPixelsするならglBufferData(GL_STREAM_READ),
+    glMapBuffer(GL_READ_ONLY)
+    glTexImage2DするならglBufferData(GL_STREAM_DRAW),
+    glMapBuffer(GL_WRITE_ONLY)
+
+- sdl2のAPI関数はthreadedではないようにする。
+- openglのAPI関数はthreadedにする。openglのAPIはスレッドに紐づいた
+  GLコンテキストを読み書きするのでthreadedが適切。
+  - 子スレッドでwglCreateContext, wglShareLists, wglMakeCurrent
+    しておくことを想定。
+  - SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1) とすれば
+    SDL_GL_CreateContextしたときにShareListsされる。
+  - https://stackoverflow.com/questions/64484835/how-to-setup-one-shared-opengl-contexts-per-thread-with-sdl2
+    - メインスレッドでSDL_GL_CreateContext()をスレッド数だけ実行。
+    - mutexで排他しつつ各子スレッドでSDL_GL_MakeCurrent()する。
+    - スレッドはSDLを使って作る必要があるのではないか。SDL_TLSを使っている。
+
+- pgs.make_vertex_setには一つのvbidのメインとサブしか指定できないのはなぜか。
+  - make_vertex_setでどんなデータが作成されるか確認
+
+- 3dテクスチャ貼り付けとそれ以外のtrianglesを一つのobjectで両方使えるように
+  - instanceデータは同じものにしてよいか
+  - 頂点データは同じものにしてよいか
+  - シェーダは共通化したほうが効率よい・悪いのか
+  - 一つのinstanceデータで複数drawerで描ければよいのか
+
+- 3dテクスチャ貼り付けの頂点データとそれ以外のtrianglesでnum_floatが異なる
+  大きさにできるように。頂点データを節約できるようにするため。(どれだけ意味
+  があるか？)
+
+- memo: 2023/03/05 447fps 1920x1080
+
+- 凸ポリゴン底面の影
+
+- raycastのeyeとlightで異なるaabbを指定できるようにする。同一平面上に複数の
+  凸ポリゴン底面を持つ3dテクスチャを並べたときに境界部分で影が差さない部分
+  ができてしまうのを避けるため。
+
+- 凸ポリゴン底面でなく、自由な形の面に一つの大きな3dテクスチャを貼り付ける。
+  その面はshadow mappingに使う。3dテクスチャを描画するための外周のaabbと
+  内部の面の両方の頂点データを生成する必要がある。
+
+- boundaryは裏面も描く
+
+- 次: boundaryの色、5角形以上のポリゴン
+
+- atlas底面へぎりぎりまで埋めるためのtpatパターン
+
+- atlas 階層フロアのためのパターン。非矩形を含む。
+
+- FIXME: triangles-inc.fsh hit >= 0のときの影判定についてのFIXME
 
 - mipmap再計算してから一度saveしないと反映されていない?
-
-- update_mipmapの色をvolume比率をもとにして正確に計算する(done)
-
-- filledのときはemit色をvalue0.rgbに(done)
 
 - vertex attributesのlocationが不足。
   メッシュのデータはテクスチャに置くか？
@@ -22,39 +116,17 @@ TODO
 
 - atlasで割り当てた領域への生成はheightの高さに抑えなければならない
 
-- texture-coding.txtに合わせてシェーダやedit, mipmap作成処理を修正(done)
-
-- largeのmipmapが変？(done)
-  - miplevel 7と8 (tmap_miplevel 1と2)がおかしい
-  - 小さいのからリサイズしたときがおかしい?
-
-- edit_mode_largeでSHIFT+F12例外(done)
-
-- boundaryは裏面も描く
-
 - perspective_*を全体的に小さくしたが、小さくしすぎるとどこに問題が出るか？
 
 - raycast_layer複数にしてソート処理しているのをやめる？
   - raycast_layer=1にすると例外。
 
-- test_atlasで五角形の外にゴミ(done)
-
 - vsync offでpauseしてもちらつくことがある? glTextureBarrierか？
-
-- 次: boundaryの色、5角形以上のポリゴン
 
 - windowsバイナリをwineで動かすと固まる
   - condition_variableをtimed waitにしてみる
     - bulletのmt化箇所をwait_for()にしたら固まらなくなった
     - async_motion_thread=0にセットしてmotionをmain threadで実行する
-
-- gldebug有効にすると終了時に例外が投げられる(done)
-
-- intel graphics, windowsでHUDが出ない。(done)
-  - glEnable(GL_POINT_SPRITE)
-
-- intel graphics, linuxで絵が乱れる？
-  - glTextureBarrierをmesaでは使わないようにした(done)
 
 - windows アドレス0へjumpしてしまうとスタックトレースが出ない？
   glTextureBarrierで再現
@@ -86,18 +158,8 @@ TODO
   おかしい
 - fragmentsからのパターン生成、noderefが空パターンを指すときは空白に。
 
-- fragments登録、パターン生成、gentestまでを一つのコマンドで。(done)
-
 - fillingを使って範囲を埋める
   - 二階建て以上のためのパターン
-
-- copy/pasteでfillingもコピー (done)
-
-- editmodeでeditデータがロードできなかったときにfillingsが無くて落ちる(done)
-
-- F4でmiplevel変更、正しく動作しているのか？
-
-- generate_fillingsのfillings登録(done)
 
 - cube表面にraycast貼り付けを試してみる
 
@@ -105,26 +167,11 @@ TODO
 
 - フルスクリーン時に重い処理で応答なしになると回復しない？
 
-- sphereのscale値で楕円体になったときにおかしい？(done)
-
 - emitのmipmap反映をいいかんじに
 
 - set_distanceするせいでedit modeのsaveが遅い？
 
 - 9分割 patterns
-
-- tmapの一辺が2048を超えるとおかしくなる？ GL_MAX_3D_TEXTURE_SIZE=16384
-  (12,10,7)なら正常、(10,12,7)ならおかしくなる(done)
-
-- tpatとtmapのリサイズ(done)
-
-- max_scaleを変更する手段(done)
-- 現在のmax_scaleに合わせて再配置する手段(done)
-- dedupを全scaleについて実行(done)
-
-- tpatへpasteしたときにgridからはみださないように(done)
-- tpatの範囲に対する操作をgridからはみださないように(done)
-- カーソルがグリッド境界をまたいで移動しないように(done)
 
 - https://developer.nvidia.com/opengl-vulkan
 
@@ -177,9 +224,6 @@ TODO
 - rotate処理などの汎用処理をedit_modeから分離
 
 - pgen_contextなどの汎用処理をedit_modeから分離
-
-- rotateするとnode referenceもrotateするように(done)
-  -> パラメータの意味がシェーダと食い違っているので直すべし(done)
 
 - filledを置き換えるためのパターン
 
@@ -337,23 +381,17 @@ TODO
 
 - 小さなオブジェクトは近接する大きなオブジェクトが差す影をraycastで計算
 
-
 - cull_frontでもiquadsでシャドウマップを書くようにする
 
 - PXC_ARG%d やめる
 
 - 引数で設定ファイルを指定できるように
 
-
 - postprocessフィルタのテクスチャを共有、サイズ指定
-
-
-- AO
 
 - inline c の末尾に余分なセミコロンが出ている
 
 - deserialize_sequenceテスト
-
 
 - 表面voxel貼り付け、単体voxelの二種類にわける。
   - 単体voxelは内側抽出でshadowとzprepass
@@ -482,6 +520,57 @@ TODO
 ---------------------------------------------------------------------------
 DONE
 
+- FIXME: drawする際に空のvsidも含めてループを回すのは無駄。(done)
+  - aggregated_ibuffer_draw_all_vs_all_inst()
+    for (const _, const vsid: bo.vsids) ...
+    データを持っているものがvsidsに記録されているので、無駄ループを回して
+    はいない。(done)
+- node_factoryなどのvsid_to_vsが疎な配列になってしまっているが問題ないか？
+  - とりあえずdone(done)
+- option_valueが0以外だと例外(done)
+  - drawer/blurの組込みvsidが登録されていないから。
+    - 複数のdrawerインスタンスがあるときにbuiltin_vsidフィールドがinvalid
+      になる。
+  - FIXME: 他のdrawerについても同じ問題があるはず。(done)
+- parallaxの裏面が未描画になる(done)
+- pxc: varray::resizeの第二引数の型チェックが漏れているのではないか(done)
+- atlas生成時にはfillingsが参照しているtmapデータを上書きしてもよいように。
+  (done)
+  - multi_pattern_save_data(mpsd)からatlas生成するようにする？(done)
+- fragments登録、パターン生成、gentestまでを一つのコマンドで。(done)
+- copy/pasteでfillingもコピー (done)
+- editmodeでeditデータがロードできなかったときにfillingsが無くて落ちる(done)
+- generate_fillingsのfillings登録(done)
+- sphereのscale値で楕円体になったときにおかしい？(done)
+- tmapの一辺が2048を超えるとおかしくなる？ GL_MAX_3D_TEXTURE_SIZE=16384
+  (12,10,7)なら正常、(10,12,7)ならおかしくなる(done)
+- tpatとtmapのリサイズ(done)
+- max_scaleを変更する手段(done)
+- 現在のmax_scaleに合わせて再配置する手段(done)
+- dedupを全scaleについて実行(done)
+- tpatへpasteしたときにgridからはみださないように(done)
+- tpatの範囲に対する操作をgridからはみださないように(done)
+- カーソルがグリッド境界をまたいで移動しないように(done)
+- rotateするとnode referenceもrotateするように(done)
+  -> パラメータの意味がシェーダと食い違っているので直すべし(done)
+- edit_mode_util::get_tpat_refsが16倍以外をサポートしないのを修正(done)
+- fillingsに登録したパターンをedit対象テクスチャから独立した形で保存(done)
+- メモ: 165Hz vsync windowsで少しカクつく。ubuntuではマルチディスプレイだと
+  テアリングが出るがシングルだとなめらか。(done)
+  - windowsでかくつくのはnvapi_gpu_usageが原因
+- update_mipmapの色をvolume比率をもとにして正確に計算する(done)
+- filledのときはemit色をvalue0.rgbに(done)
+- texture-coding.txtに合わせてシェーダやedit, mipmap作成処理を修正(done)
+- largeのmipmapが変？(done)
+  - miplevel 7と8 (tmap_miplevel 1と2)がおかしい
+  - 小さいのからリサイズしたときがおかしい?
+- edit_mode_largeでSHIFT+F12例外(done)
+- test_atlasで五角形の外にゴミ(done)
+- gldebug有効にすると終了時に例外が投げられる(done)
+- intel graphics, windowsでHUDが出ない。(done)
+  - glEnable(GL_POINT_SPRITE)
+- intel graphics, linuxで絵が乱れる？(done)
+  - glTextureBarrierをmesaでは使わないようにした(done)
 - tpat回転反転: miplevelを固定すると表示がおかしい(done)
 - voxelテクスチャの全体サイズによらず一定の大きさの範囲だけをセーブ・ロード
   (done)

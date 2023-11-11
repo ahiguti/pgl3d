@@ -1,25 +1,25 @@
 private threaded namespace pgl3d::drawer::fxaa "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct fxaa_vertex_attributes()
+private pure tsvaluetype struct fxaa_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct fxaa_instance_attributes()
+private pure tsvaluetype struct fxaa_instance_attributes()
 {
 }
 
-private tsvaluetype struct fxaa_uniforms()
+private pure tsvaluetype struct fxaa_uniforms()
 {
   public glm::vec2 pixel_delta;
   public int sampler_tex;
   public float option_value;
 }
 
-public tsvaluetype struct drawer_fxaa_params {
+public pure tsvaluetype struct drawer_fxaa_params {
   public float option_value;
 }
 
@@ -34,7 +34,9 @@ public struct drawer_fxaa(shader_config const& glc,
   public ptr{gl_framebuffer} ppfbo = make_ptr{gl_framebuffer}();
   public option{cptr{gl_framebuffer}} srcfbo;
   fxaa_shader_ptr sdr_re = init_fxaa_shader(glc);
-  vbid_t const vbid_fxaa = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_fxaa = ds.vbid_pool->intern("vbid_fxaa");
+  vsid_t const vsid_generic_filter =
+    ds.vsid_pool->intern("vsid_generic_filter");
   init(glc, ds);
   function void init(shader_config const& glc, drawer_shared const& ds) {
     const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
@@ -42,7 +44,7 @@ public struct drawer_fxaa(shader_config const& glc,
       srcfbo.some = fb;
     }
   }
-  public function vbid_t get_vbid() const { return vbid_fxaa; }
+  public function vbid_t get_drawer_vbid() const { return vbid_fxaa; }
   public function vbid_t get_instances_vbid() const { return vbid_fxaa; }
   public function vbid_t get_vertices_vbid() const { return vbid_fxaa; }
   public function prepare_instance_data_funcptr
@@ -50,12 +52,12 @@ public struct drawer_fxaa(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_generic_filter"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattrs;
     farray{fxaa_vertex_attributes, 4} vs;
@@ -100,7 +102,7 @@ public struct drawer_fxaa(shader_config const& glc,
     opval %= 2;
     glUniform1f(sdr.u_option_value, static_cast{float}(opval));
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
-    bo.draw(0, sdr);
+    bo.draw_single_instance(vsid_generic_filter, sdr);
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {

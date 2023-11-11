@@ -1,6 +1,6 @@
 private threaded namespace pgl3d::edit_mode::pattern_save_data "use-unsafe";
-private import common -;
-private import meta m;
+private import core::common -;
+private import core::meta m;
 private import pgl3d::texture::subtexture -;
 private import pgl3d::texture::filling -;
 private import pgl3d::edit_mode::tiled_texture_edit_view -;
@@ -9,13 +9,13 @@ private import pgl3d::edit_mode::edit_mode_util -;
 
 private metafunction dbg_conv{f} no_operation;
 
-public valuetype struct tpat_data {
+public pure valuetype struct tpat_data {
   public uint scale;
   public uvec3 coord;
   public farray{texture_data, multiword_num_words} data;
 }
 
-public valuetype struct pattern_save_data {
+public pure valuetype struct pattern_save_data {
   // コピーバッファの内容と、そのnoderef参照先となるtpatのデータを
   // まとめてファイルに保存するためのデータ型。
   public subtexture copy_data;
@@ -148,12 +148,12 @@ get_tpat_refs(varray{tpat_data} mutable& tpd, subtexture const& cd,
   }
 }
 
-public valuetype struct subtexture_with_filling {
+public pure valuetype struct subtexture_with_filling {
   public subtexture subtex;
   public filling fdata;
 }
 
-public threaded struct multi_pattern_save_data {
+public pure struct multi_pattern_save_data {
   public varray{subtexture_with_filling} subtexs;
   public varray{tpat_data} patterns;
 }
@@ -248,14 +248,10 @@ fillings_from_multi_pattern_save_data(multi_pattern_save_data const& mpsd,
 }
 
 public function void
-fillings_to_multi_pattern_save_data(multi_pattern_save_data mutable& mpsd,
+fillings_to_fillsubs(varray{subtexture_with_filling} mutable& fillsubs,
   tiled_texture_edit_view mutable& ttev)
 {
-  // fillingsが参照している内容をmulti_pattern_save_dataにコピーし、
-  // 参照しているすべてのnoderefについて参照先のtpatの内容をコピーする。
-  // すべてのfillingsの内容を保存するときに使う。
-  debug_log("fillings_to_multi_pattern_save_data");
-  mpsd = multi_pattern_save_data();
+  // すべてのfillingとそれが参照しているtmap領域を取得する
   varray{filling} const fs = ttev.get_fillings();
   // 各fillingについてtmapの内容をsubtexsにコピーする。
   for (const i, const& fi: fs) {
@@ -268,9 +264,21 @@ fillings_to_multi_pattern_save_data(multi_pattern_save_data mutable& mpsd,
       tex.set_size_l2(sz_l2.x, sz_l2.y, sz_l2.z);
     }
     ttev.edit_copy_range(fi.offset, s.copy_size, s.tex, uvec3());
-    mpsd.subtexs.push_back_move(subtex);
+    fillsubs.push_back_move(subtex);
     debug_log("subtex", fi.offset, s.copy_size);
   }
+}
+
+public function void
+fillings_to_multi_pattern_save_data(multi_pattern_save_data mutable& mpsd,
+  tiled_texture_edit_view mutable& ttev)
+{
+  // fillingsが参照している内容をmulti_pattern_save_dataにコピーし、
+  // 参照しているすべてのnoderefについて参照先のtpatの内容をコピーする。
+  // すべてのfillingsの内容を保存するときに使う。
+  debug_log("fillings_to_multi_pattern_save_data");
+  mpsd = multi_pattern_save_data();
+  fillings_to_fillsubs(mpsd.subtexs, ttev);
   // subtexsのすべてについて参照しているtpatを調べる。
   tree_set{pair{uint,uvec3}} refs;
   for (const i, const& stfi: mpsd.subtexs) {

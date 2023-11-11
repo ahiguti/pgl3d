@@ -1,19 +1,19 @@
 private threaded namespace pgl3d::drawer::dbgui2 "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct dbgui2_vertex_attributes()
+private pure tsvaluetype struct dbgui2_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct dbgui2_instance_attributes()
+private pure tsvaluetype struct dbgui2_instance_attributes()
 {
   public glm::vec4 idata; // x0, y0, dx, dy
 }
 
-private tsvaluetype struct dbgui2_uniforms()
+private pure tsvaluetype struct dbgui2_uniforms()
 {
   public int sampler_sm; // array
 }
@@ -30,13 +30,15 @@ public struct drawer_dbgui2(shader_config const& glc0,
   varray{cptr{gl_framebuffer}} shadowmap_fbs;
   option{dbgui2_shader_ptr} sdr_di;
   vbid_t const vbid_dbgui2 = ds.vbid_pool->intern("vbid_dbgui2");
+  vsid_t const vsid_generic_filter =
+    ds.vsid_pool->intern("vsid_generic_filter");
   bool dump_done = false;
   init();
   private function void init()
   {
     reload_shaders(glc);
   }
-  public function vbid_t get_vbid() const { return vbid_dbgui2; }
+  public function vbid_t get_drawer_vbid() const { return vbid_dbgui2; }
   public function vbid_t get_instances_vbid() const { return vbid_dbgui2; }
   public function vbid_t get_vertices_vbid() const { return vbid_dbgui2; }
   public function prepare_instance_data_funcptr
@@ -44,12 +46,13 @@ public struct drawer_dbgui2(shader_config const& glc0,
     return make_tfuncptr{prepare_instance_data_dbgui2}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_generic_filter"; }
+    // TODO: 使ってないもよう。削除すべし。
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{dbgui2_vertex_attributes, 4} vs;
@@ -68,7 +71,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
     return texture_info();
   }
   public function void resize_screen(shader_config const& glc0)
-  { 
+  {
     uint i;
     while (true) {
       const name = sm_name + to_string(i);
@@ -108,7 +111,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
     }
     glUniform1iv(sdr.u_sampler_sm, glc.num_shadowmaps,
       caddress(sampler_smarr[0]));
-    ddata.draw(sdr, get_vertices_vbid(), get_instances_vbid());
+    ddata.draw_all_vs_all_inst(sdr, get_vertices_vbid(), get_instances_vbid());
     /*
     if (!dump_done) {
       varray{uchar} buf;
@@ -122,7 +125,7 @@ public struct drawer_dbgui2(shader_config const& glc0,
         ulong v = buf[i * 4];
         v <<= 8u;
         v |= buf[i * 4 + 1];
-        sum += v; 
+        sum += v;
       }
       debug_log("sum", sum);
     }
@@ -169,7 +172,7 @@ init_dbgui2_shader(shader_config const& g)
   */
 }
 
-private threaded function void prepare_instance_data_dbgui2(
+private pure function void prepare_instance_data_dbgui2(
   scene_node const& sn, node_common_data mutable& ncd,
   instance_data mutable& idata)
 {

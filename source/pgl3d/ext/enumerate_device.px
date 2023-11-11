@@ -1,8 +1,8 @@
 public namespace pgl3d::ext::enumerate_device "use-unsafe";
-public import common -;
-public import meta m;
+public import core::common -;
+public import core::meta m;
 
-public multithreaded struct device_info
+public pure mtvaluetype struct device_info
 {
   public string name;
   public string friendly_name;

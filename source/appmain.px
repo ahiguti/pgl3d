@@ -1,15 +1,16 @@
 public namespace appmain;
-public import common -;
-public import exception -;
-public import numeric::fpmath -;
-public import pointer::raw -;
-public import text::positional -;
-public import io::time -;
-public import fundamental::mainloop -;
-public import io::environ;
-public import pgl3d::ext::debug_helper -;
-public import pgl3d::exports -;
-public import meta m;
+public import core::common -;
+public import core::exception -;
+public import core::numeric::fpmath -;
+public import core::pointer::raw -;
+public import core::text::positional -;
+public import core::io::time -;
+public import core::fundamental::mainloop -;
+public import core::io::environ;
+public import pgl3d::ext::debug_helper pgl;
+public import pgl3d::exports pgl;
+public import sdl2::api_types -;
+public import core::meta m;
 public import glm;
 public import app::app_scene -;
 public import app::app_data -;
@@ -22,11 +23,11 @@ public function void app_main()
 {
   set_debug_log_file("var/app.log");
   set_debug_timestamp(true);
-  // debug_helper::dump_modules();
-  // debug_helper::dump_backtrace();
+  // pgl::debug_helper::dump_modules();
+  // pgl::debug_helper::dump_backtrace();
   string config_fn = "res/pgl3d.cnf";
-  for (size_t i: 1 .. io::environ::argv.size()) {
-    const s = io::environ::argv[i];
+  for (size_t i: 1 .. core::io::environ::argv.size()) {
+    const s = core::io::environ::argv[i];
     if (find_mapped(s, static_cast{size_t}(0u), '=') >= s.size()) {
       config_fn = s;
     }
@@ -36,11 +37,12 @@ public function void app_main()
 }
 
 public struct app_application()
-  <pgl3d_application>
-{	
-  public app_data app = app_data(make_tptr{app_scene_shared}(io::system));
-  public function varray{drawer_cond} on_init_drawstep(
-    shader_config const& conf, drawer_shared const& ds)
+  <pgl::pgl3d_application>
+{
+  public app_data app = app_data(make_tptr{app_scene_shared}(
+    core::io::thread_io()));
+  public function varray{pgl::drawer_cond} on_init_drawstep(
+    pgl::shader_config const& conf, pgl::drawer_shared const& ds)
   {
     debug_log("init_drawstep");
     mutable datadir = conf.conf.get("datadir", string(), string(), string());
@@ -48,7 +50,7 @@ public struct app_application()
       datadir = "./datadir";
     }
     app.set_datadir(datadir);
-    app.sconf.some = make_ptr{shader_config}(conf);
+    app.sconf.some = make_ptr{pgl::shader_config}(conf);
     app.virt_scale = conf.conf.get("virt_scale", 1.0f, 0.125f, 16.0f);
     const r = init_drawsteps(app, conf, ds);
     app.option_value2 = conf.conf.get("option_value2", -1, -1, 9);
@@ -57,8 +59,8 @@ public struct app_application()
     const ser_name = conf.conf.get("motion_serial", string(), string(),
       string());
     if (!ser_name.empty()) {
-      varray{device_info} devs;
-      enumerate_device(devs);
+      varray{pgl::device_info} devs;
+      pgl::enumerate_device(devs);
       for (const i, const e: devs) {
         if (e.port_name[0u .. 3u] == "COM") {
           debug_log("device", e);
@@ -66,7 +68,7 @@ public struct app_application()
             debug_log("found serial");
             const port_str = e.port_name[3u .. e.port_name.size()];
             const port_num = from_string{uint}(port_str);
-            app.mctrl.some = make_ptr{motion_controller_serial}(port_num);
+            app.mctrl.some = make_ptr{pgl::motion_controller_serial}(port_num);
             break;
           }
         }
@@ -74,7 +76,7 @@ public struct app_application()
     }
     return r;
   }
-  public function void on_build_vertices(make_vertices_i mutable& mvx)
+  public function void on_build_vertices(pgl::make_vertices_i mutable& mvx)
   {
     debug_log("build_vertices");
     build_vertices(app, mvx);
@@ -84,19 +86,20 @@ public struct app_application()
     ss.tvt.some = app.tvt;
     ss.tup.some = app.tup;
   }
-  public function void on_event(SDL_Event const& ev, app_ctrl_i mutable& actrl,
-    float speed)
+  public function void on_event(SDL_Event const& ev,
+    pgl::app_ctrl_i mutable& actrl, float speed)
   {
     handle_event(app, actrl, ev, speed);
   }
-  public function void on_joystick_changed(cslice{joystick_info} const& ji)
+  public function void on_joystick_changed(
+    cslice{pgl::joystick_info} const& ji)
   {
-    app.player_joystick.axes.resize(6, 0);
+    app.player_joystick.axes.resize(6, short());
     app.player_joystick.buttons.resize(15, false);
-    app.player_joystick.hats.resize(0, 0);
+    app.player_joystick.hats.resize(0, ushort());
   }
   public function void on_scankeys(cslice{uchar} const& keys,
-    cslice{joystick_state} const& joysticks, float speed)
+    cslice{pgl::joystick_state} const& joysticks, float speed)
   {
     app.modmask = 0;
     if (keys[static_cast{uint}(SDL_SCANCODE_LSHIFT)] != 0) {
@@ -120,7 +123,7 @@ public struct app_application()
     handle_keys(app, keys, joysticks, speed);
     // debug_log("joy", joy_axes, "btn", joy_buttons);
   }
-  public function tptr{pgl3d_scene_shared} get_scene_shared()
+  public function tptr{pgl::pgl3d_scene_shared} get_scene_shared()
   {
     return app.scene_shared;
   }
@@ -132,7 +135,7 @@ public struct app_application()
     for (const i, const& e: tup) {
       // debug_log("tup", e.pos, e.value);
       if (case app.edit_mode.some) {
-	app.edit_mode.some->modify_tmap(e.pos, e.value);
+        app.edit_mode.some->modify_tmap(e.pos, e.value);
       }
     }
     // debug_log("app on_frame 2");

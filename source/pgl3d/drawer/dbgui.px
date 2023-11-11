@@ -1,18 +1,18 @@
 private threaded namespace pgl3d::drawer::dbgui "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
-private tsvaluetype struct dbgui_vertex_attributes()
+private pure tsvaluetype struct dbgui_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct dbgui_instance_attributes()
+private pure tsvaluetype struct dbgui_instance_attributes()
 {
 }
 
-private tsvaluetype struct dbgui_uniforms()
+private pure tsvaluetype struct dbgui_uniforms()
 {
   public int sampler_sm; // array
   public int sampler_dbg; // array
@@ -30,13 +30,15 @@ public struct drawer_dbgui(shader_config const& glc0,
   varray{cptr{gl_framebuffer}} shadowmap_fbs;
   varray{cptr{gl_texture}} textures;
   option{dbgui_shader_ptr} sdr_di;
-  vbid_t const vbid_dbgui = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_dbgui = ds.vbid_pool->intern("vbid_dbgui");
+  vsid_t const vsid_generic_filter =
+    ds.vsid_pool->intern("vsid_generic_filter");
   init();
   private function void init()
   {
     reload_shaders(glc);
   }
-  public function vbid_t get_vbid() const { return vbid_dbgui; }
+  public function vbid_t get_drawer_vbid() const { return vbid_dbgui; }
   public function vbid_t get_instances_vbid() const { return vbid_dbgui; }
   public function vbid_t get_vertices_vbid() const { return vbid_dbgui; }
   public function prepare_instance_data_funcptr
@@ -44,12 +46,12 @@ public struct drawer_dbgui(shader_config const& glc0,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_dbgui"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{dbgui_vertex_attributes, 4} vs;
@@ -68,15 +70,15 @@ public struct drawer_dbgui(shader_config const& glc0,
     return texture_info();
   }
   public function void resize_screen(shader_config const& glc0)
-  { 
+  {
     uint i;
     while (true) {
       const name = sm_name + to_string(i);
       if (const f: res->framebuffers[name]) {
-	shadowmap_fbs.push_back(f);
+        shadowmap_fbs.push_back(f);
         // debug_log("dbgui: shadowmap", name);
       } else {
-	break;
+        break;
       }
       ++i;
     }
@@ -128,7 +130,7 @@ public struct drawer_dbgui(shader_config const& glc0,
     glUniform1iv(sdr.u_sampler_dbg, static_cast{int}(sampler_dbg.size()),
       caddress(sampler_dbg[0]));
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
-    bo.draw(0, sdr);
+    bo.draw_single_instance(vsid_generic_filter, sdr);
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {

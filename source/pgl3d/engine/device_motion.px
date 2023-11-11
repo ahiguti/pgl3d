@@ -1,8 +1,8 @@
 public threaded namespace pgl3d::engine::device_motion "use-unsafe";
-public import common -;
-public import container::raw -;
+public import core::common -;
+public import core::container::raw -;
 
-public threaded struct extern "::pxcrt::ext::device_motion"
+public pure struct extern "::pxcrt::ext::device_motion"
 device_motion(io const& iop, double interval)
 {
   public rawarray{float, 4} value_xyzw;

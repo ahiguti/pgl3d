@@ -1,6 +1,6 @@
 public threaded namespace pgl3d::physics::collision_voxel "use-unsafe";
-public import common -;
-public import numeric::fpmath -;
+public import core::common -;
+public import core::numeric::fpmath -;
 public import glm;
 private import pgl3d::texture::voxel -;
 private import pgl3d::texture::editable_voxel -;
@@ -11,7 +11,7 @@ public metafunction texture_update
 public metafunction texture_updates
   pgl3d::texture::editable_voxel::texture_updates;
 
-public threaded struct
+public pure struct
 collision_voxel(glm::vec3 const& obj_aabb_min0, glm::vec3 const& obj_aabb_max0,
   glm::vec3 const& tex_aabb_min0, glm::vec3 const& tex_aabb_max0,
   glm::mat4 const& obj_to_tex0)
@@ -23,13 +23,15 @@ collision_voxel(glm::vec3 const& obj_aabb_min0, glm::vec3 const& obj_aabb_max0,
   public glm::mat4 obj_to_tex = obj_to_tex0;
 }
 
-public threaded function bool
+public pure function bool
 collision_voxel_collide(collision_voxel const& cv,
   glm::vec3 const& pos, float radius, texture_edit const& tex,
   texture_updates mutable& tup)
 {
-  const gt = map{monoid_and{bool}, operator::gt}(pos, cv.obj_aabb_min);
-  const lt = map{monoid_and{bool}, operator::lt}(pos, cv.obj_aabb_max);
+  const gt = map_fold{monoid_and{bool}, core::operator::gt}(pos,
+    cv.obj_aabb_min);
+  const lt = map_fold{monoid_and{bool}, core::operator::lt}(pos,
+    cv.obj_aabb_max);
   if (!(gt & lt)) {
     return false;
   }
@@ -43,7 +45,7 @@ collision_voxel_collide(collision_voxel const& cv,
     return static_cast{uint}(ldexp(v, static_cast{int}(sz_l2)));
   }
   const coord = map{glm::uvec3, coord_int}(tpos3);
-  if (map{monoid_or{bool}, operator::ge}(coord, sz)) {
+  if (map_fold{monoid_or{bool}, core::operator::ge}(coord, sz)) {
     return false;
   }
   const val = data.get(coord.x, coord.y, coord.z);
@@ -59,7 +61,7 @@ collision_voxel_collide(collision_voxel const& cv,
 }
 
 /*
-public threaded function collision_voxel
+public pure function collision_voxel
 make_collision_voxel(float mesh_size0, cslice{float} const v)
 {
   glm::vec3 mi;

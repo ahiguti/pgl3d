@@ -1,22 +1,22 @@
 private threaded namespace pgl3d::drawer::passthrough "export-unsafe";
-public import common -;
+public import core::common -;
 public import pgl3d::drawer::base -;
-public import meta m;
+public import core::meta m;
 
 /* drawer_passthroughはpostprocessフィルタの雛形。前段をそのまま後段へ
  * 出力する。
  */
 
-private tsvaluetype struct passthrough_vertex_attributes()
+private pure tsvaluetype struct passthrough_vertex_attributes()
 {
   public glm::vec2 vert;
 }
 
-private tsvaluetype struct passthrough_instance_attributes()
+private pure tsvaluetype struct passthrough_instance_attributes()
 {
 }
 
-private tsvaluetype struct passthrough_uniforms()
+private pure tsvaluetype struct passthrough_uniforms()
 {
   public int sampler_tex;
 }
@@ -29,7 +29,8 @@ public struct drawer_passthrough(shader_config const& glc,
   option{cptr{gl_framebuffer}} srcfbo;
   metafunction tattr passthrough_vertex_attributes;
   passthrough_shader_ptr sdr_re = init_passthrough_shader(glc);
-  vbid_t const vbid_passthrough = ds.vbid_pool->intern("vbid_generic_filter");
+  vbid_t const vbid_passthrough = ds.vbid_pool->intern("vbid_passthrough");
+  vsid_t const vsid_passthrough = ds.vsid_pool->intern("vsid_passthrough");
   init(glc, ds);
   function void init(shader_config const& glc, drawer_shared const& ds) {
     const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
@@ -37,7 +38,7 @@ public struct drawer_passthrough(shader_config const& glc,
       srcfbo.some = *respool->framebuffers.equal_range(src_fbname);
     }
   }
-  public function vbid_t get_vbid() const { return vbid_passthrough; }
+  public function vbid_t get_drawer_vbid() const { return vbid_passthrough; }
   public function vbid_t get_instances_vbid() const {
     return vbid_passthrough; }
   public function vbid_t get_vertices_vbid() const { return vbid_passthrough; }
@@ -46,12 +47,12 @@ public struct drawer_passthrough(shader_config const& glc,
     return make_tfuncptr{prepare_instance_data_default}();
   }
   public function ptr{vertex_buffer} make_vertex_buffer() const {
-    return make_tattr_vertex_buffer{tattr}(false, false);
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
   }
   public function string builtin_vertex_set_name() const {
-    return "generic_filter"; }
-  public function void make_builtin_vertex_sets(ptr{vertices} const& vptr)
-    const
+    return "vsid_passthrough"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
   {
     farray{vertex_attr, 4} dummy_vattr;
     farray{passthrough_vertex_attributes, 4} vs;
@@ -88,7 +89,7 @@ public struct drawer_passthrough(shader_config const& glc,
     glUseProgram(sdr.program);
     glUniform1i(sdr.u_sampler_tex, 0);
     const& bo = *ddata.vertex_buffers[get_vertices_vbid()];
-    bo.draw(0, sdr);
+    bo.draw_single_instance(vsid_passthrough, sdr);
   }
   public function option{ptr{edit_control_i}} get_edit_mode() const
   {
