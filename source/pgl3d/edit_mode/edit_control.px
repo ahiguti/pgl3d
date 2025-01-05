@@ -20,8 +20,11 @@ private import pgl3d::edit_mode::edit_mode_util -;
 private import pgl3d::edit_mode::generate_filling -;
 private import pgl3d::edit_mode::fill_fillings -;
 private import pgl3d::edit_mode::pattern_save_data -;
+private import pgl3d::edit_mode::sync_gl -;
+private import core::pointer::raw -;
+private import pgl3d::imgui::dear_imgui ui;
 
-private metafunction dbg_editmode{f} no_operation;
+private metafunction dbg_editmode{f} f;
 private metafunction dbg_conv{f} f;
 private metafunction dbg_save{f} no_operation;
 private metafunction dbg_console{f} no_operation;
@@ -61,12 +64,14 @@ public struct edit_control(string const& datadir0,
         if (key == SDL_SCANCODE_RETURN) {
           execute_console_command();
         }
-        console_mode = false;
-        SDL_StopTextInput();
-        console_text = string();
-        console_text_cursor = 0;
-        msg_r = message;
-        return;
+        if (mod_shift) {
+          console_mode = false;
+          SDL_StopTextInput();
+          console_text = string();
+          console_text_cursor = 0;
+          msg_r = message;
+          return;
+        }
       }
       if (key == SDL_SCANCODE_BACKSPACE) {
         if (console_text_cursor > 0) {
@@ -91,12 +96,14 @@ public struct edit_control(string const& datadir0,
       return;
     }
     if (key == SDL_SCANCODE_ESCAPE) {
-      console_mode = true;
-      SDL_StartTextInput();
-      console_text = string();
-      console_text_cursor = 0;
-      msg_r = get_console_text();
-      return;
+      if (mod_shift) {
+        console_mode = true;
+        SDL_StartTextInput();
+        console_text = string();
+        console_text_cursor = 0;
+        msg_r = get_console_text();
+        return;
+      }
     } else if (key == SDL_SCANCODE_F5 || key == SDL_SCANCODE_F12) {
       // SHIFT無しのF12ならmipmap更新を省略する
       if (key == SDL_SCANCODE_F5 || mod_shift) {
@@ -420,6 +427,21 @@ public struct edit_control(string const& datadir0,
     prj = prj0;
     ttev->cursor_flick();
   }
+  public function void on_draw_finished()
+  {
+    ui::ImGuiThreadContext imgui;
+    ui::ImVec2 const dispsz = imgui.GetIO().DisplaySize;
+    ui::ImGuiCond cond = 0;
+    ui::SetNextWindowPos(ui::ImVec2(), cond, ui::ImVec2());
+    ui::SetNextWindowSize(ui::ImVec2_(dispsz.x, 0.0), cond);
+    bool open_flag = true;
+    ui::ImGuiWindowFlags window_flags = 0;
+    string s = "Edit mode";
+    ui::Begin(s, open_flag, window_flags);
+    ui::Button("Edit Mode Button", ui::ImVec2());
+    ui::TextUnformatted(message);
+    ui::End();
+  }
   public function void modify_tmap(uvec3 const& pos, uint value)
   {
     ttev->tmap_edit_set(pos, 0, value);
@@ -427,6 +449,13 @@ public struct edit_control(string const& datadir0,
   public function bool is_textinput_mode() const
   {
     return console_mode;
+  }
+  public function void update_tiled_voxel_texture(
+    tiled_voxel_texture const& vox)
+  {
+    emt->vox = vox;
+    ttev->update_edit_texture();
+    sync_gl_all(*emt);
   }
   /////////////////////////////////////////////////////////////////////
   private struct edit_state() {
@@ -1940,26 +1969,40 @@ private enum edit_fill_type_t {
   edit_fill_type_sphere = 3,
 }
 
-private function void
-sync_gl_mipmap_all(edit_mode_texture mutable& emt)
+/*
+private threaded function void
+sync_gl_miplevels(edit_mode_texture mutable& emt, size_t lvmin)
 {
-  for (const i: 1 .. emt.vox.tpat_edit->data[0].size()) {
+  for (const i: lvmin .. emt.vox.tpat_edit->data[0].size()) {
     for (const j, mutable& dataj: emt.vox.tpat_edit->data) {
       const sz0 = dataj[i].get_size_uvec3();
       const sz1 = emt.vox.tpat_edit->data[j][i].get_size_uvec3();
       debug_log("sync_gl_mipmap_all tpat", i, j, sz0, sz1);
       texture_data_sync_gl(dataj[i], si(i), uvec3(),
-        emt.vox.tpat_edit->data[j][i].get_size_uvec3(), emt.glt_voxtpat);
+        emt.vox.tpat_edit->data[j][i].get_size_uvec3(), emt.glt_voxtpat0);
     }
   }
-  for (const i: 1 .. emt.vox.tmap_edit->data[0].size()) {
+  for (const i: lvmin .. emt.vox.tmap_edit->data[0].size()) {
     for (const j, mutable& dataj: emt.vox.tmap_edit->data) {
       const sz0 = dataj[i].get_size_uvec3();
       const sz1 = emt.vox.tpat_edit->data[j][i].get_size_uvec3();
       debug_log("sync_gl_mipmap_all tmap", i, j, sz0, sz1);
       texture_data_sync_gl(dataj[i], si(i), uvec3(),
-        emt.vox.tmap_edit->data[j][i].get_size_uvec3(), emt.glt_voxtmap);
+        emt.vox.tmap_edit->data[j][i].get_size_uvec3(), emt.glt_voxtmap0);
     }
   }
 }
+
+private threaded function void
+sync_gl_mipmap_all(edit_mode_texture mutable& emt)
+{
+  sync_gl_miplevels(emt, 1);
+}
+
+private threaded function void
+sync_gl_all(edit_mode_texture mutable& emt)
+{
+  sync_gl_miplevels(emt, 0);
+}
+*/
 

@@ -9,6 +9,7 @@ public import pgl3d::engine::scene_node -;
 public import pgl3d::engine::intern_pool -;
 public import pgl3d::engine::util -;
 public import pgl3d::texture::texture -;
+public import pgl3d::edit_mode::tiled_voxel_texture -;
 
 public pure multithreaded struct instance_data
 {
@@ -16,25 +17,10 @@ public pure multithreaded struct instance_data
   public size_t glbuffer_offset_float;
 }
 
-/*
-public pure valuetype enum instance_format {
-  instance_format_f4 = 0,
-  instance_format_f9 = 1,
-  instance_format_f16 = 2,
-  instance_format_num = 3,
-}
-*/
-
 public metafunction instances_per_format varray{instance_data};
   // バッファオブジェクト毎(drawer毎)のインスタンスデータ
 public metafunction instances_all_format varray{instances_per_format};
   // 全バッファオブジェクト(drawer)のインスタンスデータ。vbidで引く。
-
-/*
-public metafunction frame_parameters_type varray{varray{float}};
-  // drawerに渡すフレーム毎のパラメータ。vbid毎にfloat配列を一つ。
-  // view projection行列などをdrawerに渡すのに使う。
-*/
 
 public metafunction max_num_shadowmaps 8;
 
@@ -69,25 +55,12 @@ perspective()
   public float height;
 }
 
-/*
-private pure function farray{glm::mat4, max_num_shadowmaps}
-init_sm_proj()
-{
-  glm::mat4 v = mat4_identity();
-  metafunction vs m::map{m::seq{max_num_shadowmaps}, metafunction{i} "v"};
-  return make_farray{glm::mat4}(expand(a: vs; a));
-}
-*/
-
 public pure multithreaded struct
 projection_info()
 {
   public perspective camera_pers;
   public glm::mat4 projection = mat4_identity();
   public varray{glm::mat4} sm_projection;
-  /*
-  public farray{glm::mat4, max_num_shadowmaps} sm_projection = init_sm_proj();
-  */
   public position_angle camera;
   public position_angle light;
   public glm::mat4 view = mat4_identity();
@@ -103,6 +76,7 @@ projection_info()
   public float option_value = 0.0f;
   public float option_value2 = -1.0f;
   public float option_value3 = 0.0f;
+  public float miplevel_bias = 0.0f;
   init();
   private function void init()
   {
@@ -143,6 +117,7 @@ public interface app_ctrl_i
   public function glm::uvec2 get_window_size() const; // mouse coordinate
   public function void set_param(string const& key, string const& val);
   public function void geometry_changed();
+  public function void reload_shaders();
 }
 
 public pure struct node_common_data()
@@ -161,8 +136,11 @@ public interface edit_control_i {
   public function void on_textinput(string const& str, string mutable& msg_r);
   public function void set_camera_angle(glm::quat const& angle);
   public function void on_frame(projection_info const& prj);
+  public function void on_draw_finished();
   public function void modify_tmap(glm::uvec3 const& pos, uint value);
   public function bool is_textinput_mode() const;
+  public function void update_tiled_voxel_texture(
+    tiled_voxel_texture const& vox);
 }
 
 public pure valuetype struct joystick_info {

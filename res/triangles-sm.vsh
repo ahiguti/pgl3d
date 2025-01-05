@@ -21,6 +21,9 @@ uniform vec3 camera_pos;
     // stype==1のときテクスチャ座標から接線空間への変換
   <%vert_in/> vec3 aabb_min; // テクスチャ座標の範囲aabb
   <%vert_in/> vec3 aabb_max; // テクスチャ座標の範囲aabb
+  <%for x 0><%boundary_len/>
+    <%vert_in/> vec2 boundary<%x/>; // テクスチャ座標での底面多角形
+  <%/>
   <%flat/> <%vert_out/> vec4 vary_aabb_or_tconv; // aabb_or_tconvと同じ
   <%flat/> <%vert_out/> vec3 vary_aabb_min;
   <%flat/> <%vert_out/> vec3 vary_aabb_max;
@@ -28,6 +31,10 @@ uniform vec3 camera_pos;
   <%vert_out/> vec3 vary_position_local; // 接線空間での頂点座標
   <%flat/> <%vert_out/> vec3 vary_camerapos_local; // 接線空間でのカメラ座標
   <%flat/> <%vert_out/> mat4 vary_mvp;
+  <%for x 0><%boundary_len/>
+    <%flat/> <%vert_out/> vec2 vary_boundary<%x/>;
+  <%/>
+  <%flat/> <%vert_out/> int vary_boundary_len; // vary_boundary?の有効な長さ
 <%/>
 <%if><%not><%enable_depth_texture/><%/>
   <%vert_out/> vec4 vary_smpos;
@@ -68,6 +75,13 @@ void main(void)
     vary_aabb_or_tconv = aabb_or_tconv;
     vary_aabb_min = aabb_min;
     vary_aabb_max = aabb_max;
+    vary_boundary_len = 0;
+    <%for x 0><%boundary_len/>
+    vary_boundary<%x/> = boundary<%x/>;
+    if (boundary<%x/>.x >= -0.0) {
+      vary_boundary_len = <%x/> + 1;
+    }
+    <%/>
     vary_mvp = shadowmap_vp * mm;
     vec4 p = shadowmap_vp * gpos4;
     p.z = 0.0;

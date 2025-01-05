@@ -4,6 +4,7 @@ private import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::edit_mode_texture -;
 private import pgl3d::edit_mode::sync_gl -;
+private import pgl3d::edit_mode::tiled_voxel_texture -;
 private import pgl3d::texture::atlas -;
 
 public struct noedit_control(string const& datadir0,
@@ -24,10 +25,10 @@ public struct noedit_control(string const& datadir0,
   init();
   private function void init()
   {
-    glt_tmap.push_back(emt->glt_voxtmap);
-    glt_tmap.push_back(emt->glt_voxtmax);
-    glt_tpat.push_back(emt->glt_voxtpat);
-    glt_tpat.push_back(emt->glt_voxtpax);
+    glt_tmap.push_back(emt->glt_voxtmap0);
+    glt_tmap.push_back(emt->glt_voxtmap1);
+    glt_tpat.push_back(emt->glt_voxtpat0);
+    glt_tpat.push_back(emt->glt_voxtpat1);
   }
   public function void on_textinput(string const& s, string mutable& msg_r)
   {
@@ -35,6 +36,12 @@ public struct noedit_control(string const& datadir0,
   public function bool is_textinput_mode() const
   {
     return false;
+  }
+  public function void update_tiled_voxel_texture(
+    tiled_voxel_texture const& vox)
+  {
+    emt->vox = vox;
+    sync_gl_all(*emt);
   }
   public function void on_key_pressed(int scancode, uint modmask,
     glm::vec3 mutable& cursor_move_r, string mutable& msg_r)
@@ -48,6 +55,10 @@ public struct noedit_control(string const& datadir0,
     // debug_log("noedit on_frame");
     sync_gl();
     // debug_log("noedit on_frame done");
+  }
+  public function void on_draw_finished()
+  {
+
   }
   public function void modify_tmap(glm::uvec3 const& pos, uint value)
   {
@@ -65,18 +76,19 @@ public struct noedit_control(string const& datadir0,
       const sz = pos.second - pos.first + make_ivec3(1, 1, 1);
       const s = sz.x * sz.y * sz.z;
       // debug_log("noedit sync pos", pos, s);
-      texture_data_mip_sync_gl(tme.data[0][0], tme.data[0],
-        to_uvec3(pos.first), to_uvec3(sz), glt_tmap[0]);
-      texture_data_mip_sync_gl(tme.data[1][0], tme.data[1],
-        to_uvec3(pos.first), to_uvec3(sz), glt_tmap[1]);
+      for (const i: 0 .. tme.data.size()) { // 各ワード
+        texture_data_mip_sync_gl(tme.data[i][0], tme.data[i],
+          to_uvec3(pos.first), to_uvec3(sz), glt_tmap[i]);
+      }
     }
+    /* tpat変更箇所のglへの反映。変更領域をマージしてまとめてコピーする */
     pair{uvec3, uvec3} tpmod = tpe.get_modified_merged(true);
     if (tpmod.second.x != 0u) {
       // debug_log("noedit sync tpmod", tpmod);
-      texture_data_mip_sync_gl(tpe.data[0][0], tpe.data[0],
-        tpmod.first, tpmod.second, glt_tpat[0]);
-      texture_data_mip_sync_gl(tpe.data[1][0], tpe.data[1],
-        tpmod.first, tpmod.second, glt_tpat[1]);
+      for (const i: 0 .. tpe.data.size()) { // 各ワード
+        texture_data_mip_sync_gl(tpe.data[i][0], tpe.data[i],
+          tpmod.first, tpmod.second, glt_tpat[i]);
+      }
     }
   }
 }

@@ -1,7 +1,7 @@
 public namespace pgl3d::physics::collision_shape "use-unsafe";
 public import core::common -;
 public import core::exception -;
-public import core::pointer::raw -;
+private import core::pointer::raw -;
 public import core::meta m;
 public import core::meta::vararg va;
 public import core::numeric::fpmath -;
@@ -11,7 +11,6 @@ private import core::meta::platform mp;
 private import bullet_physics::base -;
 private import bullet_physics::constants -;
 private import bullet_physics::api +;
-private import core::pointer::raw_unsafe -;
 private import pgl3d::geometry::funcs -;
 private import pgl3d::texture::editable_voxel -;
 private import pgl3d::engine::util -;

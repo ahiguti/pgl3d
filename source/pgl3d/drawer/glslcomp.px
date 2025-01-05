@@ -1,0 +1,136 @@
+private threaded namespace pgl3d::drawer::glslcomp "export-unsafe";
+public import core::common -;
+public import pgl3d::drawer::base -;
+public import core::meta m;
+
+/* drawer_computeはcomputeシェーダの雛形。前段をそのまま後段へ
+ * 出力する。
+ */
+
+private pure tsvaluetype struct glslcomp_vertex_attributes()
+{
+}
+
+private pure tsvaluetype struct glslcomp_instance_attributes()
+{
+}
+
+private pure tsvaluetype struct glslcomp_uniforms()
+{
+}
+
+public pure mtvaluetype struct glslcomp_image() {
+  public string fbname; // resource_pool内の名前
+  public GLenum access;
+  public GLenum format;
+}
+
+public metafunction GL_READ_ONLY opengl::compat::GL_READ_ONLY;
+public metafunction GL_WRITE_ONLY opengl::compat::GL_WRITE_ONLY;
+public metafunction GL_READ_WRITE opengl::compat::GL_READ_WRITE;
+
+public metafunction GL_RGBA8 opengl::compat::GL_RGBA8;
+public metafunction GL_RGBA8UI opengl::compat::GL_RGBA8UI;
+
+public struct drawer_glslcomp(shader_config const& glc,
+  cstrref const& csh_fname0, ptr{uvec3} const& num_groups0,
+  drawer_shared const& ds, cslice{glslcomp_image} const& images0,
+  bool image_memory_barrier0)
+<drawstep_i>
+{
+  varray{glslcomp_image} const images = images0;
+  ptr{uvec3} const num_groups = num_groups0;
+  bool const image_memory_barrier = image_memory_barrier0;
+  varray{cptr{gl_framebuffer}} fbos;
+  metafunction tattr glslcomp_vertex_attributes;
+  string const csh_fname = csh_fname0;
+  glslcomp_shader_ptr sdr = init_glslcomp_shader(glc, csh_fname);
+  vbid_t const vbid_glslcomp = ds.vbid_pool->intern("vbid_glslcomp");
+  vsid_t const vsid_glslcomp = ds.vsid_pool->intern("vsid_glslcomp");
+  init(glc, ds);
+  function void init(shader_config const& glc, drawer_shared const& ds) {
+    const respool = pointer_downcast{ptr{resource_pool}}(ds.gl_resources);
+    for (const i, const& im: images) {
+      fbos.push_back(*respool->framebuffers.equal_range(im.fbname));
+    }
+  }
+  public function vbid_t get_drawer_vbid() const { return vbid_glslcomp; }
+  public function vbid_t get_instances_vbid() const {
+    return vbid_glslcomp; }
+  public function vbid_t get_vertices_vbid() const { return vbid_glslcomp; }
+  public function prepare_instance_data_funcptr
+  get_prepare_instance_data_funcptr() const {
+    return make_tfuncptr{prepare_instance_data_default}();
+  }
+  public function ptr{vertex_buffer} make_vertex_buffer() const {
+    return make_tattr_vertex_buffer{tattr}(false, get_instances_vbid(), false);
+  }
+  public function string builtin_vertex_set_name() const {
+    return "vsid_glslcomp"; }
+  public function void make_builtin_vertex_sets(vsid_t vsid,
+    ptr{vertices} const& vptr)
+  {
+  }
+  public function dgf_filler make_filler(ptr{vertices} const& vptr) const
+  {
+    return make_dgf_noop(vptr);
+  }
+  public function texture_info get_texture_info(cstrref const& name) const
+  {
+    return texture_info();
+  }
+  public function void resize_screen(shader_config const& glc)
+  {
+    // reload_shaders(glc);
+  }
+  public function bool reload_shaders(shader_config const& glc)
+  {
+    try {
+      sdr = init_glslcomp_shader(glc, csh_fname);
+      return true;
+    } catch (runtime_error ex) {
+      debug_log("glslcomp reload failed: " + ex.message());
+    }
+    return false;
+  }
+  public function void draw_drawstep(draw_data mutable& ddata)
+  {
+    if (m::is_true{is_gl45}) {
+      // debug_log("glslcomp draw");
+      for (const i, const& fbo: fbos) {
+        glBindImageTexture(static_cast{GLuint}(i), fbo->texture_color[0].get(),
+          0, static_cast{GLboolean}(GL_FALSE), 0, images[i].access,
+          images[i].format);
+      }
+      glUseProgram(sdr->program);
+      const uvec3 ngrp = *num_groups;
+      glDispatchCompute(ngrp.x / 8, ngrp.y / 8, ngrp.z / 1);
+        // TODO: local_sizeを設定可能にするべし
+      if (image_memory_barrier) {
+        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+      }
+    }
+  }
+  public function option{ptr{edit_control_i}} get_edit_mode() const
+  {
+    return option{ptr{edit_control_i}}();
+  }
+}
+
+metafunction glslcomp_shader_ptr
+  ptr{glshader{
+    glslcomp_uniforms,
+    glslcomp_instance_attributes,
+    glslcomp_vertex_attributes}};
+
+function glslcomp_shader_ptr
+init_glslcomp_shader(shader_config const& g, cstrref const& csh_fname)
+{
+  tree_map{string, string} bnd;
+  const c = load_shader_program(g, bnd, csh_fname);
+  return make_glshader_ptr{
+    glslcomp_uniforms,
+    glslcomp_instance_attributes,
+    glslcomp_vertex_attributes}("", "", c, "", g.debug_level, "glslcomp");
+}
+

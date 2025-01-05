@@ -6,8 +6,13 @@ public import pgl3d::engine::pglbase *;
 public import pgl3d::engine::pglconfig *;
 public import pgl3d::opengl::shader_config *;
 public import pgl3d::drawer::drawer *;
+public import pgl3d::sdl::sdlutil *;
 public import sdl2::api_base *;
 public import sdl2::api_types *;
+
+public interface pgl3d_application_factory {
+  public function ptr{pgl3d_application} make_application();
+}
 
 public interface pgl3d_application {
   public function tptr{pgl3d_scene_shared} get_scene_shared();
@@ -16,13 +21,14 @@ public interface pgl3d_application {
     shader_config const& sconf, drawer_shared const& ds);
   public function void on_build_vertices(make_vertices_i mutable& mvx);
   public function void on_joystick_changed(cslice{joystick_info} const& jinfo);
+  public function void on_geometry_changed(app_ctrl_i mutable& actrl);
   public function void on_event(SDL_Event const& ev, app_ctrl_i mutable& actrl,
     float speed);
     // イベント一つごとに呼ばれる。
   public function void on_scankeys(cslice{uchar} const& keys,
     cslice{joystick_state} const& joystick, float speed);
     // キースキャン後に呼ばれる。フレーム毎に一回。
-  public function void on_frame();
+  public function void on_frame(app_ctrl_i mutable& actrl);
     // motion 反映前に呼ばれる。フレーム毎に一回。
   public function void on_motion_pre();
     // main threadからmotion threadへ情報を移動する際に呼ばれる。

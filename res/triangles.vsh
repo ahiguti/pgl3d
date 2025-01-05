@@ -4,22 +4,27 @@ uniform mat4 view_projection_matrix;
 uniform vec3 camera_pos;
 uniform mat4 shadowmap_vp[<%smsz/>];
 <%decl_instance_attr mat4 model_matrix/>
-/* layout (location=0) */<%vert_in/> vec3 position;
+layout (location=0) <%vert_in/> vec3 position;
   // stype==0のとき頂点のオブジェクト座標
   // stype==1のときオブエジェクト座標系での接線空間の原点
-/* layout (location=1) */<%vert_in/> vec3 normal;   // オブジェクト座標系での法線(接線空間のz軸)
-/* layout (location=2) */<%vert_in/> vec3 tangent;  // オブジェクト座標系での接線(接線空間のx軸)
-/* layout (location=3) */<%vert_in/> vec3 uvw;      // 頂点のテクスチャ座標
-/* layout (location=4) */<%vert_in/> vec4 aabb_or_tconv;
+layout (location=1) <%vert_in/> vec3 normal;
+  // オブジェクト座標系での法線(接線空間のz軸)
+layout (location=2) <%vert_in/> vec3 tangent;
+  // オブジェクト座標系での接線(接線空間のx軸)
+layout (location=3) <%vert_in/> vec3 uvw;
+  // 頂点のテクスチャ座標
+layout (location=4) <%vert_in/> vec4 aabb_or_tconv;
   // stype==0のときテクスチャ座標の範囲aabb
   // stype==1のときテクスチャ座標から接線空間への変換
 <%if><%eq><%stype/>1<%/>
-/* layout (location=5) */<%vert_in/> vec3 aabb_min; // テクスチャ座標での範囲aabb
-/* layout (location=6) */<%vert_in/> vec3 aabb_max; // テクスチャ座標での範囲aabb
+layout (location=5) <%vert_in/> vec3 aabb_min;
+  // テクスチャ座標での範囲aabb
+layout (location=6) <%vert_in/> vec3 aabb_max;
+  // テクスチャ座標での範囲aabb
 <%/>
-// <%vert_in/> vec2 boundary[<%boundary_len/>]; // テクスチャ座標での底面多角形
 <%for x 0><%boundary_len/>
-/* layout (location=<%add><%x/>7<%/>) */<%vert_in/> vec2 boundary<%x/>; // テクスチャ座標での底面多角形
+layout (location=<%add><%x/>7<%/>) <%vert_in/> vec2 boundary<%x/>;
+  // テクスチャ座標での底面多角形
 <%/>
 <%vert_out/> vec3 vary_position; // ワールドの頂点座標
 <%vert_out/> vec3 vary_normal;   // ワールドでの法線
@@ -103,7 +108,6 @@ void main(void)
       vary_boundary_len = <%x/> + 1;
     }
     <%/>
-    // vary_boundary_len = 5; // FIXME
   <%/>
   <%if><%and><%ne><%stype/>1<%/><%enable_shadowmapping/><%/>
     vec3 ndelta = mat3(shadowmap_vp[0]) * vary_normal * ndelta_scale; // 0.02

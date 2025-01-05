@@ -11,6 +11,8 @@ public import pgl3d::engine::pglconfig -;
 public import pgl3d::engine::pglbase -;
 public import pgl3d::engine::util -;
 
+private metafunction debug_dispmode no_operation;
+
 public struct sdlcontext(pgl3d_config const& config0)
 {
   public pgl3d_config config = config0;
@@ -29,7 +31,7 @@ public struct sdlcontext(pgl3d_config const& config0)
     // glTextureBarrierを使ったread-modify-writeを禁止するかどうか。
     // nvidia以外では期待通り動いてくれないので禁止する。
   public scoped_nullable{SDL_DestroyWindow} sdl_window;
-  private scoped_nullable{SDL_GL_DeleteContext} sdl_glcontext;
+  public scoped_nullable{SDL_GL_DeleteContext} sdl_glcontext;
   public varray{ptr{scoped_nullable{SDL_JoystickClose}}} joystick_handles;
   public varray{joystick_info} joysticks;
   init();
@@ -58,14 +60,14 @@ public struct sdlcontext(pgl3d_config const& config0)
     for (int i: 0 .. num_modes) {
       SDL_DisplayMode mode;
       SDL_GetDisplayMode(0, i, address(mode));
-      sdl_log("displaymode", mode.w, mode.h);
+      debug_dispmode("displaymode", mode.w, mode.h);
     }
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 
     if (enable_msaa != 0) {
       SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
       SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
-      sdl_log("enable_msaa");
+      debug_log("enable_msaa");
     }
     mutable wflags = SDL_WINDOW_OPENGL;
     if (m::ne{is_windows, 0}) {

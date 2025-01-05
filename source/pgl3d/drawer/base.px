@@ -1,7 +1,6 @@
 private threaded namespace pgl3d::drawer::base "export-unsafe";
 public import core::common *;
 public import core::pointer::raw *;
-public import core::pointer::raw_unsafe *;
 public import core::numeric::fpmath *;
 public import glm *;
 public import glm::raw *;
@@ -68,7 +67,7 @@ public struct drawer_shared()
     // テクスチャデータを連想配列に保持し共有する
   public resource_pool_ptr const gl_resources = make_ptr{resource_pool}();
     // GLのテクスチャとフレームバッファを連想配列に保持し共有する
-  public tptr{tiled_voxel_texture} const tvt
+  public tptr{tiled_voxel_texture} const tiledvox
     = make_tptr{tiled_voxel_texture}();
   public ptr{edit_mode_texture} const emt
     = make_ptr{edit_mode_texture}();

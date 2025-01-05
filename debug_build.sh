@@ -2,5 +2,5 @@
 
 cd `dirname $0`
 
-exec env PXC_BUILD_CONFIG=Debug ./build_exec.sh $*
+exec env PGL3D_BUILD_CONFIG=Debug ./build_exec.sh $*
 

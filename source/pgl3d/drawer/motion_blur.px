@@ -144,6 +144,6 @@ init_motion_blur_shader(shader_config const& g, size_t num_fbos)
   const f = load_shader_program(g, bnd, "motion_blur.fsh");
   return make_glshader_ptr{motion_blur_uniforms,
     motion_blur_instance_attributes,
-    motion_blur_vertex_attributes}(v, f, "", g.debug_level, "motion_blur");
+    motion_blur_vertex_attributes}(v, f, "", "", g.debug_level, "motion_blur");
 }
 

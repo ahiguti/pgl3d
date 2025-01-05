@@ -1,6 +1,6 @@
 public namespace pgl3d::engine::mainloop "use-unsafe";
 public import core::common -;
-public import core::pointer::raw -;
+private import core::pointer::raw -;
 public import core::numeric::fpmath -;
 public import glm;
 public import core::io::time -;
@@ -27,24 +27,35 @@ private import pgl3d::ext::process_priority -;
 private import pgl3d::ext::nvapi -;
 private import pgl3d::ext::debug_helper -;
 private import pgl3d::engine::pxc_backtrace -;
+private import pgl3d::imgui::dear_imgui ui;
 // private import pgl3d::engine::console -;
 
-public function {tapp} void mainloop(cstrref const& conf_filename)
+public function {tappfac} void mainloop(cslice{string} const& argv)
 {
-  option{ptr{pgl3d_application}} oapp;
+  option{ptr{pgl3d_application_factory}} oappf;
     // pgl3d_applicationはopenglのリソースを保持するので、openglのコンテキスト
     // を削除する前にpgl3d_applicationを解放しなければならない。そのため
     // mainloop_internalに渡すpgl3d_applicationが唯一の参照になるようにする
-  oapp.some = make_ptr{tapp}();
+  oappf.some = make_ptr{tappfac}();
   string confstr;
-  sdl_load_file(conf_filename, confstr);
+  for (const i, const& arg: argv) {
+    if (find_mapped(arg, static_cast{size_t}(0u), '=') != arg.size()) {
+      confstr += arg + "\n";
+    } else {
+      string fstr;
+      if (!sdl_load_file(arg, fstr)) {
+        throw runtime_error_template{"mainloop"}("failed to load " + arg);
+      }
+      confstr += fstr;
+    }
+  }
   const conf = pgl3d_config(confstr);
   opengl::base::set_check_error_enabled(conf.get("gldebug", 0, 0, 1));
   set_debug_mask_hexstr(conf.get("debug_mask", string(), string(), string()));
-  const ml = make_ptr{mainloop_internal}(oapp.some, conf);
-  oapp = option{ptr{pgl3d_application}}();
+  const ml = make_ptr{mainloop_internal}(oappf.some, conf);
+  oappf = option{ptr{pgl3d_application_factory}}();
     // mainloop_internalに渡したappが唯一の参照となるようにするために、
-    // ここでoappからの参照をなくす。
+    // ここでoappfからの参照をなくす。
   set_mainloop(ml);
 }
 
@@ -121,14 +132,14 @@ frame_stat_log(double threshold0)
   public function void next_ent()
   {
     ents[cur_ent].fill();
-    if (log_count >= 31 && log_count % 30 == 0) {
-      // 30 frames
-      const& prev = ents[(cur_ent + log_length - 30u) % log_length];
+    metafunction nfr_int m::sub{log_length, 1};
+    if (log_count > nfr_int && log_count % nfr_int == 0) {
+      const& prev = ents[(cur_ent + log_length - nfr_int) % log_length];
       const& cur = ents[cur_ent];
       const d = cur.ticks[cur.ticks.size() - 1]
         - prev.ticks[prev.ticks.size() - 1];
       if (d != 0) {
-        fps = 30000.0f / cast_float(d);
+        fps = cast_float(nfr_int) * 1000.0f / cast_float(d);
       }
       bool found = false;
       for (size_t k: 0u .. m::symbol{frame_statistics, "size"}) {
@@ -280,12 +291,24 @@ framerate_control(int vsync0, double max_fps0, int frame_sleep0)
   }
 }
 
-private struct mainloop_internal(ptr{pgl3d_application} const& app0,
-  pgl3d_config const& conf)
+private struct mainloop_internal(ptr{pgl3d_application_factory} const& appf0,
+  pgl3d_config const& conf0)
 <mainloop_i>
 {
   int cnt = 0;
-  option{ptr{main_ctrl}} octrlp = make_option(make_ptr{main_ctrl}(app0, conf));
+  ptr{pgl3d_application_factory} appf = appf0;
+  pgl3d_config const conf = conf0;
+  ptr{sdlcontext} sdlc = make_ptr{sdlcontext}(conf);
+  option{ptr{main_ctrl}} octrlp;
+  init();
+  private function void init()
+  {
+    const app = appf->make_application();
+    octrlp = make_option(make_ptr{main_ctrl}(app, sdlc, conf));
+    app->on_geometry_changed(*octrlp.some);
+      // リスタート直後に反映させるために必要。リスタート時にはwindow
+      // geometryイベントが送られないため。
+  }
   public function bool step()
   {
     if (cnt == 0) {
@@ -294,13 +317,13 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app0,
       debug_log("mainloop nvapi:", nvapi_err);
     }
     ++cnt;
-    bool r = false;
+    main_ctrl_ret r = main_ctrl_continue;
     {
       const ctrlp = octrlp.some;
       mutable& ctrl = *ctrlp;
       r = ctrl.step_internal(ctrl);
     }
-    if (r) {
+    if (r == main_ctrl_finish) {
       debug_log("mainloop finished");
       {
         const ctrlp = octrlp.some;
@@ -311,8 +334,17 @@ private struct mainloop_internal(ptr{pgl3d_application} const& app0,
       // 解放される。
       octrlp = option{ptr{main_ctrl}}();
       debug_log("mainloop cleanup done");
+      return true;
+    } else if (r == main_ctrl_restart) {
+      debug_log("mainloop reset cleanup app");
+      octrlp = option{ptr{main_ctrl}}();
+      debug_log("mainloop reset cleanup app done");
+      init();
+      debug_log("mainloop reset re-init app done");
+      return false;
+    } else {
+      return false;
     }
-    return r;
   }
 }
 
@@ -337,22 +369,28 @@ private pure function void heartbeat_thread(tptr{bool} const& fin)
   }
 }
 
+private pure valuetype enum main_ctrl_ret {
+  main_ctrl_continue = 0,
+  main_ctrl_restart = 1,
+  main_ctrl_finish = 2,
+}
+
 private struct main_ctrl(ptr{pgl3d_application} const& app0,
-  pgl3d_config const& conf)
+  ptr{sdlcontext} const& sdlc0, pgl3d_config const& conf)
 <app_ctrl_i>
 {
-  private sdlcontext sdlc = sdlcontext(conf);
+  private ptr{sdlcontext} sdlc = sdlc0;
   private ptr{pgl3d_application} app = app0;
     // sdlcontextの中でGLのコンテキストを削除しているので、appが保持する
     // リソースはsdlcのデストラクタの前に解放する必要がある。そのため
     // appはsdlcより後ろに置かなければならない。またappは唯一の参照でなけ
     // ればならないことに注意。
-  private shader_config sconf = shader_config(sdlc.gles_flag, sdlc.glmajor,
-    sdlc.glminor, sdlc.enable_msaa, sdlc.forbid_read_modify_write, conf);
+  private shader_config sconf = shader_config(sdlc->gles_flag, sdlc->glmajor,
+    sdlc->glminor, sdlc->enable_msaa, sdlc->forbid_read_modify_write, conf);
   private drawer_shared ds;
   private varray{drawer_cond} drawsteps = app->on_init_drawstep(sconf, ds);
   private pglshader pgs = pglshader(sconf, ds, drawsteps,
-    sdlc.init_w, sdlc.init_h);
+    sdlc->init_w, sdlc->init_h);
   private node_factory nfac;
   private option{ptr{motion_thread_client}} motion_thr;
   private tptr{bool} heartbeat_fin = make_tptr{bool}(false);
@@ -360,14 +398,15 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   private size_t saved_stat_num_objects;
   private frame_stat_log mutable fr = frame_stat_log(
     conf.get("framestat_threshold", 0.0, 0.0, 10.0));
-  private framerate_control mutable frctl = framerate_control(sdlc.vsync,
+  private framerate_control mutable frctl = framerate_control(sdlc->vsync,
     conf.get("fps", 60.0, 1.0, 3600.0),
     conf.get("frame_sleep", 1, 0, 1));
   private int dummy_flip = conf.get("dummy_flip", 0, 0, 4);
   private int cur_dummy_flip = 1; // dummy_flip自動のとき使う
   private int cur_dummy_flip_count = 0;
   private int cur_dummy_flip_gpusum = 0;
-  private int fullscreen = 0;
+  private bool fullscreen = false;
+  private bool enable_imgui = false;
   private int saved_w = 0;
   private int saved_h = 0;
   private Uint32 saved_window_flags = 0;
@@ -375,9 +414,10 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     conf.get("async_motion_thread", 1, 0, 1) == 1;
   private Uint32 motion_thr_start_time;
   private bool glfinish = conf.get("glfinish", 0, 0, 1) == 1;
-  private bool done = false;
+  private main_ctrl_ret main_ctrl_ret_value = main_ctrl_continue;
   private bool paused = false;
   private varray{joystick_state} joysticks;
+  private ui::ImGuiThreadContext imgui;
   // private varray{uchar} console_input;
   /*
   private varray{short} joy_axes;
@@ -402,9 +442,9 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       // windowsでfullscreenのときにイベントループを数秒止めると復旧できなく
       // なる(何故？)。そのためghostingを無効化する。
     // SDL_EventState(SDL_KEYDOWN, 0); // FIXME
-    SDL_EventState(SDL_KEYUP, 0);
-    SDL_EventState(SDL_TEXTEDITING, 0);
-    SDL_EventState(SDL_TEXTINPUT, 0);
+    // SDL_EventState(SDL_KEYUP, 0);
+    // SDL_EventState(SDL_TEXTEDITING, 0);
+    // SDL_EventState(SDL_TEXTINPUT, 0);
     SDL_JoystickEventState(0);
     if (m::or{is_android, is_ios}) {
       SDL_EventState(SDL_MOUSEBUTTONDOWN, 0);
@@ -416,12 +456,16 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       SDL_EventState(SDL_FINGERUP, 0);
       SDL_EventState(SDL_FINGERMOTION, 0);
     }
+    SDL_StopTextInput();
+      // SDL_StopTextInput()を呼ばないと初期状態でTEXTINPUTイベントが
+      // 飛んでくる。imguiは何もしていないように見える。理由不明だが
+      // Stopしておく。
     sdl_log("PGL3D init0");
     app->on_build_vertices(pgs);
     pgs.prepare(nfac);
     update_window_size();
 
-    app->on_joystick_changed(sdlc.joysticks);
+    app->on_joystick_changed(sdlc->joysticks);
 
     /* spawn motion thread */
     motion_thr.some = make_ptr{motion_thread_client}(nfac,
@@ -431,27 +475,45 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       motion_thr.some->start();
       motion_thr_start_time = SDL_GetTicks();
     }
+
+    /* init imgui */
+    {
+      mutable fntfn = conf.get("imgui_font", string(), string(), string());
+      if (fntfn.empty()) {
+        fntfn = "Cousine-Regular.ttf";
+      }
+      varray{uchar} ttfimg;
+      if (!sdl_load_file("res/" + fntfn, ttfimg)) {
+        debug_log("failed to load font", fntfn);
+      }
+      const fnsz = conf.get("imgui_font_size", 24u, 8u, 64u);
+      imgui.SetGLContext(sdlc->sdl_glcontext.get(), sdlc->sdl_window.get(),
+        ttfimg, fnsz);
+      imgui.GetStyle().FrameBorderSize = 1.0;
+      imgui.GetStyle().FrameRounding = 5.0;
+      imgui.GetStyle().Alpha = 0.5;
+    }
   }
   private function void update_fullscreen()
   {
     /*
-    // この処理は無効かしておく。
+    // この処理は無効化しておく。
     // windowsで拡大率を100%以外にするとおかしくなる。
     // 複数ディスプレイを持つときおかしくなる。
-    if (fullscreen != 0) {
-      saved_window_flags = SDL_GetWindowFlags(sdlc.sdl_window);
+    if (fullscreen) {
+      saved_window_flags = SDL_GetWindowFlags(sdlc->sdl_window);
       debug_log("window flags", saved_window_flags, SDL_WINDOW_MAXIMIZED);
-      int didx = SDL_GetWindowDisplayIndex(sdlc.sdl_window);
+      int didx = SDL_GetWindowDisplayIndex(sdlc->sdl_window);
       SDL_DisplayMode dm;
       SDL_GetCurrentDisplayMode(didx, address(dm));
       debug_log("display size", dm.w, dm.h);
       if ((saved_window_flags & SDL_WINDOW_MAXIMIZED) != 0) {
         // 最大化されたウインドウをもとに戻す。最大化されたままフルスクリーンに
         // するとAlt-Tabで切り替えた時にサイズがおかしくなる。
-        SDL_RestoreWindow(sdlc.sdl_window);
+        SDL_RestoreWindow(sdlc->sdl_window);
       }
-      SDL_GetWindowSize(sdlc.sdl_window, address(saved_w), address(saved_h));
-      SDL_SetWindowSize(sdlc.sdl_window, dm.w, dm.h);
+      SDL_GetWindowSize(sdlc->sdl_window, address(saved_w), address(saved_h));
+      SDL_SetWindowSize(sdlc->sdl_window, dm.w, dm.h);
     } else {
     }
     */
@@ -463,25 +525,26 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       flag = SDL_WINDOW_FULLSCREEN;
       //flag = SDL_WINDOW_FULLSCREEN_DESKTOP;
     }
-    SDL_SetWindowFullscreen(sdlc.sdl_window, fullscreen != 0 ? flag : 0);
-    if (fullscreen == 0) {
+    SDL_SetWindowFullscreen(sdlc->sdl_window, fullscreen ? flag : 0);
+    if (!fullscreen) {
       if (saved_w != 0) {
-        SDL_SetWindowSize(sdlc.sdl_window, saved_w, saved_h);
+        SDL_SetWindowSize(sdlc->sdl_window, saved_w, saved_h);
       }
       if ((saved_window_flags & SDL_WINDOW_MAXIMIZED) != 0) {
-        SDL_MaximizeWindow(sdlc.sdl_window);
+        SDL_MaximizeWindow(sdlc->sdl_window);
       }
     }
   }
   private function void toggle_fullscreen()
   {
-    fullscreen = fullscreen != 0 ? 0 : 1;
+    fullscreen = !fullscreen;
     sdl_log("fullscreen=", fullscreen);
     update_fullscreen();
   }
-  private function void reload_shaders()
+  private function void toggle_imgui()
   {
-    engine_status = pgs.reload_shaders();
+    enable_imgui = !enable_imgui;
+    sdl_log("enable_imgui=", enable_imgui);
   }
   private function void update_window_size()
   {
@@ -503,13 +566,20 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     }
   }
   */
-  public function bool step_internal(app_ctrl_i mutable& actrl)
+  public function void reload_shaders()
+  {
+    engine_status = pgs.reload_shaders();
+  }
+  public function main_ctrl_ret step_internal(app_ctrl_i mutable& actrl)
   {
     fr.save_ticks("ini");
     // read_console_input(actrl);
     // bool scene_next_flag = false;
     SDL_Event ev;
     while (SDL_PollEvent(address(ev)) != 0) {
+      if (enable_imgui && ui::ProcessEvent(address(ev))) {
+        // continue;
+      }
       const etype = ev.type;
       /*
       sdl_log("event", cast_int(ev.type));
@@ -524,15 +594,15 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
         } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
           paused = true;
           sdl_log("focuslost ", ev.window.windowID);
-          sdlc.pause();
+          sdlc->pause();
         } else if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
           sdl_log("restored ", ev.window.windowID);
         } else if (ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
           sdl_log("focusgained ", ev.window.windowID);
           paused = false;
-          sdlc.resume();
-          // sdlc.make_current();
-          sdl_log("gl version ", sdlc.get_gl_version());
+          sdlc->resume();
+          // sdlc->make_current();
+          sdl_log("gl version ", sdlc->get_gl_version());
           if (sconf.auto_reload) {
             reload_shaders();
           }
@@ -548,7 +618,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
         }
       } else if (etype == SDL_QUIT) {
         sdl_log("quit");
-        done = true;
+        main_ctrl_ret_value = main_ctrl_finish;
         break;
       }
       /* invoke event handler */
@@ -558,16 +628,16 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     if (is_windows) {
       // TODO: 複数joystickがあっても動作するように
       // TODO: linux?
-      // sdlc.update_joystick_info();
+      // sdlc->update_joystick_info();
       SDL_JoystickUpdate();
-      if (sdlc.joysticks.size() != joysticks.size()) {
-        joysticks.resize(sdlc.joysticks.size(), joystick_state());
+      if (sdlc->joysticks.size() != joysticks.size()) {
+        joysticks.resize(sdlc->joysticks.size(), joystick_state());
         debug_log("joysticks", joysticks.size());
       }
     }
     for (const i: 0 .. joysticks.size()) {
-      const& hnd = *sdlc.joystick_handles[i];
-      const& inf = sdlc.joysticks[i];
+      const& hnd = *sdlc->joystick_handles[i];
+      const& inf = sdlc->joysticks[i];
       mutable& st = joysticks[i];
       if (st.axes.size() != inf.num_axes) {
         st.enable_axes.resize(inf.num_axes, false);
@@ -610,11 +680,11 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       app->on_scankeys(ks, joysticks, frctl.frame_speed_mul);
     }
     fr.save_ticks("keys");
-    app->on_frame();
+    app->on_frame(actrl);
     fr.save_ticks("app_on_frame");
     if (paused) {
       SDL_Delay(10);
-      return done;
+      return main_ctrl_ret_value;
     }
     /* motion and prepare instance data */
     {
@@ -713,11 +783,24 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
 // FIXME : here
     }
     fr.save_ticks("motion");
+    ui::StartFrame();
     pgs.frame_begin();
     {
       /* draw frame */
       varray{uint} tick_draw;
-      tick_draw = pgs.draw_frame();
+      if (dummy_flip > 1) {
+        if (cur_dummy_flip_count == 0) {
+          tick_draw = pgs.draw_frame();
+        } else {
+          tick_draw = pgs.draw_frame_lastpass();
+        }
+        ++cur_dummy_flip_count;
+        if (cur_dummy_flip_count >= dummy_flip) {
+          cur_dummy_flip_count = 0;
+        }
+      } else {
+        tick_draw = pgs.draw_frame();
+      }
       if (tick_draw.size() >= 2) {
         fr.save_ticks_value(tick_draw[0], "dr0");
         fr.save_ticks_value(tick_draw[1], "dr1");
@@ -726,11 +809,15 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
         fr.save_ticks("dr1");
       }
     }
+    app->on_draw_finished();
+    if (enable_imgui) {
+      ui::ShowDemoWindow(enable_imgui);
+    }
+    ui::Render();
     const saved_prev_time = frctl.time_prev;
     frctl.rate_control();
     fr.save_ticks("ratectrl");
-    app->on_draw_finished();
-    SDL_GL_SwapWindow(sdlc.sdl_window);
+    SDL_GL_SwapWindow(sdlc->sdl_window);
     fr.save_ticks("swapwindow");
     /*
     if (frctl.vsync != 0 && dummy_flip == 0) {
@@ -760,7 +847,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       }
       for (int i: 1 .. flip_count) {
         pgs.draw_frame_lastpass();
-        SDL_GL_SwapWindow(sdlc.sdl_window);
+        SDL_GL_SwapWindow(sdlc->sdl_window);
       }
       if (cur_dummy_flip_gpusum >= 0) {
         // nvapi有効のときのみ自動dummy_flipが可能。そうでないならdummy_flip
@@ -771,7 +858,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
       // dummy_flipが2以上のときはdummy_flipを入れる
       for (const i: 1 .. dummy_flip) {
         pgs.draw_frame_lastpass();
-        SDL_GL_SwapWindow(sdlc.sdl_window);
+        SDL_GL_SwapWindow(sdlc->sdl_window);
       }
     }
     */
@@ -787,7 +874,7 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     fr.save_ticks("framend");
     fr.next_ent();
     // if (scene_next_flag) { frctl.start(); }
-    return done;
+    return main_ctrl_ret_value;
   }
   public function void finish_mainloop() {
     {
@@ -800,14 +887,14 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
   {
     int w;
     int h;
-    SDL_GL_GetDrawableSize(sdlc.sdl_window, address(w), address(h));
+    SDL_GL_GetDrawableSize(sdlc->sdl_window, address(w), address(h));
     return glm::make_uvec2(static_cast{uint}(w), static_cast{uint}(h));
   }
   public function glm::uvec2 get_window_size() const
   {
     int w;
     int h;
-    SDL_GetWindowSize(sdlc.sdl_window, address(w), address(h));
+    SDL_GetWindowSize(sdlc->sdl_window, address(w), address(h));
     return glm::make_uvec2(static_cast{uint}(w), static_cast{uint}(h));
   }
   public function void set_param(string const& k, string const& v)
@@ -821,6 +908,10 @@ private struct main_ctrl(ptr{pgl3d_application} const& app0,
     } else if (k == "dummy_flip") {
       dummy_flip = (dummy_flip + 1) % 5;
       debug_log("dummy_flip", dummy_flip);
+    } else if (k == "toggle_imgui") {
+      toggle_imgui();
+    } else if (k == "restart_app") {
+      main_ctrl_ret_value = main_ctrl_restart;
     } else {
       debug_log("unknown command:", k, v);
     }

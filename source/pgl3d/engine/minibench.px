@@ -1,0 +1,84 @@
+namespace pgl3d::engine::minibench;
+
+import core::common -;
+
+pure tsvaluetype struct
+rand_generator(uint seed0)
+{
+  // mersenne twister
+  public uint index = 624u;
+  public farray{uint, 624} mt;
+  init_short(seed0);
+  public function uint generate()
+  {
+    if (index >= 624u) {
+      twist();
+    }
+    mutable y = mt[index];
+    y ^= y >> 11u;
+    y ^= (y << 7u) & 2636928640u;
+    y ^= (y << 15u) & 4022730752u;
+    y ^= y >> 18u;
+    ++index;
+    return y;
+  }
+  public function void init_short(uint seed)
+  {
+    index = 624u;
+    mt[0] = seed;
+    for (const i: 1 .. 624u) {
+      mt[i] = 1812433253u * (mt[i - 1] ^ mt[i - 1] >> 30u) + i;
+    }
+  }
+  public function void init_full(cslice{uint} const& seed)
+  {
+    const n = min(seed.size(), mt.size());
+    size_t i;
+    for (i = 0; i < n; ++i) {
+      mt[i] = seed[i];
+    }
+  }
+  private function void twist()
+  {
+    for (const i: 0 .. 624u) {
+      const y = (mt[i] & 0x80000000u) + (mt[(i + 1u) % 624u] & 0x7fffffff);
+      mt[i] = mt[(i + 397u) % 624u] ^ (y >> 1u);
+      if (y % 2u != 0) {
+        mt[i] = mt[i] ^ 0x9908b0df;
+      }
+    }
+    index = 0u;
+  }
+  public function float generate_float() {
+    return static_cast{float}(generate()) / 4294967296.0;
+  }
+  public function uint generate_uint(uint maxval) {
+    double dv = static_cast{double}(generate()) / 4294967296.0;
+    dv = dv * static_cast{double}(maxval);
+    uint r = static_cast{uint}(dv);
+    if (r > maxval) {
+      r = 0;
+    }
+    return r;
+  }
+}
+
+public threaded function void minibench()
+{
+  ulong loop = 1000u;
+  while (true) {
+    loop *= 10u;
+    const t0 = thread_io().high_resolution_timer_double();
+    mutable rng = rand_generator(12345u);
+    for (const i: 0 .. loop) {
+      rng.generate();
+    }
+    const v = rng.generate();
+    const t1 = thread_io().high_resolution_timer_double();
+    debug_log("minibench", loop, v, t1 - t0);
+    if (t1 - t0 > 1.0f) {
+      break;
+    }
+  }
+}
+

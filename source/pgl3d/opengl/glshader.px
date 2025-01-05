@@ -1,7 +1,6 @@
 private threaded namespace pgl3d::opengl::glshader "export-unsafe";
 public import core::common -;
 private import core::pointer::raw -;
-private import core::pointer::raw_unsafe -;
 public import core::numeric::fpmath -;
 public import glm;
 public import opengl::compat -;
@@ -22,10 +21,11 @@ public interface glshader_i {
 
 public function {tuni, tinst, tvert} ptr{glshader{tuni, tinst, tvert}}
 make_glshader_ptr(cstrref const& prog_v, cstrref const& prog_f,
-  strlit const& attrib_to_avoid_0, int debug_level, cstrref const& fname_hint)
+  cstrref const& prog_c, strlit const& attrib_to_avoid_0, int debug_level,
+  cstrref const& fname_hint)
 {
   return make_ptr{glshader{tuni, tinst, tvert}}(
-    prog_v, prog_f, attrib_to_avoid_0, debug_level, fname_hint);
+    prog_v, prog_f, prog_c, attrib_to_avoid_0, debug_level, fname_hint);
 }
 
 private function {t} void
@@ -51,7 +51,7 @@ set_uniform(GLint loc, cslice{float} const& value, size_t offset, int cnt)
 }
 
 public struct {tuni, tinst, tvert}
-glshader(cstrref const& prog_v, cstrref const& prog_f,
+glshader(cstrref const& prog_v, cstrref const& prog_f, cstrref const& prog_c,
   strlit const& attrib_to_avoid_0, int debug_level, cstrref const& fname_hint)
 <glshader_i>
 {
@@ -80,13 +80,13 @@ glshader(cstrref const& prog_v, cstrref const& prog_f,
   {
     glDeleteProgram(program); /* ok even if program == 0 */
   }
-  init(prog_v, prog_f, attrib_to_avoid_0, debug_level, fname_hint);
+  init(prog_v, prog_f, prog_c, attrib_to_avoid_0, debug_level, fname_hint);
   private function void init(cstrref const& prog_v, cstrref const& prog_f,
-    strlit const& attrib_to_avoid_0, int debug_level,
+    cstrref const& prog_c, strlit const& attrib_to_avoid_0, int debug_level,
     cstrref const& fname_hint)
   {
-    program = create_program(prog_v, prog_f, attrib_to_avoid_0, debug_level,
-      error);
+    program = create_program(prog_v, prog_f, prog_c, attrib_to_avoid_0,
+    debug_level, error);
     if (program == 0) {
       sdl_log("create_program: ", error);
       throw runtime_error_template{"create_program"}("1");
@@ -295,9 +295,7 @@ glshader(cstrref const& prog_v, cstrref const& prog_f,
   {
     if (m::is_true{is_gl45}) {
       GLsizei len;
-      // glGetProgramiv(prog, GL_PROGRAM_BINARY_LENGTH, address(len));
       string buf;
-      // buf.resize(static_cast{size_t}(len), 0);
       buf.resize(1024u * 1024u * 1024u, uchar());
       GLenum binfmt;
       glGetProgramBinary(program, static_cast{GLsizei}(buf.size()),
@@ -342,10 +340,6 @@ private function uint compile_shader(cstrref const& src, GLenum type,
   glGetShaderiv(res, GL_COMPILE_STATUS, address(success));
   if (success == 0) {
     int sz;
-//    if (m::is_true{is_android}) {
-    //if (m::eq{m::profile{"platform"}, "android"}) {
-//      sz = 4096; /* android bug workaround */
-//    } else
     {
       glGetShaderiv(res, GL_INFO_LOG_LENGTH, address(sz));
       if (sz == 0) {
@@ -372,14 +366,16 @@ private function uint compile_shader(cstrref const& src, GLenum type,
 
 private function uint
 create_program(cstrref const& vertex_shader, cstrref const& fragment_shader,
-  strlit const& attrib_to_avoid_0, int debug_level, string mutable& err_r)
+  cstrref const& compute_shader, strlit const& attrib_to_avoid_0,
+  int debug_level, string mutable& err_r)
 {
   mutable prog = glCreateProgram();
-  uint shader;
   int success = 1;
-  if (!vertex_shader.empty()) {
-    shader = compile_shader(vertex_shader, GL_VERTEX_SHADER, debug_level,
-      err_r);
+  function void compile_one(GLenum typ, cstrref const& src) {
+    if (src.empty()) {
+      return;
+    }
+    uint const shader = compile_shader(src, typ, debug_level, err_r);
     if (shader != 0) {
       glAttachShader(prog, shader);
       glDeleteShader(shader); /* shader will be delete when prog is deleted */
@@ -387,19 +383,10 @@ create_program(cstrref const& vertex_shader, cstrref const& fragment_shader,
       success = 0;
     }
   }
-  if (!fragment_shader.empty()) {
-    shader = compile_shader(fragment_shader, GL_FRAGMENT_SHADER, debug_level,
-      err_r);
-    if (shader != 0) {
-      glAttachShader(prog, shader);
-      glDeleteShader(shader); /* shader will be delete when prog is deleted */
-      if (!attrib_to_avoid_0.empty()) {
-        glBindAttribLocation(prog, 1,
-          attrib_to_avoid_0.to_crawptr().to_ccharptr());
-      }
-    } else {
-      success = 0;
-    }
+  compile_one(GL_VERTEX_SHADER, vertex_shader);
+  compile_one(GL_FRAGMENT_SHADER, fragment_shader);
+  if (m::is_true{is_gl45}) {
+    compile_one(GL_COMPUTE_SHADER, compute_shader);
   }
   if (success == 0) {
     debug_log("create_program failed:", success);
@@ -410,33 +397,21 @@ create_program(cstrref const& vertex_shader, cstrref const& fragment_shader,
     int linkst;
     glGetProgramiv(prog, GL_LINK_STATUS, address(linkst));
     if (linkst == 0) {
+      GLsizei len = 0;
+      glGetProgramiv(prog, GL_INFO_LOG_LENGTH, address(len));
       string buf;
-      buf.resize(4096, uchar());
-      GLsizei len;
+      buf.resize(static_cast{size_t}(len), uchar());
       glGetProgramInfoLog(prog, static_cast{GLsizei}(buf.size()), address(len),
         buf.to_rawptr().to_charptr());
       buf.resize(static_cast{size_t}(len), uchar());
       debug_log("linkprogram failed:", prog, buf);
       glsl_format_log(vertex_shader);
       glsl_format_log(fragment_shader);
-      // debug_log("vert:", vertex_shader);
-      // debug_log("frag:", fragment_shader);
+      glsl_format_log(compute_shader);
       glDeleteProgram(prog);
       prog = 0;
     } else {
       debug_log("linkprogram succeeded:", prog);
-      /*
-      GLsizei len;
-      // glGetProgramiv(prog, GL_PROGRAM_BINARY_LENGTH, address(len));
-      string buf;
-      // buf.resize(static_cast{size_t}(len), 0);
-      buf.resize(1024u * 1024u * 32u, 0);
-      GLenum binfmt;
-      glGetProgramBinary(prog, static_cast{GLsizei}(buf.size()), address(len),
-        address(binfmt), buf.to_rawptr().to_voidptr());
-      buf.resize(static_cast{size_t}(len), 0);
-      sdl_save_file("glprog" + to_string(prog) + ".bin", buf);
-      */
     }
   }
   return prog;

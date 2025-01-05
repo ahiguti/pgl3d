@@ -124,6 +124,6 @@ init_capture_shader(shader_config const& g)
   const v = load_shader_program(g, bnd, "capture.vsh");
   const f = load_shader_program(g, bnd, "capture.fsh");
   return make_glshader_ptr{capture_uniforms, capture_instance_attributes,
-    capture_vertex_attributes}(v, f, "", g.debug_level, "capture");
+    capture_vertex_attributes}(v, f, "", "", g.debug_level, "capture");
 }
 

@@ -3,8 +3,9 @@ public import core::common -;
 public import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
+private import pgl3d::edit_mode::edit_mode_texture -;
 
-public function {t} void
+public threaded function {t} void
 texture_data_sync_gl(t const& tex, int level, uvec3 const& spos,
   uvec3 const& sz, ptr{gl_texture} const& gltex)
 {
@@ -14,13 +15,14 @@ texture_data_sync_gl(t const& tex, int level, uvec3 const& spos,
   for (const z: 0 .. sz.z) {
     for (const y: 0 .. sz.y) {
       for (const x: 0 .. sz.x) {
-/*
-if (spos.x + x >= tex.get_size_uvec3().x ||
-    spos.y + y >= tex.get_size_uvec3().y ||
-    spos.z + z >= tex.get_size_uvec3().z) {
-  debug_log("texture_data_sync_gl invalid index", tex.get_size_uvec3(), spos, x, y, z);
-}
-*/
+        /*
+        if (spos.x + x >= tex.get_size_uvec3().x ||
+            spos.y + y >= tex.get_size_uvec3().y ||
+            spos.z + z >= tex.get_size_uvec3().z) {
+          debug_log("texture_data_sync_gl invalid index",
+            tex.get_size_uvec3(), spos, x, y, z);
+        }
+        */
         buf[i] = tex.get(spos.x + x, spos.y + y, spos.z + z);
         ++i;
       }
@@ -34,7 +36,7 @@ if (spos.x + x >= tex.get_size_uvec3().x ||
     buf.to_crawptr().to_cvoidptr());
 }
 
-public function void
+public threaded function void
 texture_data_mip_sync_gl(texture_reshaped const& tex0,
   texture_data_mip const& mip, uvec3 const& spos, uvec3 const& sz,
   ptr{gl_texture} const& gltex)
@@ -50,10 +52,52 @@ texture_data_mip_sync_gl(texture_reshaped const& tex0,
     } else {
       texture_data_sync_gl(tex, si(i), pos_a, msz, gltex);
     }
-    // pos_a = pos_a + make_uvec3(1u, 1u, 1u); // FIXME: なんで?
     pos_b = pos_b + make_uvec3(1u, 1u, 1u);
     pos_a = map{uvec3, core::operator::div}(pos_a, make_uvec3(2u, 2u, 2u));
     pos_b = map{uvec3, core::operator::div}(pos_b, make_uvec3(2u, 2u, 2u));
+  }
+}
+
+public threaded function void
+sync_gl_mipmap_all(edit_mode_texture mutable& emt)
+{
+  sync_gl_miplevels(emt, 1);
+}
+
+public threaded function void
+sync_gl_all(edit_mode_texture mutable& emt)
+{
+  sync_gl_miplevels(emt, 0);
+}
+
+private threaded function void
+sync_gl_miplevels(edit_mode_texture mutable& emt, size_t lvmin)
+{
+  for (const i: lvmin .. emt.vox.tpat_edit->data[0].size()) {
+    for (const j, mutable& dataj: emt.vox.tpat_edit->data) { 
+      const sz0 = dataj[i].get_size_uvec3();
+      const sz1 = emt.vox.tpat_edit->data[j][i].get_size_uvec3();
+      debug_log("sync_gl_mipmap_all tpat", i, j, sz0, sz1);
+      if (j >= 2) {
+        throw runtime_error_template{"sync_gl_miplevels"}("tpat");
+      }
+      ptr{gl_texture} tex = (j == 0) ? emt.glt_voxtpat0 : emt.glt_voxtpat1;
+      texture_data_sync_gl(dataj[i], si(i), uvec3(),
+        emt.vox.tpat_edit->data[j][i].get_size_uvec3(), tex);
+    }
+  }
+  for (const i: lvmin .. emt.vox.tmap_edit->data[0].size()) {
+    for (const j, mutable& dataj: emt.vox.tmap_edit->data) {
+      const sz0 = dataj[i].get_size_uvec3();
+      const sz1 = emt.vox.tpat_edit->data[j][i].get_size_uvec3();
+      if (j >= 2) {
+        throw runtime_error_template{"sync_gl_miplevels"}("tmap");
+      }
+      debug_log("sync_gl_mipmap_all tmap", i, j, sz0, sz1);
+      ptr{gl_texture} tex = (j == 0) ? emt.glt_voxtmap0 : emt.glt_voxtmap1;
+      texture_data_sync_gl(dataj[i], si(i), uvec3(),
+        emt.vox.tmap_edit->data[j][i].get_size_uvec3(), tex);
+    }
   }
 }
 

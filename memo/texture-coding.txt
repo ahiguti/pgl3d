@@ -15,8 +15,8 @@ primaryの値の意味(32bit rgba)
         1. .xが真ならxyいれかえ
         2. .yが真ならyzいれかえ
         3. .zが真ならzxいれかえ
-    tpscale_log2 := value.rgbの上から3番目のbit。z*4+y*2+x*1。
-      2^tpscale_log2倍にパターンを拡大。
+    tpscale_log2 := value.rgbの上から3番目のbitの z*4+y*2+x*1 + 1。
+      tmapボクセルに対してtpatボクセルが何倍細かいか(log2)を表す。
     curpos_tp := value.rgbの下5bit
     tpat_coord := tpat_sgn_rotate_tile(...)で計算
     value = texelFetch(sampler_voxtpat, tpat_coord)

@@ -17,14 +17,10 @@ nvapi_gpu_usage(uint idx);
 
 extern "implementation" inline
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && defined(_M_AMD64)
 
 #include "nvapi.h"
-#ifdef _WIN64
 #pragma comment(lib,"amd64/nvapi64.lib")
-#else
-#pragma comment(lib,"x86/nvapi.lib")
-#endif
 
 namespace pgl3d {
 

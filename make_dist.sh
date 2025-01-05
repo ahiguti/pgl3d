@@ -17,8 +17,8 @@ rm -rf pgl3d_dist
 mkdir pgl3d_dist
 mkdir pgl3d_dist/var
 cp -a res pgl3d_dist/
-cp ./windows/x64/Release/pgl3d_app.exe pgl3d_dist/
-cp -a ./windows/x64/Release/*.dll pgl3d_dist/
+cp ./windows_v142/x64/Release/pgl3d_app.exe pgl3d_dist/
+cp -a ./windows_v142/x64/Release/*.dll pgl3d_dist/
 echo "datadir=./data" > pgl3d_dist/res/pgl3d.cnf
 cat res/pgl3d.cnf | grep -v 'datadir' >> pgl3d_dist/res/pgl3d.cnf
 mkdir pgl3d_dist/data

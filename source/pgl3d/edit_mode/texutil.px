@@ -11,7 +11,7 @@ private import pgl3d::edit_mode::vecutil -;
 private metafunction dbg_rotate{f} f; // no_operation;
 private metafunction dbg_scale{f} no_operation;
 
-public function float
+public pure function float
 texel_volume(texel_value v)
 {
   if (is_space_voxel(v)) {
@@ -23,7 +23,7 @@ texel_volume(texel_value v)
   return 0.5f;
 }
 
-public function {for_mipmap, tsrc} void
+public pure function {for_mipmap, tsrc} void
 shrink_voxel_value(tsrc const& stex, texture_data_float const& svol,
   farray{texel_value, multiword_num_words} mutable& dtex,
   texture_data_float mutable& dvol, ivec3 const& p)
@@ -133,12 +133,16 @@ shrink_voxel_value(tsrc const& stex, texture_data_float const& svol,
     color_param cp_emit;
     color_param cp_albedo;
     if (volume_emit > 0.0f) {
-      const denom = volume; // volume_emit;
+      const denom = min(volume, 4.0);
+        // 8つのvoxleのうち4つが見えていると表面全体を覆うことができるので
+        // 4つ以上emitしていれば一段下のmiplevelでもフルにemitする。
+        // FIXME: test
+        // FIXME: tpatのmiplevel計算がおかしいのでは
       uvec3 uce = map{uvec3, static_cast{uint, float}}(color_emit / denom);
       cp_emit.emission = 1;
-      cp_emit.rgb.r = static_cast{uchar}(uce.x);
-      cp_emit.rgb.g = static_cast{uchar}(uce.y);
-      cp_emit.rgb.b = static_cast{uchar}(uce.z);
+      cp_emit.rgb.r = static_cast{uchar}(clamp(uce.x, 0, 255));
+      cp_emit.rgb.g = static_cast{uchar}(clamp(uce.y, 0, 255));
+      cp_emit.rgb.b = static_cast{uchar}(clamp(uce.z, 0, 255));
     }
     {
       const denom = volume;
@@ -168,7 +172,7 @@ shrink_voxel_value(tsrc const& stex, texture_data_float const& svol,
   }
 }
 
-public function {f, t} bool
+public pure function {f, t} bool
 scale_voxel_value(cslice{texel_value} v, t mutable& tex, int x0, int y0,
   int z0)
 {
@@ -245,7 +249,7 @@ scale_voxel_value(cslice{texel_value} v, t mutable& tex, int x0, int y0,
   return true;
 }
 
-public function {t} void
+public pure function {t} void
 rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
   uvec3 const& sz, t mutable& dpri, t mutable& dsec)
 {
@@ -272,7 +276,7 @@ rotate_texture_range(imat3 const& m, t const& spri, t const& ssec,
   }
 }
 
-public function ivec3
+public pure function ivec3
 rotate_offset(imat3 const& m, ivec3 const& v, uvec3 const& sz)
 {
   const ssz = to_ivec3(sz) - glm::make_ivec3(1, 1, 1);
@@ -284,7 +288,7 @@ rotate_offset(imat3 const& m, ivec3 const& v, uvec3 const& sz)
   return r;
 }
 
-public function uint
+public pure function uint
 rotate_voxel_value(imat3 const& m, uint v)
 {
   dbg_rotate() {

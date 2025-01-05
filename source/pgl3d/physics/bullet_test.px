@@ -1,11 +1,10 @@
 public namespace pgl3d::physics::bullet_test "use-unsafe";
 public import core::common -;
-public import core::pointer::raw -;
+private import core::pointer::raw -;
 private import bullet_physics::base -;
 private import bullet_physics::constants -;
 private import bullet_physics::api -;
 private import bullet_physics::all -;
-private import core::pointer::raw_unsafe -;
 private import core::io::time -;
 
 {

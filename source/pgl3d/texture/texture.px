@@ -1,7 +1,6 @@
 public threaded namespace pgl3d::texture::texture "use-unsafe";
 public import core::common -;
-public import core::pointer::raw -;
-private import core::pointer::raw_unsafe -;
+private import core::pointer::raw -;
 public import core::numeric::fpmath -;
 public import core::text::serialize::compact_pod -;
 public import glm;
@@ -38,6 +37,10 @@ array3_pot_set_size_l2(t mutable& o, uint w_l2, uint h_l2, uint d_l2)
   // データを失わずにリサイズする
   metafunction mapped_type m::symbol{t, "mapped_type"};
   metafunction mblk_l2 m::symbol{t, "mblk_l2"};
+  if (o.width_l2 == w_l2 && o.height_l2 == h_l2 && o.depth_l2 == d_l2 &&
+    !o.data.empty()) {
+    return;
+  }
   // データをooに移動する
   t oo;
   oo.width_l2 = o.width_l2;
@@ -300,7 +303,7 @@ texture_data_fill_range(t0 mutable& dest,
   }
 }
 
-public function ptr{texture_data}
+public threaded function ptr{texture_data}
 load_texture_data_raw(string const& fn0)
 {
   // TODO: test
@@ -355,7 +358,7 @@ save_texture_data_array_raw(string const& fn0,
 
 metafunction SDL_Surface_Scoped scoped_nullable{SDL_FreeSurface};
 
-public function ptr{texture_data}
+public threaded function ptr{texture_data}
 load_texture_data(string const& fn0)
 {
   debug_log("load_texture_data", fn0);

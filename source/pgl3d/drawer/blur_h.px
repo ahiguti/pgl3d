@@ -191,6 +191,6 @@ init_blur_h_shader(shader_config const& g, bool direction_v)
   const v = load_shader_program(g, bnd, "blur_h.vsh");
   const f = load_shader_program(g, bnd, "blur_h.fsh");
   return make_glshader_ptr{blur_h_uniforms, blur_h_instance_attributes,
-    blur_h_vertex_attributes}(v, f, "", g.debug_level, "blur_h");
+    blur_h_vertex_attributes}(v, f, "", "", g.debug_level, "blur_h");
 }
 

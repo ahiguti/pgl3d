@@ -112,6 +112,6 @@ init_passthrough_shader(shader_config const& g)
   return make_glshader_ptr{
     passthrough_uniforms,
     passthrough_instance_attributes,
-    passthrough_vertex_attributes}(v, f, "", g.debug_level, "passthrough");
+    passthrough_vertex_attributes}(v, f, "", "", g.debug_level, "passthrough");
 }
 

@@ -44,7 +44,9 @@ public struct drawer_font2(shader_config const& glc,
       "/Library/Fonts/Courier New Bold.ttf",
       "/usr/share/fonts/mplus/mplus-1m-bold.ttf",
       "/usr/share/fonts/truetype/mplus/mplus-1m-bold.ttf",
-      "/usr/share/fonts/liberation/LiberationMono-Regular.ttf");
+      // "/usr/share/fonts/opentype/mplus/Mplus1-Medium.otf",
+      "/usr/share/fonts/liberation/LiberationMono-Regular.ttf",
+      "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf");
     load_gl_texture_fixedwidth_font(*texture_font, fnames, 18);
     res->textures.insert("font", texture_font);
     reload_shaders(glc);
@@ -150,7 +152,7 @@ init_font2_shader(shader_config const& g)
   const v = load_shader_program(g, bnd, "font2.vsh");
   const f = load_shader_program(g, bnd, "font2.fsh");
   return make_glshader_ptr{font2_uniforms, font2_instance_attributes,
-    font2_vertex_attributes}(v, f, "idata", g.debug_level, "font2");
+    font2_vertex_attributes}(v, f, "", "idata", g.debug_level, "font2");
   /*
   string v;
   v += g.prepend();

@@ -2,7 +2,7 @@ public threaded namespace pgl3d::texture::subtexture "use-unsafe";
 public import core::common -;
 public import core::meta m;
 public import glm -;
-public import sdl2::api_types -;
+private import sdl2::api_types -;
 public import core::text::serialize::compact_pod -;
 public import pgl3d::texture::texture -;
 public import pgl3d::texture::editable_voxel -;
@@ -29,7 +29,7 @@ public pure valuetype struct subtexture_v1 {
   public uvec3 cursor_offset;
 }
 
-public function subtexture
+public pure function subtexture
 subtexture_compat_deserialize(string const& s)
 {
   subtexture r = from_string{subtexture}(s);
@@ -42,7 +42,7 @@ subtexture_compat_deserialize(string const& s)
   return r;
 }
 
-public function subtexture
+public pure function subtexture
 make_subtexture(uvec3 const& sz)
 {
   subtexture r;

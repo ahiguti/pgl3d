@@ -110,6 +110,6 @@ init_aberration_shader(shader_config const& g)
   return make_glshader_ptr{
     aberration_uniforms,
     aberration_instance_attributes,
-    aberration_vertex_attributes}(v, f, "", g.debug_level, "aberration");
+    aberration_vertex_attributes}(v, f, "", "", g.debug_level, "aberration");
 }
 

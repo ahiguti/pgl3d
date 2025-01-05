@@ -4,7 +4,7 @@ public import pgl3d::exports_threaded *;
 public import glm -;
 public import core::meta m;
 
-public function void prepare_texture_data_3d_tmap(bool edit_mode,
+public threaded function void prepare_texture_data_3d_tmap(bool edit_mode,
   texture_reshaped mutable& tmap, texture_reshaped mutable& tmap_ax,
   int tile3_size_l2, ivec3 const& voxtpat_size_l2,
   ivec3 const& voxtmap_size_l2)
@@ -43,6 +43,9 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
     for (const x: 0 .. si(tmap.get_width())) {
       for (const y: 0 .. si(tmap.get_height())) {
         for (const z: 0 .. si(tmap.get_depth())) {
+          // if (rand_gen(100) < 70) {
+          //   continue;
+          // }
           function bool cval(int x, int y, int z) {
             const v = get(x, y, z);
             return (v & 0xff000000) >= 0x02000000;
@@ -77,8 +80,8 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
             } else {
               continue;
             }
-            /*
             continue;
+            /*
             */
           }
           // if ((rnd->generate() & 0xff) < 0x7f) { continue; }
@@ -231,7 +234,7 @@ public function void prepare_texture_data_3d_tmap(bool edit_mode,
   debug_log("prepare tmap 0,0,1", to_hexstring(tmap.get(0, 0, 1)));
 }
 
-public function void prepare_texture_data_3d_tpat(bool edit_mode,
+public threaded function void prepare_texture_data_3d_tpat(bool edit_mode,
   texture_reshaped mutable& tpat, texture_reshaped mutable& tpat_ax,
   int tile_size_l2_i, ivec3 const& pat_size_l2)
 {

@@ -1,7 +1,6 @@
 public threaded namespace pgl3d::opengl::glvertex "use-unsafe";
 public import core::common -;
 private import core::pointer::raw -;
-private import core::pointer::raw_unsafe -;
 public import core::numeric::fpmath -;
 public import glm;
 public import core::io::time -;
@@ -178,7 +177,7 @@ vertices(size_t num_float_per_vertex0)
             const ci = cross_one(i);
             if (m::is_true{debug_triangulation}) {
               if (vals.size() >= 5) {
-                sdl_log("dir", ia.size(), i, glm::dot(cross_sum, ci));
+                debug_log("dir", ia.size(), i, glm::dot(cross_sum, ci));
               }
             }
             if (glm::dot(cross_sum, ci) <= -0.000001f) {
@@ -202,10 +201,10 @@ vertices(size_t num_float_per_vertex0)
                 if (m::is_true{debug_triangulation}) {
                   if (vals.size() >= 5)
                   {
-                    sdl_log("posi012", ia_pos(ia_prev(i)), ia_pos(i),
+                    debug_log("posi012", ia_pos(ia_prev(i)), ia_pos(i),
                         ia_pos(ia_next(i)));
-                    sdl_log("posj", ia_pos(j));
-                    sdl_log("s0s1", ia.size(), i, j, s0, s1);
+                    debug_log("posj", ia_pos(j));
+                    debug_log("s0s1", ia.size(), i, j, s0, s1);
                   }
                 }
                 return false;
@@ -234,7 +233,7 @@ vertices(size_t num_float_per_vertex0)
             break;
           }
           if (i == 0) {
-            sdl_log("warning: split_convex failed", ia.size(), vals.size(),
+            debug_log("warning: split_convex failed", ia.size(), vals.size(),
               vals, ia);
             i = ia.size() - 1;
             push_one();
@@ -250,11 +249,11 @@ vertices(size_t num_float_per_vertex0)
     if (num_float_per_vertex != num_float_struct{tattr}) {
       throw runtime_error_template{"vertices::push_point"}("");
     }
-    //sdl_log("push_point0", vertex_values.size());
+    //debug_log("push_point0", vertex_values.size());
     const first_id = vertex_values.size() / num_float_struct{tattr};
     push_float{tattr}(vertex_values, val);
-    //sdl_log("push_point1", vertex_values.size());
-    //sdl_log("push_point val", val);
+    //debug_log("push_point1", vertex_values.size());
+    //debug_log("push_point val", val);
     elements.push_back(static_cast{uint}(first_id));
     if (m::symbol_exists{tattr, "position"}) {
       positions.append(val.position.to_cslice());

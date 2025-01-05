@@ -1,24 +1,35 @@
 private threaded namespace pgl3d::edit_mode::tiled_voxel_texture "use-unsafe";
 private import core::common -;
 private import core::meta m;
-private import pgl3d::edit_mode::common -;
+// private import pgl3d::edit_mode::common -;
 private import core::text::serialize::compact_pod -;
+private import pgl3d::texture::texture -;
 private import pgl3d::texture::voxel -;
+private import pgl3d::texture::editable_voxel -;
 private import pgl3d::texture::filling -;
 private import pgl3d::edit_mode::vecutil -;
 private import pgl3d::edit_mode::texutil -;
+private import pgl3d::engine::util -;
+private import pgl3d::sdl::sdlutil -;
+private import glm -;
 
 public pure multithreaded struct tiled_voxel_texture()
 {
+  // タイル化されたvoxelデータ。tpatとtmapに分かれている。別スレッドで
+  // データ生成することができるようにmultithreadedにしている。
   public texture_data voxtile;
+    // タイルの大きさを保持するだけのために使用？
   public tptr{texture_edit} tmap_edit = make_tptr{texture_edit}();
+    // タイルマップ。各voxelはタイルパターン参照または直接データ。
   public tptr{texture_edit} tpat_edit = make_tptr{texture_edit}();
+    // タイルパターン。各voxelは直接データのみ。
   public filling_map fillmap;
+    // データ生成の種となるデータ。edit_modeでのみ使用。
 }
 
 private metafunction texture_data_mip_v0 varray{ptr{texture_data}};
 
-private struct tiled_voxel_texture_v0()
+private threaded struct tiled_voxel_texture_v0()
 {
   // 古いバージョンのフォーマット
   public texture_data voxtile;
@@ -28,7 +39,17 @@ private struct tiled_voxel_texture_v0()
   public texture_data_mip_v0 tpat_sec;
 }
 
-public function void
+public pure function void
+tiled_voxel_texture_copy_from(tiled_voxel_texture mutable& x,
+  tiled_voxel_texture const& y)
+{
+  x.voxtile = y.voxtile;
+  *x.tmap_edit = *y.tmap_edit;
+  *x.tpat_edit = *y.tpat_edit;
+  x.fillmap = y.fillmap;
+}
+
+public threaded function void
 tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
   cstrref const& fname, cstrref const& fname_v0, uvec3 tmszl2, uvec3 tpszl2,
   bool enable_short_circuit)
@@ -113,7 +134,40 @@ tiled_voxel_texture_load_file(tiled_voxel_texture mutable& vox,
   //tiled_voxel_texture_parepare(vox, tmszl2, tpszl2, enable_short_circuit);
 }
 
-public function void
+public pure function void
+tiled_voxel_texture_init(tiled_voxel_texture mutable& vox,
+  uvec3 tmszl2, uvec3 tpszl2)
+{
+  // tpatとtmapの各wordの各miplevelの三次元配列のサイズをセットする
+  const uint tpat_miplevel_max = fold_list{min}(256u, tpszl2);
+  const uint tmap_miplevel_max = fold_list{min}(256u, tmszl2);
+  {
+    for (const i, mutable& data_w: vox.tpat_edit->data) {
+      data_w.resize(tpat_miplevel_max + 1u, texture_reshaped());
+        // なぜ+1する必要がある？
+      mutable s = tpszl2;
+      for (const j, mutable& data_m: data_w) {
+        data_m.set_size_l2(s.x, s.y, s.z);
+        s = map{uvec3, max}(s, make_uvec3(1, 1, 1)) - make_uvec3(1, 1, 1);
+      }
+    }
+  }
+  {
+    for (const i, mutable& data_w: vox.tmap_edit->data) {
+      data_w.resize(tmap_miplevel_max + 1u, texture_reshaped());
+        // なぜ+1する必要がある？
+      mutable s = tmszl2;
+      for (const j, mutable& data_m: data_w) {
+        data_m.set_size_l2(s.x, s.y, s.z);
+        s = map{uvec3, max}(s, make_uvec3(1, 1, 1)) - make_uvec3(1, 1, 1);
+      }
+    }
+  }
+  debug_log("set filling size", tmszl2);
+  vox.fillmap.set_size_l2(tmszl2);
+}
+
+public pure function void
 tiled_voxel_texture_prepare(tiled_voxel_texture mutable& vox,
   uvec3 tmszl2, uvec3 tpszl2, bool enable_short_circuit)
 {
@@ -138,7 +192,7 @@ tiled_voxel_texture_prepare(tiled_voxel_texture mutable& vox,
   }
 }
 
-public function void
+public threaded function void
 tiled_voxel_texture_save_file(tiled_voxel_texture const& vox,
   cstrref const& fname)
 {
@@ -146,7 +200,7 @@ tiled_voxel_texture_save_file(tiled_voxel_texture const& vox,
 }
 
 
-function void update_mipmap_one(
+pure function void update_mipmap_one(
   farray{texture_reshaped, multiword_num_words} const& stex,
   texture_data_float const& svol,
   farray{texture_reshaped, multiword_num_words} mutable& dtex,
@@ -188,23 +242,20 @@ function void update_mipmap_one(
   }
 }
 
-public function void
-tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
+public pure function void
+tiled_voxel_texture_update_mipmap(tiled_voxel_texture mutable& vox)
 {
   debug_log("update_mipmap_all begin");
   const bool enable_short_circuit = true; // FIXME?
+  const mip_num = 8u + 1u; // scale値が0から7まで、最大タイルサイズ256
   // tpatのmipmap更新
-  // vox.voxtile.get_width_l2() + 1;
-    // タイルサイズが16なら16,8,4,2,1の5枚
-  const pat_mip_num = 8u + 1u;
-    // scale値が0から7まで、最大タイルサイズ256
   for (const i, mutable& dataw: vox.tpat_edit->data) {
-    dataw.resize(pat_mip_num, texture_reshaped());
+    dataw.resize(mip_num, texture_reshaped());
   }
   varray{texture_data_float} tpat_vol;
   varray{texture_data_float} tmap_vol;
-  tpat_vol.resize(pat_mip_num, texture_data_float());
-  tmap_vol.resize(pat_mip_num, texture_data_float());
+  tpat_vol.resize(mip_num, texture_data_float());
+  tmap_vol.resize(mip_num, texture_data_float());
   debug_log("update_mipmap_all set_distance begin");
   set_distance(enable_short_circuit, vox.tpat_edit->data[0][0]);
     // tpatのmip0の距離を計算しなおす。(最適でないかもしれないので)
@@ -276,7 +327,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
             const c = p.coord;
             const sc = p.scale;
             const lv = sc + 1;
-            if (lv < pat_mip_num) {
+            if (lv < mip_num) {
               for (const i, mutable& valw: val) {
                 valw = vox.tpat_edit->data[i][lv].get(c.x, c.y, c.z);
               }
@@ -286,7 +337,7 @@ tiled_voxel_texture_update_mipmap(tiled_voxel_texture const& vox)
                 val[i] = 0;
               }
               val[0] = make_filled_voxel();
-              debug_log("update_mipmap: scale oor", lv, pat_mip_num);
+              debug_log("update_mipmap: scale oor", lv, mip_num);
             }
           }
           for (const i, const& valw: val) {

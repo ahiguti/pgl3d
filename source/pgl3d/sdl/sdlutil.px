@@ -2,9 +2,8 @@ public threaded namespace pgl3d::sdl::sdlutil "use-unsafe";
 public import core::common -;
 private import opengl::base -;
 private import core::pointer::raw -;
-private import core::pointer::raw_unsafe -;
 private import sdl2::api_base -;
-private import sdl2::api_types -;
+public import sdl2::api_types -;
 private import sdl2::api_functions -;
 private import sdl2::api_wrappers -;
 private import sdl2::misc -;
@@ -42,7 +41,7 @@ public function string sdl_textevent_text(SDL_TextInputEvent const& ev)
   return s;
 }
 
-private struct sdl_file()
+private threaded struct sdl_file()
 {
   private nomove{rawptr{SDL_RWops}} ptr
     = nomove{rawptr{SDL_RWops}}(rawptr{SDL_RWops}());
@@ -68,7 +67,7 @@ private struct sdl_file()
   }
 }
 
-public function {t} bool sdl_load_file_range(string const& fname,
+public threaded function {t} bool sdl_load_file_range(string const& fname,
   size_t offset, t mutable& obuf)
 {
   // TODO: test
@@ -104,7 +103,7 @@ public function {t} bool sdl_load_file_range(string const& fname,
   return true;
 }
 
-public function bool sdl_load_file(string const& fname,
+public threaded function bool sdl_load_file(string const& fname,
   varray{uchar} mutable& buf_r)
 {
   sdl_file fp;
@@ -139,7 +138,7 @@ private metafunction pod_sizeof{t}
     m::eq{t, int}, 4,
     m::error{"sizeof"}};
 
-public function {tlist} bool
+public threaded function {tlist} bool
 sdl_save_file(expand(v::arg_decls_byref{tlist}))
 {
   sdl_file fp;
@@ -181,7 +180,7 @@ sdl_save_file(expand(v::arg_decls_byref{tlist}))
   return suc;
 }
 
-public function bool sdl_save_file_old(string const& fname,
+public threaded function bool sdl_save_file_old(string const& fname,
   varray{uchar} const& buf)
 {
   sdl_file fp;
@@ -214,7 +213,7 @@ public function bool sdl_save_file_old(string const& fname,
   return suc;
 }
 
-public function void check_byteorder()
+public pure function void check_byteorder()
 {
   if (sdl_byteorder() != sdl_lil_endian()
       && sdl_byteorder() != sdl_big_endian()) {
@@ -223,7 +222,7 @@ public function void check_byteorder()
   sdl_log("byteorder ", sdl_byteorder());
 }
 
-public function uint read_4_uint(cslice{uchar} const& buf, size_t o)
+public pure function uint read_4_uint(cslice{uchar} const& buf, size_t o)
 {
   uint v;
   if (sdl_byteorder() == sdl_lil_endian()) {
@@ -240,7 +239,7 @@ public function uint read_4_uint(cslice{uchar} const& buf, size_t o)
   return v;
 }
 
-public function uint read_3_uint(cslice{uchar} const& buf, size_t o)
+public pure function uint read_3_uint(cslice{uchar} const& buf, size_t o)
 {
   uint v;
   if (sdl_byteorder() == sdl_lil_endian()) {
@@ -270,11 +269,11 @@ public function void write_4_uint(slice{uchar} const& buf, size_t o, uint val)
   }
 }
 
-public function extern "pgl3d$n::sdlutil$n::sdl_byteorder" int
+public pure function extern "pgl3d$n::sdlutil$n::sdl_byteorder" int
 sdl_byteorder();
-public function extern "pgl3d$n::sdlutil$n::sdl_lil_endian" int
+public pure function extern "pgl3d$n::sdlutil$n::sdl_lil_endian" int
 sdl_lil_endian();
-public function extern "pgl3d$n::sdlutil$n::sdl_big_endian" int
+public pure function extern "pgl3d$n::sdlutil$n::sdl_big_endian" int
 sdl_big_endian();
 
 /* private */

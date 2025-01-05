@@ -41,6 +41,7 @@ uniform float light_on;
 uniform float option_value;
 uniform float option_value2;
 uniform float option_value3;
+// uniform float miplevel_bias;
 uniform float cur_layer;
 uniform float exposure;
 /*
@@ -429,20 +430,21 @@ void main(void)
     <%if><%raycast_cull_front/>
       // カメラが直方体の内側に入ってもレンダリングできるように
       // する処理。Frontカリングを有効にしていることを前提。
-      float epsi = epsilon * 3.0;
       cam_inside_aabb = pos3_inside_3_ge_le(campos, aabb_min, aabb_max);
       if (cam_inside_aabb) {
-	// カメラは直方体の内側にある
+	// カメラは直方体の内側にある。raycastの始点はカメラの位置。
 	pos = campos;
 	// <%fragcolor/> = vec4(1.0,1.0,0.0,1.0); return;
       } else {
-	// カメラは直方体の外側にある
-	pos = clamp(pos, aabb_min + epsi, aabb_max - epsi);
+	// カメラは直方体の外側にある。現posはフラグメント位置で、Frontカリング
+        // なのでaabb裏面。raycastの始点はカメラとaabb表面の接触する位置。
+	pos = clamp(pos, aabb_min + epsilon3, aabb_max - epsilon3);
 	vec3 pos_n;
 	nor = voxel_get_next(pos, aabb_min, aabb_max, -camera_local, pos_n);
+          // aabb裏面の位置から表面の位置へ引き戻す。
 	pos = pos_n;
       }
-      pos = clamp(pos, aabb_min + epsi, aabb_max - epsi);
+      pos = clamp(pos, aabb_min + epsilon3, aabb_max - epsilon3);
     <%/>
     <%if><%eq><%update_frag_depth/>1<%/>
     <%if><%eq><%stype/>1<%/>
@@ -481,17 +483,11 @@ void main(void)
       <%/>
     <%/>
     <%/>
-    /*
-    float dist_pos_campos_2 = dot(pos - campos, pos - campos) + 0.0001;
-    float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
-    // if (dist_log2 < -3.0) { <%fragcolor/> = vec4(1,0,1,1); return; }
-    int miplevel = clamp(int(dist_log2 + dist_rnd + 6.5), 0, 8);
-    */
     int miplevel_noclamp = raycast_get_miplevel(pos, campos, dist_rnd);
     if (option_value2 >= 0.0) {
       miplevel_noclamp = int(option_value2);
     }
-    miplevel = clamp(miplevel_noclamp, 0, 8);
+    miplevel = clamp(miplevel_noclamp, 0, 12);
     // if (miplevel > 2) { <%fragcolor/> = vec4(1,0,1,1); return; }
     // if (miplevel > 1) { <%fragcolor/> = vec4(1,1,0,1); return; }
     // if (miplevel > 0) { <%fragcolor/> = vec4(1,0,0,1); return; }
@@ -499,7 +495,6 @@ void main(void)
     int hit = -1;
     // float selfshadow_para = clamp(1.0 - dist_log2 * 0.1, 0.0, 1.0);
     float selfshadow_para = 0.0f;
-    // if (vary_boundary_len < 1) { <%fragcolor/> = vec4(1.0, 0.0, 0.0, 1.0); return; } // FIXME
     //if (option_value2 >= 0.0) {
       // raycastで視線が衝突する位置と影を計算する
       hit = raycast_tilemap(pos, campos, dist_rnd, camera_local, light_local,
@@ -771,9 +766,7 @@ void main(void)
     // 距離に応じて影の濃さを調整
     float sdistp = clamp(3.0 - frag_distance * 4.0 / shadowmap_max_distance,
       0.0, 1.0);
-    // sml = sml * sdistp * 0.5 + (1.0 - sdistp) * 0.5;
     sml = sml * sdistp + (1.0 - sdistp) * 0.67;
-    // sml = 1.0;
     float smv0 = min(1.0, sml);
     /*
     if (sm_to_use == 1) { <%fragcolor/> = vec4(1.0, smv0, 0.0, 1.0); return; }

@@ -27,7 +27,7 @@ raycast_layer=32
 glfinish=0
 enable_raycast_zprepass=0
 enable_dbgui=1
-vsync=-1
+vsync=1
 fullscreen=0
 width=1280
 height=720
@@ -50,14 +50,17 @@ highdpi=1
 #voxel_pat_h=9
 #voxel_pat_d=9
 # 7,8,6
-voxel_map_w=7
+voxel_map_w=8
 voxel_map_h=8
-voxel_map_d=6
-voxel_pat_w=9
-voxel_pat_h=9
-voxel_pat_d=9
+voxel_map_d=5
+#voxel_pat_w=9
+#voxel_pat_h=9
+#voxel_pat_d=9
+voxel_pat_w=8
+voxel_pat_h=8
+voxel_pat_d=8
 
-#large_shadow=1
+large_shadow=0
 
 #framestat_threshold=2.0
 
@@ -89,3 +92,7 @@ motion_blur_filter=0
 raycast_cull_front=1
 short_circuit=1
 calc_distance=1
+
+#imgui_font=Karla-Regular.ttf
+imgui_font=DroidSans.ttf
+

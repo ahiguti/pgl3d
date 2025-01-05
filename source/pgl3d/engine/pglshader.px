@@ -1,7 +1,6 @@
 private namespace pgl3d::engine::pglshader "export-unsafe";
 public import core::common -;
 public import core::pointer::raw -;
-public import core::pointer::raw_unsafe -;
 public import core::numeric::fpmath -;
 public import glm;
 public import glm::raw;
@@ -22,6 +21,8 @@ public import pgl3d::drawer::base -;
 public import pgl3d::drawer::setfb -;
 public import pgl3d::engine::pglbase -;
 public import pgl3d::engine::intern_pool -;
+
+private metafunction debug_shape no_operation;
 
 private import pgl3d::physics::collision_shape -;
   // shapeの半径計算のために make_voxel_shape を使う
@@ -129,6 +130,8 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
   }
   public function void prepare(node_factory mutable& nfac_r)
   {
+    const sz = ds.vsid_pool->size();
+    debug_log("pglshader prepare", sz);
     prepare_builtin_vertex_sets();
     prepare_vertex_buffers();
     prepare_insts_allfmt();
@@ -273,7 +276,7 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
             float radius = voxsh->get_radius();
             radius = max(radius, vs_radius[vsid]);
             vs_radius[vsid] = radius;
-            debug_log("shape_0", vsid, "radius", radius);
+            debug_shape("shape_0", vsid, "radius", radius);
           } else {
             // is_tconvでないとき
             const& p = vtxs->positions;
@@ -281,11 +284,11 @@ pglshader(shader_config const& sconf0, drawer_shared const& ds0,
             for (size_t i : 0 .. p.size() / 3) {
               const oi = i * 3;
               const vec = glm::make_vec3(p[oi], p[oi+1], p[oi+2]);
-              debug_log("shape_1", vsid, "vec", vec);
+              debug_shape("shape_1", vsid, "vec", vec);
               radius = max(radius, glm::length(vec));
             }
             radius = max(radius, vs_radius[vsid]);
-            debug_log("shape_1", vsid, "radius", radius);
+            debug_shape("shape_1", vsid, "radius", radius);
             vs_radius[vsid] = radius;
           }
         }

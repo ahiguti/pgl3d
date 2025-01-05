@@ -156,6 +156,6 @@ init_skybox_shader(shader_config const& g)
   f += g.fragcolor() + " = vec4(color, 1.0);\n";
   f += "}\n";
   return make_glshader_ptr{skybox_uniforms, skybox_instance_attributes,
-    skybox_vertex_attributes}(v, f, "", g.debug_level, "skybox");
+    skybox_vertex_attributes}(v, f, "", "", g.debug_level, "skybox");
 }
 

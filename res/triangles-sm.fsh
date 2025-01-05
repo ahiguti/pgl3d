@@ -46,6 +46,19 @@ uniform mat4 shadowmap_vp;
   <%frag_in/> vec3 vary_position_local;
   <%flat/> <%frag_in/> vec3 vary_camerapos_local;
   <%flat/> <%frag_in/> mat4 vary_mvp;
+  <%for x 0><%boundary_len/>
+    <%flat/> <%frag_in/> vec2 vary_boundary<%x/>;
+  <%/>
+  <%flat/> <%frag_in/> int vary_boundary_len;
+
+  vec2 boundary[<%boundary_len/>] = vec2[](
+    <%for x 0><%boundary_len/>
+    vary_boundary<%x/>
+    <%if><%ne><%add><%x/>1<%/><%boundary_len/><%/>
+    ,
+    <%/>
+    <%/>
+  );
 
   float generate_random(vec3 v)
   {
@@ -72,39 +85,64 @@ uniform mat4 shadowmap_vp;
     vec3 aabb_min = vary_aabb_min;
     vec3 aabb_max = vary_aabb_max;
     vec3 pos = fragpos;
-    float epsi = epsilon * 3.0;
+    float epsilon3 = epsilon * 3.0;
     {
-      pos = clamp(pos, aabb_min + epsi, aabb_max - epsi);
+      // 現posはフラグメント位置で、Frontカリングなのでaabb裏面。
+      pos = clamp(pos, aabb_min + epsilon3, aabb_max - epsilon3);
       vec3 pos_n;
       voxel_get_next(pos, aabb_min, aabb_max, light_local, pos_n);
+        // aabb裏面の位置から表面の位置へ引き戻す。
       pos = pos_n;
     }
-    pos = clamp(pos, aabb_min + epsi, aabb_max - epsi);
+    pos = clamp(pos, aabb_min + epsilon3, aabb_max - epsilon3);
     float dist_rnd = generate_random(pos) * 0.5;
     int miplevel = clamp(raycast_get_miplevel(pos, campos, dist_rnd), 0, 8);
     miplevel = min(miplevel, 5);
     int hit = -1;
-    hit = raycast_waffle(pos, fragpos, -light_local, aabb_min, aabb_max,
-      miplevel);
+    if (true) {
+      // boundaryに衝突したかどうか判定する。fragposがaabb裏面、posがaabb表面。
+      vec3 leye = -light_local; // 視線のかわり。光の反対向き。
+      if (fragpos.z <= aabb_min.z) {
+        // 最初からboundary裏面に衝突したか判定。
+        if (raycast_hit_ground_boundary(fragpos.xy, boundary,
+          vary_boundary_len)) {
+          pos = fragpos; // 衝突位置をposにセット
+          hit = 0;
+        }
+      }
+      if (pos.z <= aabb_min.z + epsilon3) {
+        // aabbを抜けるときにboundary表面に衝突したか判定
+        if (raycast_hit_ground_boundary(pos.xy, boundary, vary_boundary_len)) {
+          hit = 0;
+        }
+      }
+    }
+    <%if><%eq><%get_config sm_waffle/>1<%/>
+    if (hit < 0) {
+      // waffle方式で影を差す
+      hit = raycast_waffle(pos, fragpos, -light_local, aabb_min, aabb_max,
+        miplevel);
+    }
+    <%/>
     if (hit < 0) {
       discard;
     }
     // TODO: depthの計算はもっと速くできる
-    pos = vary_aabb_or_tconv.xyz + pos * vary_aabb_or_tconv.w;
-      // posをテクスチャ座標から接線空間の座標に変換
+    vec3 tpos = vary_aabb_or_tconv.xyz + pos * vary_aabb_or_tconv.w;
+      // posをテクスチャ座標から接線空間の座標に変換したものがtpos
     /*
-    vec4 gpos = vary_model_matrix * vec4(pos, 1.0);
+    vec4 gpos = vary_model_matrix * vec4(tpos, 1.0);
       // vary_model_matrixは接線空間からワールドへの変換
     vec4 vpos = shadowmap_vp * gpos;
     */
     /*
-    vec4 vpos = vary_mvp * vec4(pos, 1.0);
+    vec4 vpos = vary_mvp * vec4(tpos, 1.0);
     // float depth = (vpos.z / vpos.w + 1.0) * 0.5;
     float depth = (vpos.z + 1.0) * 0.5;
     */
     float vposz = dot(
       vec4(vary_mvp[0][2], vary_mvp[1][2], vary_mvp[2][2], vary_mvp[3][2]),
-      vec4(pos, 1.0));
+      vec4(tpos, 1.0));
     float depth = (vposz + 1.0) * 0.5;
     depth = clamp(depth, 0.01, 0.99);
     gl_FragDepth = depth;

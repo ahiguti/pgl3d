@@ -1,8 +1,10 @@
 #!/bin/bash
 
 cd `dirname $0`
-pushd android > /dev/null && ./clean_all.sh && popd > /dev/null
-pushd windows > /dev/null && ./clean_all.sh && popd > /dev/null
+./android/clean_all.sh
+./windows_v142/clean_all.sh
+./windows_v143/clean_all.sh
+./unix/clean_all.sh
 rm -rf ./ios/gen/*
 rm -rf ./emscripten/gen/*
 rm -rf `find ./ios/ -name project.xcworkspace`
@@ -14,3 +16,4 @@ rm -f var/*.raw var/*.log
 rm -f glprog.*.bin
 rm -f *.zip
 rm -rf pgl3d_dist/
+rm -f imgui.ini

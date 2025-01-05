@@ -8,6 +8,7 @@ public import pgl3d::edit_mode::noedit_control -;
 
 private metafunction debug_shadowmap no_operation;
 private metafunction debug_instance no_operation;
+private metafunction debug_drawstep no_operation;
 
 private pure tsvaluetype struct triangles_uniforms()
 {
@@ -17,10 +18,10 @@ private pure tsvaluetype struct triangles_uniforms()
   public int sampler_tilemap;
   public int sampler_noise;
   public int sampler_env;
-  public int sampler_voxtmap;
-  public int sampler_voxtmax;
-  public int sampler_voxtpat;
-  public int sampler_voxtpax;
+  public int sampler_voxtmap0;
+  public int sampler_voxtmap1;
+  public int sampler_voxtpat0;
+  public int sampler_voxtpat1;
   public int sampler_voxsurf;
   public int sampler_depth_rd;
   public int sampler_sm; // array
@@ -35,6 +36,7 @@ private pure tsvaluetype struct triangles_uniforms()
   public float option_value2;
   public float option_value3;
   public float cur_layer;
+  public float miplevel_bias;
 }
 
 private pure tsvaluetype struct triangles_vertex_attributes()
@@ -93,8 +95,8 @@ private pure tsvaluetype struct zprepass_uniforms()
 {
   public glm::mat4 view_projection_matrix = mat4_identity();
   public glm::vec3 camera_pos;
-  public int sampler_voxtmap;
-  public int sampler_voxtpat;
+  public int sampler_voxtmap0;
+  public int sampler_voxtpat0;
 }
 
 private pure tsvaluetype struct shadowmap_uniforms()
@@ -104,8 +106,8 @@ private pure tsvaluetype struct shadowmap_uniforms()
   public glm::vec3 camera_pos;
   public glm::vec3 trans; // used if light_fixed
   public float scale;     // used if light_fixed
-  public int sampler_voxtmap;
-  public int sampler_voxtpat;
+  public int sampler_voxtmap0;
+  public int sampler_voxtpat0;
 }
 
 public function void
@@ -131,7 +133,7 @@ make_drawer_triangles_stype(ptr{bool} const& cond, shader_config const& glc,
   for (int j: 0 .. num_shadowmaps) {
     varray{drawer_cond} s;
     for (int i: 0 .. num_subtypes) {
-      debug_log("create drawstep_triangles shadow", stype,
+      debug_drawstep("create drawstep_triangles shadow", stype,
         num_subtypes - i - 1, static_cast{int}(draw_step_shadowmapping), j);
       s.push_back(drawer_cond(cond, make_ptr{drawstep_triangles}(
         maindr, stype, num_subtypes - i - 1, draw_step_shadowmapping,
@@ -240,7 +242,7 @@ public struct drawer_triangles(shader_config const& glc0,
   public ptr{atlas} const atl = atl0;
   metafunction tattr triangles_vertex_attributes;
   textures_ptr textures = ds.textures;
-  tptr{tiled_voxel_texture} tvt = ds.tvt;
+  tptr{tiled_voxel_texture} tiledvox = ds.tiledvox;
   ptr{resource_pool} res = pointer_downcast{ptr{resource_pool}}(
     ds.gl_resources);
   varray{cptr{gl_framebuffer}} shadowmap_fbs;
@@ -268,7 +270,7 @@ public struct drawer_triangles(shader_config const& glc0,
     (glc.conf.get("raycast_sort", 1, 0, 1) != 0);
     // この変数は常に1では？ sortするかどうかはappのraycast_layerが決める。
   bool const large_shadow =
-    (glc.conf.get("large_shadow", 0, 0, 1) != 0);
+    (glc.conf.get("large_shadow", 1, 0, 1) != 0);
   rand_generator_ptr rand_generator = make_rand_generator(123u);
   vbid_t vbid_triangles;
   vbid_t vbid_instances;
@@ -307,30 +309,8 @@ public struct drawer_triangles(shader_config const& glc0,
     res->textures.insert("voxsurf", texture_voxsurf);
     if (stype == 1) {
       if (emt->vox.voxtile.size() <= 1u) {
-        emt->vox = *tvt;
-        const tpsz = emt->vox.tpat_edit->data[0].size();
-        const tmsz = emt->vox.tpat_edit->data[0].size();
-        debug_log("vox tpat", tpsz);
-        debug_log("vox tmap", tmsz);
-        if (glc.is_gl3_or_gles3()) {
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
-            emt->vox.tpat_edit->data[0], GL_RGBA, GL_NEAREST);
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
-            emt->vox.tpat_edit->data[1], GL_RGBA, GL_NEAREST);
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
-            emt->vox.tmap_edit->data[0], GL_RGBA, GL_NEAREST);
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
-            emt->vox.tmap_edit->data[1], GL_RGBA, GL_NEAREST);
-        } else {
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat,
-            emt->vox.tpat_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpax,
-            emt->vox.tpat_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap,
-            emt->vox.tmap_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
-          texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmax,
-            emt->vox.tmap_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
-        }
+        emt->vox = *tiledvox;
+        set_raycasting_texture_gl();
       }
       if (glc.conf.get("edit_mode", 0, 0, 1) != 0) {
         edit_mode_ptr.some = make_ptr{edit_control}(datadir, emt, atl);
@@ -342,6 +322,34 @@ public struct drawer_triangles(shader_config const& glc0,
     }
     debug_log("drawer_triangles init ", stype, "done", vbid_triangles,
       vbid_vertices);
+  }
+  private function void set_raycasting_texture_gl()
+  {
+    if (stype == 1) {
+      const tpsz = emt->vox.tpat_edit->data[0].size();
+      const tmsz = emt->vox.tpat_edit->data[0].size();
+      debug_log("set_raycasting_texture_gl vox tpat", tpsz);
+      debug_log("set_raycasting_texture_gl vox tmap", tmsz);
+      if (glc.is_gl3_or_gles3()) {
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat0,
+          emt->vox.tpat_edit->data[0], GL_RGBA, GL_NEAREST);
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat1,
+          emt->vox.tpat_edit->data[1], GL_RGBA, GL_NEAREST);
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap0,
+          emt->vox.tmap_edit->data[0], GL_RGBA, GL_NEAREST);
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap1,
+          emt->vox.tmap_edit->data[1], GL_RGBA, GL_NEAREST);
+      } else {
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat0,
+          emt->vox.tpat_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtpat1,
+          emt->vox.tpat_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap0,
+          emt->vox.tmap_edit->data[0][0 .. 1], GL_RGBA, GL_NEAREST);
+        texture_data_array_to_gl_texture(GL_TEXTURE_3D, *emt->glt_voxtmap1,
+          emt->vox.tmap_edit->data[1][0 .. 1], GL_RGBA, GL_NEAREST);
+      }
+    }
   }
   public function vbid_t get_drawer_vbid() const { return vbid_triangles; }
   public function vbid_t get_instances_vbid() const { return vbid_instances; }
@@ -426,6 +434,14 @@ public struct drawer_triangles(shader_config const& glc0,
   }
   public function bool reload_shaders(shader_config const& glc0)
   {
+    if (stype == 1) {
+      debug_log("triangles reload shaders set texture");
+      set_raycasting_texture_gl();
+        // raycastingのテクスチャが更新されたときにもreload_shadersが呼ば
+        // れる。テクスチャのサイズが変わっている場合glテクスチャを
+        // glTexImage3Dする必要があるのでここで呼ぶ。
+        // auto reloadを有効にしていると無駄に呼ばれるので注意。
+    }
     function {t} string ivec3_string(t v) {
       return "ivec3(" + to_string(v.x) + ", " + to_string(v.y) + ", "
         + to_string(v.z) + ")";
@@ -492,7 +508,7 @@ public struct drawer_triangles(shader_config const& glc0,
       s1.some = init_zprepass_shader(glc, bnd, stype);
       s2.some = init_shadowmap_shader(glc, bnd, stype);
     } catch (runtime_error ex) {
-      debug_log("reload failed: " + ex.message());
+      debug_log("triangles reload failed: " + ex.message());
       return false;
     }
     sdr_solid = s0;
@@ -537,11 +553,11 @@ public struct drawer_triangles(shader_config const& glc0,
           glCullFace(GL_FRONT);
         }
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
-        glUniform1i(sdr_shadow.some->u_sampler_voxtpat, 5);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat0->texture_id.get());
+        glUniform1i(sdr_shadow.some->u_sampler_voxtpat0, 5);
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
-        glUniform1i(sdr_shadow.some->u_sampler_voxtmap, 6);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap0->texture_id.get());
+        glUniform1i(sdr_shadow.some->u_sampler_voxtmap0, 6);
       }
       const sm_view = cam_df.light.to_mat4().inverse();
       const sm_vp = cam_df.sm_projection[iter] * sm_view;
@@ -587,11 +603,11 @@ public struct drawer_triangles(shader_config const& glc0,
         cam_df.camera.position.to_crawptr());
       if (stype == 1) {
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
-        glUniform1i(sdr.u_sampler_voxtpat, 5);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat0->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtpat0, 5);
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
-        glUniform1i(sdr.u_sampler_voxtmap, 6);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap0->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtmap0, 6);
       }
       const n = ddata.draw_all_vs_all_inst(sdr, vbid_v, vbid_i);
     } else if (step == draw_step_solid) {
@@ -646,17 +662,17 @@ public struct drawer_triangles(shader_config const& glc0,
         glBindTexture(GL_TEXTURE_2D, texture_noise->texture_id.get());
         glUniform1i(sdr.u_sampler_noise, 4);
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat->texture_id.get());
-        glUniform1i(sdr.u_sampler_voxtpat, 5);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat0->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtpat0, 5);
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpax->texture_id.get());
-        glUniform1i(sdr.u_sampler_voxtpax, 6);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtpat1->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtpat1, 6);
         glActiveTexture(GL_TEXTURE7);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap->texture_id.get());
-        glUniform1i(sdr.u_sampler_voxtmap, 7);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap0->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtmap0, 7);
         glActiveTexture(GL_TEXTURE8);
-        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmax->texture_id.get());
-        glUniform1i(sdr.u_sampler_voxtmax, 8);
+        glBindTexture(GL_TEXTURE_3D, emt->glt_voxtmap1->texture_id.get());
+        glUniform1i(sdr.u_sampler_voxtmap1, 8);
         glActiveTexture(GL_TEXTURE9);
         glBindTexture(GL_TEXTURE_2D, texture_voxsurf->texture_id.get());
         glUniform1i(sdr.u_sampler_voxsurf, 9);
@@ -753,6 +769,8 @@ public struct drawer_triangles(shader_config const& glc0,
       glUniform1f(sdr.u_option_value3, opval3);
       mutable cur_layer = static_cast{float}(num_subtypes - 1 - ssubtype);
       glUniform1f(sdr.u_cur_layer, cur_layer);
+      mutable miplevel_bias = static_cast{float}(cam_df.miplevel_bias);
+      glUniform1f(sdr.u_miplevel_bias, miplevel_bias);
       glUniformMatrix4fv(sdr.u_view_projection_matrix, 1, 0, vp.to_crawptr());
       const n = ddata.draw_all_vs_all_inst(sdr, vbid_v, vbid_i);
       // debug_log("solid: n=", n, vbid_v, vbid_i);
@@ -822,7 +840,8 @@ init_shadowmap_shader(shader_config const& g,
     shadowmap_uniforms,
     triangles_instance_attributes,
     shadowmap_vertex_attributes
-  }(v, f, "model_matrix", g.debug_level, "triangles-sm-" + to_string(stype));
+  }(v, f, "", "model_matrix", g.debug_level,
+    "triangles-sm-" + to_string(stype));
 }
 
 private metafunction zprepass_shader_ptr
@@ -842,7 +861,8 @@ init_zprepass_shader(shader_config const& g,
     zprepass_uniforms,
     triangles_instance_attributes,
     zprepass_vertex_attributes
-  }(v, f, "model_matrix", g.debug_level, "triangles-zp-" + to_string(stype));
+  }(v, f, "", "model_matrix", g.debug_level,
+    "triangles-zp-" + to_string(stype));
 }
 
 private metafunction triangles_shader_ptr
@@ -861,7 +881,8 @@ init_triangles_shader(shader_config const& g,
       triangles_uniforms,
       triangles_instance_attributes,
       triangles_vertex_attributes
-    }(v, f, "model_matrix", g.debug_level, "triangles-" + to_string(stype));
+    }(v, f, "", "model_matrix", g.debug_level,
+      "triangles-" + to_string(stype));
 }
 
 private function string

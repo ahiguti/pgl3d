@@ -41,8 +41,6 @@ uint address, uint size, varray{uchar} mutable& data)
 
 extern "types" inline
 
-#ifdef PXC_WINDOWS
-
 #include <stdint.h>
 #include <memory>
 
@@ -64,13 +62,11 @@ private:
 
 }; // namespace d3axim
 
-#endif
-
 ;
 
 extern "implementation" inline
 
-#ifdef PXC_WINDOWS
+#if defined(_MSC_VER) && defined(_M_AMD64)
 
 #include <string.h>
 #include <stdlib.h>
@@ -86,15 +82,15 @@ extern "implementation" inline
 
 // #include "d3axim.hpp"
 
-#ifdef _MSC_VER
+// #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable:4091)
 #include "FTD3XX.h"
 #pragma warning(pop)
 #pragma comment(lib, "FTD3XX.lib")
-#else
-#include "ftd3xx.h"
-#endif
+// #else
+// #include "ftd3xx.h"
+// #endif
 
 #define DBG(x)
 
@@ -410,6 +406,67 @@ ftd3_aximaster_axi_read(ftd3_aximaster& axim, bt_uint address, bt_uint size,
   const bt_uchar *const start = reinterpret_cast<bt_uchar const *>(r.first);
   const bt_uchar *const finish = reinterpret_cast<bt_uchar const *>(r.second);
   data.append(start, finish - start);
+}
+
+}; // namespace d3axim
+
+#else
+
+namespace d3axim {
+
+using namespace pxcrt;
+
+bool
+ftd3_aximaster_is_valid(ftd3_aximaster const& axim)
+{
+  return false;
+}
+
+bool
+ftd3_aximaster_axi_write(ftd3_aximaster& axim, bt_uint address,
+  bt_cslice<bt_uchar> const& data)
+{
+  return false;
+}
+
+void
+ftd3_aximaster_axi_read(ftd3_aximaster& axim, bt_uint address, bt_uint size,
+  pxcvarray<bt_uchar>& data)
+{
+}
+
+struct ftd3_aximaster::impl_type { };
+
+ftd3_aximaster::ftd3_aximaster(unsigned index)
+{
+}
+
+ftd3_aximaster::~ftd3_aximaster()
+{
+}
+
+ftd3_aximaster::operator bool() const
+{
+    return false;
+}
+
+bool
+ftd3_aximaster::axi_write(uint32_t address, uint8_t const *start,
+  uint8_t const *finish)
+{
+    return false;
+}
+
+std::pair<uint8_t const *, uint8_t const *>
+ftd3_aximaster::axi_read(uint32_t address, uint32_t size)
+{
+    return std::pair<uint8_t const *, uint8_t const *>();
+}
+
+int
+ftd3_aximaster::test_empty()
+{
+    return 0;
 }
 
 }; // namespace d3axim

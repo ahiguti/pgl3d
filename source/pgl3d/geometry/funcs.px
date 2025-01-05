@@ -10,6 +10,8 @@ public import pgl3d::texture::voxel_surface -;
 public import pgl3d::texture::atlas -;
 public import pgl3d::engine::util -;
 
+private metafunction debug_texscale no_operation;
+
 public pure interface build_context_i
 {
   // 実装はpgl3d::engine::pglshader::build_context_impl
@@ -644,7 +646,7 @@ private pure function void gf_ctx_tex3d_surf(size_t ntex,
     // texscaleが小さいとテクスチャの範囲は大きくなる。
     // TODO: スケールを指定できるようにする
   }
-  debug_log("texscale=", texscale);
+  debug_texscale("texscale=", texscale);
   darrayst{vertex_attr} front = poly;
   mutable attr0 = poly[0];
   if (fill_floor) {

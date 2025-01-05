@@ -1,6 +1,45 @@
 
 ---------------------------------------------------------------------------
+次やる
+
+- vke利用
+- 影の濃さを距離に応じて設定
+- 底面の色
+- 3d mipmap 補間するか？
+  - eyeがボクセルに接触した面に応じて、その面の近傍4ボクセルをbilinear補間
+- blenderでobjを描いてそれに3dテクスチャを付ける
+- lzma
+
+---------------------------------------------------------------------------
 TODO
+
+- openglのGLintなどの型はbitwidthが決まっているのでそのように定義すべし
+  https://www.khronos.org/opengl/wiki/OpenGL_Type
+- miplevelを決める位置をカメラからaabbの中心までの距離にするのはどうか
+- 平面切断: miplevel=1以降はraycast接触判定ではfilledとみなすがだが法線だけ
+  は元の値を維持するようにしてはどうか。
+- FIXME: pxc: noncopyableなのにコピーできてしまっているのでは？
+  - 現commitのImGuiStyle型
+
+- TODO: 3dテクスチャの非同期更新したとき物理エンジンへ更新反映させなければ
+  ならない
+
+- FIMXE: rawptrはexports-unsafeにしないと間違える。rawptrはintから作成可能
+  なので、rawptrを引数に取りそれを参照外しするような関数はsafeにすることは
+  できない。
+- rawptr引数を取る関数をsafeにすることはできるか？
+  - rawptr値を返す関数は引数をrootし、rawptrはヒープに置けないようにする？
+  - slice familyにすればよいのではないか？
+  - 結論: できない
+- FIXME: tiled_texture_edit_view::sync_gl: num_wordsが2であることを決め
+  うっている。edit_mode_textureのglt_voxtmap/voxtmaxなどを修正するべし。
+
+- FIXME: Cousine-Regular.ttfの権利確認
+- FIXME: mplus-1m-bold.ttfの権利確認
+
+- imgui: glのversionを指定できるように
+
+- mipmap: 平面切断、球面切断のmipmap計算をそれらしく
 
 - raycastのmiplevel計算を正確に。
   - 距離 Z unit の位置のworld座標 1 unit が何pixelにあたるのか
@@ -520,6 +559,33 @@ TODO
 ---------------------------------------------------------------------------
 DONE
 
+- compute shaderためす(done)
+- image load storeためす(done)
+- 底面の裏(done)
+- 底面の影(done)
+  - たぶんできた
+- サンプル生成テクスチャ: 密度下げる(done)
+- miplevelをviewport解像度に合わせて調整(done)
+- 最大miplevelを大きく(done)
+  - 7_8_6_8_8_8サンプルでは現在のraycast_get_miplevelで丁度良さそう
+- bullet: src/LinearMath/btQuickprof.h (done)
+    BT_NO_PROFILE 1 これを有効にする。
+    vs2019のヒーププロファイラでmain末尾で残っているかどうかで判別できる。
+- windowを維持したままアプリをリセットする(done)
+- 重い処理を別スレッドに逃がしイベントループが固まらないようにする(done)
+  - tiled_voxel_texture_load_fileをthreadedに
+    - drawer_sharedのtexturesに3dテクスチャがセットされる。
+  - edit_modeのmipmap更新、distance更新、dedup, unused
+- pxc: make_thread_ptrなどのテンプレ引数にupvalueを抱えるnestされた関数を
+  指定すると正しくエラーになるか？(done)
+  - なる。'foo' is a local functionとして拒否される。
+- FIXME: imgui CalcListClippingの始点終点(done)
+- FIXME: imgui TextUnwrappedなどの始点終点(done)
+- imgui: macos 表示されない(done)
+- imgui: key releaseイベントが渡っていない？(done)
+- mipmap: emitが大きなmiplevelだと消えるのは何故か -> 誤解(done)
+  - edit_modeだと正常、そうでないとmipmapがおかしい(done)
+    - miplevel自動かどうかの違いだけだった(done)
 - FIXME: drawする際に空のvsidも含めてループを回すのは無駄。(done)
   - aggregated_ibuffer_draw_all_vs_all_inst()
     for (const _, const vsid: bo.vsids) ...
@@ -4800,4 +4866,248 @@ init_drawstepの中で3dテクスチャを生成・読み込んでいる
 build_verticesの中で頂点データを作っている
 頂点データでアトラスを作成してからテクスチャを生成する必要がある
 
+
+----------------
+raycastのmiplevel計算
+
+- 距離 Z unit の位置のworld座標 1 unit が何pixelにあたるのか
+- 物体の 1 voxel がworld座標で 何 unit にあたるのか
+
+miplevel指定の基準となる、テクスチャ座標での長さを計算する。
+- 基準長は視錐台のtangentに比例する。
+  - 距離が大きいときは、ほぼ距離に反比例する。
+- miplevelは基準長のlog2に比例。
+
+概算で -log2(距離) に定数を加えるのがよいか？
+
+----------------
+シェーダのmiplevel関連処理
+  const int tile3_size_log2 = 6;
+  int tmap_mip = clamp(miplevel - tile3_size_log2, 0, tile3_size_log2);
+    // miplevelが6以下のときは0になる
+  int tpat_mip = min(miplevel, tile3_size_log2);
+    // 0から6まで。ただし6のときはtpat参照されることはないと思われる
+
+  int tilesz_log2 = int(patscale.x + patscale.y * 2.0 + patscale.z * 4.0)
+    + 1;
+    // 1から8までの値。テクスチャにエンコードされた値は0から7までの値をとる。
+    // この値が大きいと粒が細かいパターンを参照している。標準はたぶん4。
+    // 実質的に使われるのはたぶん1から6まで。
+  float tilesz = float(1 << tilesz_log2);
+    // 2から256までの値。このパターンのtpatデータがtmapの何倍の縮小率のもの
+    // であるかを表す。標準はたぶん16。実質的に使われるのはたぶん2から64。
+  // tilesz_log2がtiel3_size_log2未満ならそのぶんmiplevelを下げる
+  tpat_coord_mip = max(tpat_mip - (tile3_size_log2 - tilesz_log2), 0);
+    // 現在参照しているref拡大率から何段階粗いmipを参照するかを計算。
+    // tpat_mipは0から6までにclampした現在のmiplevel。
+    // tile3_size_log2は6。
+    // tilesz_log2は実質1から6まで。
+    // たとえばtilesz_log2=4のとき、tpat_mipが2以下ならtpat_coord_mipは0、
+    // tpat_mipが3以上ならtpat_coord_mipは1以上になる。
+
+tpatrefのscale値は0から7までの値を取る。0のときtmapの2倍の粒度、1のとき4倍。
+tilesz_log2 = scale + 1 は1から8までの値。
+tilesz = 1 << tilesz_log2 は2から256までの値。tmapの何倍の粒度であるかを表す。
+
+miplevel=0はtpat64(szl2=6)までmip0を使う
+miplevel=1はtpat32(szl2=5)までmip0を使う。tpat64はmip1を使う
+miplevel=5はtpat2(szl2=1)までmip0を使う。tpat64はmip5を使う
+miplevel=6はtpat2(szl2=1)はmip1を使う。tpat64(szl2=6)はmip6を使う。
+  このlevelではtmapがmip0を使う最小のmiplevel。
+
+miplevel=7はtmapがmip1を使う。
+
+----------------
+mipmap作成
+
+pgled::edit_mode::tiled_voxel_texture
+tiled_voxel_texture_update_mipmap()
+  // tmapのmiplevel==0の代替となるテクスチャをstexに作成する。
+  // またtmap_vol[0]を生成する。
+
+tmap[0]の代替テクスチャの生成方法。
+trefのsc値に1を加えたものをszl2とする。
+tmap[0]はmiplevel=max_tile_scale_log2(=6)のレベルだから、trefボクセル
+についてはtpatのmip[szl2]を使う。
+
+
+----------------
+edit_modeのmpimap更新を別スレッド
+
+edit_mode_textureはgl_textureを含む。残りの部分がtiled_voxel_texture。
+public threaded struct edit_mode_texture()
+{
+  public tiled_voxel_texture vox;
+  public ptr{gl_texture} glt_voxtmap = make_ptr{gl_texture}();
+  public ptr{gl_texture} glt_voxtmax = make_ptr{gl_texture}();
+  public ptr{gl_texture} glt_voxtpat = make_ptr{gl_texture}();
+  public ptr{gl_texture} glt_voxtpax = make_ptr{gl_texture}();
+}
+public pure multithreaded struct tiled_voxel_texture()
+{
+  public texture_data voxtile;
+  public tptr{texture_edit} tmap_edit = make_tptr{texture_edit}();
+  public tptr{texture_edit} tpat_edit = make_tptr{texture_edit}();
+  public filling_map fillmap;
+}
+filling_mapは単純コピーできそう。
+texture_dataは単純コピーできそう。
+tiled_voxel_texture_copy_from
+
+core::pointer::raw_unsafe::varray_c_str(string mutable& x)
+文字列に終端nul終端文字列の生ポインタを返す。
+
+
+----------------
+imgui
+
+ShowDemoWindow(&show_demo)
+SetNextWindowPos(ImVec2(0.0, 0.0));
+SetNextWindowSize(ImVec2(...), 0.0);
+bitmask ImGuiWindowFlags
+enum ImGuiStyleVar
+PushStyleVar(ImGuiStyleVar, ImVec2);
+PushStyleVar(ImGuiStyleVar, float);
+Begin
+PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+PopStyleColor();
+Separator();
+Button(string);
+SameLine();
+PushItemWidth(int);
+DragFloat(str, ...);
+PopItemWidth();
+BeginTabBar(...);
+BeginTabItem();
+
+----------------
+重い処理を別スレッドに移動
+
+20231210-013401.509 config_fn   res/pgl3d.cnf
+20231210-013403.512 load voxel texture
+20231210-013404.063 loaded from raw
+20231210-013404.101 vox tpat    9
+20231210-013404.101 vox tmap    9
+20231210-013404.479 3dtex pre   512     512     512
+20231210-013407.025 3dtex post  2       4       1       0       0
+20231210-013407.025 create noedit_control instance
+
+まず、mainloop到達後にデータを上書きする形へ変更
+
+----------------
+tiled_voxel_texture_load_fileをthreadedに
+
+drawer_sharedのtexturesに3dテクスチャがセットされる。
+これの初期値をダミーのものにして、非同期にロード・テクスチャ更新するよう
+に変更する。
+
+----------------
+テクスチャ非同期ロード
+
+現状のテクスチャ読み込み処理:
+app_drawstep::init_drawsteps()
+  prepare_triangles_texture_data()
+    textures_ptr textures;
+      // textures_ptrはpgl3d/drawer/base.pxで定義
+    tptr{tiled_voxel_texture} tvt;
+      // edit_mode/tiled_voxel_texture.pxに
+      //   tiled_voxel_texture_prepare - 必要ならサイズを変更する
+      //   tiled_voxel_texture_load_file
+      //   tiled_voxel_texture_update_mipmap
+
+prepare_triangles_texture_data()
+  textures_ptrとtvtをセットする
+  tvtはraycastingテクスチャをセット
+  textures_ptrにはその他のテクスチャをセット
+
+prepare_raycasting_texture_data()
+  
+appのinit_drawstepsで読み込むのは空のデータにする
+pgl::drawer_shared
+
+
+struct tiled_voxel_texture {
+  texture_data voxtile; // タイルの大きさを保持するだけのために使用？
+  tptr{texture_edit} tmap_edit;
+  tptr{texture_edit} tpat_edit;
+  filling_map fillmap;
+}
+metafunction texture_data_mip varray{texture_reshaped};
+struct texture_edit {
+  metafunction tex_mip_words farray{texture_data_mip, multiword_num_words};
+  tex_mip_words data;
+}
+
+texture_editのdata[i][j] iはword index, jはmiplevel
+data[i]の長さが最大miplevel これはtxs.voxtpat_size_l2 + 1
+
+
+----------------
+comptest.csh
+
+(local_size=1,1,1)
+ループ内7回の浮動小数点演算
+256回ループ
+1920*1080
+186fps
+691,155,763,200 FLOPS
+
+(local_size=8,8,1)
+ループあたり7回演算
+4096回ループ
+1920*1080
+310fps
+18,430,820,352,000 FLOPS
+RTX3080Ti 理論値 27.96(boost時34.10) TFLOPS
+理論値の半分程度か？
+
+16384回ループ
+92fps
+RTX3080Ti 21,879,167,385,600 FLOPS
+理論値の64%-78%程度
+
+16384回ループ
+27fps
+GTX1080 6,421,059,993,600 FLOPS
+理論値 8.23(boost時8.87) TFLOPS
+理論値の72%-78%程度
+
+16384回ループ
+1280*720 21fps
+GTX980M linux 2,219,625,676,800 FLOPS
+理論値 3.189 TFLOPS
+理論値の70%程度
+
+REP.S {16384, 0, 0, 0};
+MUL.F32 R0.z, R1.y, R1.y;
+MUL.F32 R0.w, R1.x, R1.y;
+MAD.F32 R0.z, R1.x, R1.x, -R0;
+MAD.F32 R1.y, R0.w, {2, 0, 0, 0}.x, R0;
+ADD.F32 R1.x, R0, R0.z;
+ENDREP;
+ループ内7演算。5回のうち2回が積和演算なので70%の実速度。計算合っている。
+
+REP.S {16384, 0, 0, 0};
+MUL.F32 R0.w, R1.y, R1.x;
+MAD.F32 R0.z, R1.x, R1.x, R0.x;
+MAD.F32 R1.x, -R1.y, R1.y, R0.z;
+MAD.F32 R1.y, R0.w, {2, 0, 0, 0}.x, R0;
+ENDREP;
+積和演算3回と積1回の4命令に短縮。
+16384回ループ 110fps
+26,159,874,048,000
+実測 26.16 TFLOPS
+
+RTX3080Ti 1.665GHz 10240並列 クロックあたり積和演算1回
+2*10240*1665000000
+34,099,200,000,000
+全て積和演算なら 34.0992 TFLOPS
+積和演算3回と積1回なので4サイクルで7演算
+29,836,800,000,000
+29.84 TFLOPS
+理論値の88%くらい
+
+65536回 29.75 fps
+28.30 TFLOPS
+理論値の95%くらい
 

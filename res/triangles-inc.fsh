@@ -4,6 +4,7 @@ vec4 dbgval = vec4(0.0);
 <%/>
 
 const float epsilon = 1e-6;
+const float epsilon3 = epsilon * 3.0;
 
 float linear_01(in float x, in float a, in float b)
 {
@@ -213,22 +214,26 @@ const int virt3_size_log2 =
   + tile3_size_log2;
 const int virt3_size = 1 << virt3_size_log2;
   // 長辺仮想サイズ。タイルの最大スケールを使ったときのもの。
+const float virt3_size_inv = 1.0f / float(virt3_size);
 
 const ivec2 voxsurf_size_log2 = <%voxsurf_size_log2/>;
 const ivec2 voxsurf_size = ivec2(1) << voxsurf_size_log2;
   // 表面に貼り付ける2dテクスチャの大きさ
 
-uniform <%mediump_sampler3d/> sampler_voxtpat;
+uniform <%mediump_sampler3d/> sampler_voxtpat0;
   // タイルパターンテクスチャ#0
-uniform <%mediump_sampler3d/> sampler_voxtpax;
+uniform <%mediump_sampler3d/> sampler_voxtpat1;
   // タイルパターンテクスチャ#1
-uniform <%mediump_sampler3d/> sampler_voxtmap;
+uniform <%mediump_sampler3d/> sampler_voxtmap0;
   // タイルマップテクスチャ#0
-uniform <%mediump_sampler3d/> sampler_voxtmax;
+uniform <%mediump_sampler3d/> sampler_voxtmap1;
   // タイルマップテクスチャ#1
 
 uniform sampler2D sampler_voxsurf;
   // 表面に貼り付ける2dテクスチャ
+
+uniform float miplevel_bias;
+
 
 int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
 {
@@ -238,10 +243,10 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
   vec3 curpos_t = floor(curpos_i / tile3_size);
   vec3 curpos_tr = curpos_i - curpos_t * tile3_size; // 0から15の整数
   <%if><%is_gl3_or_gles3/>
-  vec4 value = texelFetch(sampler_voxtmap, ivec3(curpos_t) >> tmap_mip, 
+  vec4 value = texelFetch(sampler_voxtmap0, ivec3(curpos_t) >> tmap_mip, 
     tmap_mip);
   <%else/>
-  vec4 value = <%texture3d/>(sampler_voxtmap, curpos_t / map3_size);
+  vec4 value = <%texture3d/>(sampler_voxtmap0, curpos_t / map3_size);
   <%/>
   int node_type = int(round_255(value.a));
   /*
@@ -251,10 +256,10 @@ int tilemap_fetch(in vec3 pos, int tmap_mip, int tpat_mip)
       // 16刻み4096迄
     // distance_unit = distance_unit_tpat_mip;
     <%if><%is_gl3_or_gles3/>
-    value = texelFetch(sampler_voxtpat,
+    value = texelFetch(sampler_voxtpat0,
       ivec3(curpos_tp + curpos_tr) >> tpat_mip, tpat_mip);
     <%else/>
-    value = <%texture3d/>(sampler_voxtpat,
+    value = <%texture3d/>(sampler_voxtpat0,
       (curpos_tp + curpos_tr) / pattex3_size);
     <%/>
     // value = vec4(1.0, 1.0, 1.0, 1.0);
@@ -363,8 +368,9 @@ int raycast_get_miplevel(in vec3 pos, in vec3 campos, in float dist_rnd)
   // テクスチャ座標でのposとcamposからmiplevelを決める
   float dist_pos_campos_2 = dot(pos - campos, pos - campos) + 0.0001;
   float dist_log2 = log(dist_pos_campos_2) * 0.5 / log(2.0);
-  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 10.0);
-    // TODO: LODバイアス調整できるようにする
+  //return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 9.0);
+  return int(dist_log2 * 1.0 + dist_rnd * 4.0 + float(virt3_size_log2) - 9.0
+    + miplevel_bias);
 }
 
 vec3 tpat_sgn_rotate_tile(in vec3 value, in vec3 rot, in vec3 sgn,
@@ -414,6 +420,26 @@ vec3 sphere_scale(vec3 v)
   return v;
 }
 
+bool raycast_hit_ground_boundary(
+  in vec2 c, // テクスチャ座標での位置(仮想サイズ倍しない位置)
+  in vec2 boundary[<%boundary_len/>],
+  in int boundary_len)
+{
+  bool r = true;
+  // cがboundaryの内側かどうかを判定する
+  for (int i = 0; i < boundary_len; ++i) {
+    vec2 p0 = boundary[i];
+    vec2 p1 = (i + 1 == boundary_len)
+      ? boundary[0] : boundary[i + 1];
+    vec2 p01 = p1 - p0;
+    vec2 pnor = vec2(-p01.y, p01.x);
+    if (dot(pnor, c.xy - p0) < 0.0) {
+      r = false; // boundaryの外側
+    }
+  }
+  return r;
+}
+
 bool debug_scale = false;
 
 int raycast_tilemap(
@@ -425,21 +451,6 @@ int raycast_tilemap(
   in bool enable_variable_miplevel, in vec2 boundary[<%boundary_len/>],
   in int boundary_len)
 {
-  /*
-  { // FIXME
-    float vx = maptex3_size_log2.x == 10 ? 1.0 : 0.0;
-    float vy = maptex3_size_log2.y == 12 ? 1.0 : 0.0;
-    float vz = maptex3_size_log2.z == 7 ? 1.0 : 0.0;
-    dbgval = vec4(vx, vy, vz, 1.0);
-    return 3;
-  }
-  */
-  /*
-  if (enable_variable_miplevel) {
-    dbgval = vec4(1.0, 0.0, 0.0, 1.0);
-    return 3;
-  }
-  */
   // 引数の座標はすべてテクスチャ座標
   // eyeはカメラから物体への向き、lightは物体から光源への向き
   int miplevel0 = miplevel;
@@ -481,7 +492,7 @@ int raycast_tilemap(
   vec3 hit_coord;
   vec3 hit_coord_small;
     // 衝突したときのテクスチャ座礁のボクセル内オフセット
-  vec4 hit_value = vec4(0.0); // FIXME 使ってない？
+  vec4 hit_value = vec4(0.0);
   int node_type = 0;
   int i;
   int imax = <%raycast_iter/>;
@@ -490,6 +501,17 @@ int raycast_tilemap(
     // テクスチャが大きいと128くらいにする必要があるか。
   if (debug_scale) {
     imax = 512;
+  }
+  // 最初に裏面から地面に衝突したかどうか判定する。posはepsilon3だけ内側に
+  // clampされているのでそのぶんを加えて判定。
+  if (eye.z > 0.0 && pos.z <= aabb_min.z + epsilon3) {
+    if (raycast_hit_ground_boundary(pos.xy, boundary, boundary_len)) {
+      // 裏面にhit
+      value0_r = hit_value; // vec4(0.1, 0.0, 0.0, 1.0);
+      value1_r = vec4(0.8, 0.5, 0.8, 0.2); // FIXME: どうやって渡すか？
+      hit_nor = vec3(0.0, 0.0, -1.0);
+      return 0;
+    }
   }
   // raycastループ
   for (i = 0; i < imax; ++i) {
@@ -501,9 +523,7 @@ int raycast_tilemap(
       tpat_mip = min(miplevel, tile3_size_log2);
       distance_unit_tmap_mip = float(<%lshift>tile3_size<%>tmap_mip<%/>);
       distance_unit_tpat_mip = float(<%lshift>1<%>tpat_mip<%/>);
-    }
-    <%comment>
-    {
+    } <%comment> {
       // FIXME
       if (tmap_mip == 2) {
         dbgval = vec4(1.0, 0.0, 0.0, 1.0);
@@ -517,10 +537,10 @@ int raycast_tilemap(
       // タイル内座標(0以上tile3_size未満)
     // タイルマップテクスチャを引く
     <%if><%is_gl3_or_gles3/>
-    vec4 value = texelFetch(sampler_voxtmap, ivec3(tmap_coord) >> tmap_mip, 
+    vec4 value = texelFetch(sampler_voxtmap0, ivec3(tmap_coord) >> tmap_mip, 
       tmap_mip);
     <%else/>
-    vec4 value = <%texture3d/>(sampler_voxtmap, tmap_coord / map3_size);
+    vec4 value = <%texture3d/>(sampler_voxtmap0, tmap_coord / map3_size);
     <%/>
     node_type = int(round_255(value.a));
     // if (node_type == 255 && !mip_detail && enable_variable_miplevel) {
@@ -575,10 +595,10 @@ int raycast_tilemap(
       // distance_unit = float(1 << (tpat_coord_mip + tpscale_log2));
       // タイルパターンテクスチャを引く
       <%if><%is_gl3_or_gles3/>
-      value = texelFetch(sampler_voxtpat, ivec3(tpat_coord) >> tpat_coord_mip,
+      value = texelFetch(sampler_voxtpat0, ivec3(tpat_coord) >> tpat_coord_mip,
         tpat_coord_mip);
       <%else/>
-      value = <%texture3d/>(sampler_voxtpat, (tpat_coord) / pattex3_size);
+      value = <%texture3d/>(sampler_voxtpat0, (tpat_coord) / pattex3_size);
       <%/>
       node_type = int(round_255(value.a));
       // ここの埋め込み空白値はデフォルトスケール(tile3_size)での境界まで
@@ -776,29 +796,9 @@ int raycast_tilemap(
         c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
         // const int boundary_len = <%boundary_len/>;
         // boundaryの内側かどうかを判定する
-        hitgr = true;
-        for (int i = 0; i < boundary_len; ++i) {
-          vec2 p0 = boundary[i];
-          vec2 p1 = (i + 1 == boundary_len)
-            ? boundary[0] : boundary[i + 1];
-          vec2 p01 = p1 - p0;
-          vec2 pnor = vec2(-p01.y, p01.x);
-          if (dot(pnor, c.xy - p0 * virt3_size) < 0.0) {
-            hitgr = false; // boundaryの外側
-          }
-        }
+        hitgr = raycast_hit_ground_boundary(c.xy * virt3_size_inv,
+          boundary, boundary_len);
       }
-      /*
-      bool hitgr = false; // 地面に衝突しているかどうか
-      if (c.z <= aabb_min.z * virt3_size) {
-        float dz = c.z - aabb_min.z * virt3_size;
-        c -= ray * dz / ray.z; // 地面を超えたぶん引き戻す
-        if (pos2_inside_2(c.xy, aabb_min.xy * virt3_size,
-          aabb_max.xy * virt3_size)) {
-          hitgr = true;
-        }
-      }
-      */
       if (hitgr) {
         // 地面に衝突した
         if (hit < 0) {
@@ -855,17 +855,17 @@ int raycast_tilemap(
       value1_r = vec4(0.5, 0.5, 0.8, 0.2); // FIXME: どうやって渡すか？
     } else if (!hit_tpat) {
       <%if><%is_gl3_or_gles3/>
-      value1_r = texelFetch(sampler_voxtmax, ivec3(hit_coord) >> tmap_mip, 
+      value1_r = texelFetch(sampler_voxtmap1, ivec3(hit_coord) >> tmap_mip, 
         tmap_mip);
       <%else/>
-      value1_r = <%texture3d/>(sampler_voxtmax, hit_coord / map3_size);
+      value1_r = <%texture3d/>(sampler_voxtmap1, hit_coord / map3_size);
       <%/>
     } else {
       <%if><%is_gl3_or_gles3/>
-      value1_r = texelFetch(sampler_voxtpax,
+      value1_r = texelFetch(sampler_voxtpat1,
         ivec3(hit_coord) >> hit_tpat_coord_mip, hit_tpat_coord_mip);
       <%else/>
-      value1_r = <%texture3d/>(sampler_voxtpax, (hit_coord) / pattex3_size);
+      value1_r = <%texture3d/>(sampler_voxtpat1, (hit_coord) / pattex3_size);
       <%/>
     }
     // voxsurfテスト中。voxel表面に2dテクスチャを貼り付ける。
@@ -893,11 +893,6 @@ int raycast_tilemap(
       // node_typeが255(filled)のときrgb値をemission値に加算する。mipmapには
       // value1にalbedo値、value0.rgbにemit値をそれぞれ保持しているため。
   }
-  // if (hit < 0) {
-  //   dbgval = vec4(1.0, 1.0, 0.0, 1.0);
-  // }
-  // if (i > 10) { dbgval = vec4(1.0, 1.0, 0.0, 1.0); }
-  // if (hit == 6) { dbgval = vec4(1.0, 0.0, 0.0, 1.0); }
   return hit;
 }
 

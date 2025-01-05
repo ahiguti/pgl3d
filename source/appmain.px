@@ -2,7 +2,6 @@ public namespace appmain;
 public import core::common -;
 public import core::exception -;
 public import core::numeric::fpmath -;
-public import core::pointer::raw -;
 public import core::text::positional -;
 public import core::io::time -;
 public import core::fundamental::mainloop -;
@@ -25,15 +24,22 @@ public function void app_main()
   set_debug_timestamp(true);
   // pgl::debug_helper::dump_modules();
   // pgl::debug_helper::dump_backtrace();
-  string config_fn = "res/pgl3d.cnf";
-  for (size_t i: 1 .. core::io::environ::argv.size()) {
-    const s = core::io::environ::argv[i];
-    if (find_mapped(s, static_cast{size_t}(0u), '=') >= s.size()) {
-      config_fn = s;
-    }
+  varray{string} argv =
+    core::io::environ::argv[1 .. core::io::environ::argv.size()];
+  if (argv.empty()) {
+    argv.push_back("res/pgl3d.cnf");
   }
-  debug_log("config_fn", config_fn);
-  pgl3d::engine::mainloop::mainloop{app_application}(config_fn);
+  pgl3d::engine::minibench::minibench(); // TODO: remove
+  pgl3d::engine::mainloop::mainloop{app_application_factory}(argv);
+}
+
+public struct app_application_factory()
+  <pgl::pgl3d_application_factory>
+{
+  public function ptr{pgl::pgl3d_application} make_application()
+  {
+    return make_ptr{app_application}();
+  }
 }
 
 public struct app_application()
@@ -44,7 +50,7 @@ public struct app_application()
   public function varray{pgl::drawer_cond} on_init_drawstep(
     pgl::shader_config const& conf, pgl::drawer_shared const& ds)
   {
-    debug_log("init_drawstep");
+    debug_log("on_init_drawstep");
     mutable datadir = conf.conf.get("datadir", string(), string(), string());
     if (datadir.empty()) {
       datadir = "./datadir";
@@ -74,16 +80,17 @@ public struct app_application()
         }
       }
     }
+    debug_log("on_init_drawstep done");
     return r;
   }
   public function void on_build_vertices(pgl::make_vertices_i mutable& mvx)
   {
-    debug_log("build_vertices");
+    debug_log("on_build_vertices");
     build_vertices(app, mvx);
-    debug_log("build_vertices done");
+    debug_log("on_build_vertices done");
     mutable& ss = downcast_mutable{app_scene_shared}(*app.scene_shared);
     prepare_vbids(ss.rdi, mvx, app.raycast_layer);
-    ss.tvt.some = app.tvt;
+    ss.tiledvox.some = app.tiledvox;
     ss.tup.some = app.tup;
   }
   public function void on_event(SDL_Event const& ev,
@@ -97,6 +104,14 @@ public struct app_application()
     app.player_joystick.axes.resize(6, short());
     app.player_joystick.buttons.resize(15, false);
     app.player_joystick.hats.resize(0, ushort());
+  }
+  public function void on_geometry_changed(pgl::app_ctrl_i mutable& actrl)
+  {
+    if (update_window_geometry(app, actrl.get_drawable_size(),
+      actrl.get_window_size(), false)) {
+      actrl.geometry_changed();
+    }
+    debug_log("on_geometry_changed");
   }
   public function void on_scankeys(cslice{uchar} const& keys,
     cslice{pgl::joystick_state} const& joysticks, float speed)
@@ -127,7 +142,7 @@ public struct app_application()
   {
     return app.scene_shared;
   }
-  public function void on_frame()
+  public function void on_frame(pgl::app_ctrl_i mutable& actrl)
   {
     // debug_log("app on_frame");
     mutable& tup = *app.tup;
@@ -148,6 +163,25 @@ public struct app_application()
       // if (t0 != t1) {
       //   debug_log("(no)edit_mode on frame", t1 - t0);
       // }
+    }
+    if (case app.make_texture_async.some) {
+      const tx = app.make_texture_async.some;
+      if (tx->finished()) {
+        debug_log("make_texture_async finiehd");
+        // TODO: 非同期読み込みテスト中
+        if (true) {
+          // applicationをリスタートする
+          actrl.set_param("restart_app", "1");
+        } else {
+          // voxel textureだけを置き換える。物理エンジンのためのobjectへ
+          // 更新が反映されない問題がある。
+          *app.tiledvox = *app.make_texture_async_vox.some;
+          app.edit_mode.some->update_tiled_voxel_texture(*app.tiledvox);
+          actrl.reload_shaders();
+          app.make_texture_async.none = unit();
+          app.make_texture_async_vox.none = unit();
+        }
+      }
     }
     // debug_log("app on_frame done");
   }
@@ -181,6 +215,9 @@ public struct app_application()
   private uint axi_addr;
   public function void on_draw_finished()
   {
+    if (case app.edit_mode.some) {
+      app.edit_mode.some->on_draw_finished();
+    }
     if (!app.capt_data->empty()) {
       if (app.axim.is_valid()) {
         {

@@ -1,4 +1,4 @@
-public namespace pgl3d::engine::input_control "use-unsafe"; // FIXME?
+public namespace pgl3d::engine::input_control "use-unsafe";
 public import core::common -;
 public import core::exception -;
 public import core::numeric::fpmath -;
@@ -11,6 +11,8 @@ public import pgl3d::engine::platform -;
 public import pgl3d::engine::device_motion -;
 public import pgl3d::geometry::funcs -;
 public import pgl3d::drawer::drawer -;
+public import sdl2::api_base -;
+private import sdl2::api_types -;
 
 public struct
 input_control(io const& iop)

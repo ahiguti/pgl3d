@@ -3,7 +3,7 @@ public import core::common -;
 public import core::meta m;
 public import core::meta::vararg va;
 public import glm -;
-public import sdl2::api_types -;
+private import sdl2::api_types -;
 public import core::text::serialize::compact_pod -;
 public import pgl3d::texture::texture -;
 public import pgl3d::texture::voxel -;
@@ -106,8 +106,8 @@ texture_edit()
 {
   /* 更新可能なボクセルデータのテクスチャを保持するクラス。更新されたら
    * raycast用の「埋め込み距離」を再計算する。*/
-  public metafunction num_words 2;
-  public metafunction tex_mip_words farray{texture_data_mip, num_words};
+  public metafunction tex_mip_words
+    farray{texture_data_mip, multiword_num_words};
   public texture_data_mip data_pri; // 旧データ読み込み用。現行では不使用
   public texture_data_mip data_sec; // 旧データ読み込み用。現行では不使用
   public texture_data grid_dummy; // もう使っていないはず

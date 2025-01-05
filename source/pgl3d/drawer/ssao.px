@@ -131,6 +131,6 @@ init_ssao_shader(shader_config const& g)
   const v = load_shader_program(g, bnd, "ssao.vsh");
   const f = load_shader_program(g, bnd, "ssao.fsh");
   return make_glshader_ptr{ssao_uniforms, ssao_instance_attributes,
-    ssao_vertex_attributes}(v, f, "", g.debug_level, "ssao");
+    ssao_vertex_attributes}(v, f, "", "", g.debug_level, "ssao");
 }
 

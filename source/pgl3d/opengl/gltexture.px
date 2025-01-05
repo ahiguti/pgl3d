@@ -1,7 +1,6 @@
 private threaded namespace pgl3d::opengl::gltexture "export-unsafe";
 public import core::common -;
 public import core::pointer::raw -;
-public import core::pointer::raw_unsafe -;
 public import core::numeric::fpmath -;
 public import glm;
 public import glm::raw;
@@ -238,7 +237,7 @@ texture_data_array_to_gl_texture(GLenum target, gl_texture mutable& tx,
 
 metafunction SDL_Surface_Scoped scoped_nullable{SDL_FreeSurface};
 
-function void dump_buf(varray{uint} const& buf)
+pure function void dump_buf(varray{uint} const& buf)
 {
   debug_log("dump_buf_begin");
   for (const i, const& v: buf) {
@@ -247,7 +246,7 @@ function void dump_buf(varray{uint} const& buf)
   debug_log("dump_buf_end");
 }
 
-function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
+threaded function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
   GLenum target, GLenum iformat, GLenum format, GLenum pixtype, GLenum filter)
 {
   size_t tds_sz = 0;
@@ -260,7 +259,7 @@ function {t} void set_gl_texture(t const& tds, gl_texture mutable& ti,
     }
     tds_sz = tds.size();
   }
-  function {t} void set_one(t const& td, size_t i)
+  threaded function {t} void set_one(t const& td, size_t i)
   {
     const cpy = td.get_copy_linear();
       // メモリ上でreorderされているテクスチャのときはlinearに変換する。

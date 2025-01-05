@@ -151,6 +151,6 @@ init_dbgui_shader(shader_config const& g)
   const v = load_shader_program(g, bnd, "dbgui.vsh");
   const f = load_shader_program(g, bnd, "dbgui.fsh");
   return make_glshader_ptr{dbgui_uniforms, dbgui_instance_attributes,
-    dbgui_vertex_attributes}(v, f, "", g.debug_level, "dbgui");
+    dbgui_vertex_attributes}(v, f, "", "", g.debug_level, "dbgui");
 }
 

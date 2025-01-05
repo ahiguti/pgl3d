@@ -1,0 +1,160 @@
+private threaded namespace pgl3d::imgui::dear_imgui "export-unsafe";
+public import core::common -;
+public import core::meta m;
+public import core::pointer::raw -;
+public import sdl2::api_base -;
+public import sdl2::api_types -;
+public import sdl2::api_functions -;
+public import sdl2::api_wrappers -;
+public import pgl3d::sdl::sdlutil -;
+public import pgl3d::imgui::dear_imgui_api *;
+
+public threaded struct extern "::pgl3d$n::imgui$n::dear_imgui$n::%" "nonmovable"
+ImGuiThreadContext()
+{
+  public function extern "%" ImGuiStyle mutable& GetStyle();
+  public function extern "%" ImGuiIO mutable& GetIO();
+}
+
+public threaded function extern "::pgl3d$n::imgui$n::dear_imgui$n::%"
+void ImGuiThreadContext_SetGLContext(ImGuiThreadContext mutable& imgui,
+  SDL_GLContext glctx, rawptr{SDL_Window} sdlw, varray{uchar} const& ttfimg,
+  uint fnsz);
+public threaded function extern "::pgl3d$n::imgui$n::dear_imgui$n::%"
+void StartFrame();
+public threaded function extern "::pgl3d$n::imgui$n::dear_imgui$n::%"
+void Render();
+public threaded function extern "::pgl3d$n::imgui$n::dear_imgui$n::%"
+bool ProcessEvent(crawptr{SDL_Event} ev);
+
+public threaded function ImVec2 ImVec2_(float x, float y)
+{
+  mutable ImVec2 r;
+  r.x = x;
+  r.y = y;
+  return r;
+}
+
+public threaded function ImVec4 ImVec4_(float x, float y, float z, float w)
+{
+  mutable ImVec4 r;
+  r.x = x;
+  r.y = y;
+  r.z = z;
+  r.w = w;
+  return r;
+}
+
+extern "types" inline
+
+namespace pgl3d$n {
+namespace imgui$n {
+namespace dear_imgui$n {
+
+struct ImGuiThreadContext {
+  ImGuiThreadContext();
+  ~ImGuiThreadContext();
+  ImGuiThreadContext(ImGuiThreadContext const&) = delete;
+  ImGuiThreadContext& operator =(ImGuiThreadContext const&) = delete;
+  ImGuiStyle& GetStyle() {
+    return ::ImGui::GetStyle();
+  }
+  ImGuiIO& GetIO() {
+    return ::ImGui::GetIO();
+  }
+public:
+  std::string ttf_image;
+};
+
+};
+};
+};
+
+;
+
+extern "implementation" inline
+
+#include "imgui.h"
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
+
+namespace pgl3d$n {
+namespace imgui$n {
+namespace dear_imgui$n {
+
+thread_local unsigned int init_count = 0;
+
+void imgui_check_initialized()
+{
+  if (init_count == 0) {
+    throw std::logic_error("ImGuiThreadContext");
+  }
+}
+
+ImGuiThreadContext::ImGuiThreadContext()
+{
+  if (init_count == 0) {
+    ImGui::CreateContext();
+  }
+  ++init_count;
+}
+
+ImGuiThreadContext::~ImGuiThreadContext()
+{
+  --init_count;
+  if (init_count == 0) {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+  }
+}
+
+void ImGuiThreadContext_SetGLContext(ImGuiThreadContext& imgui,
+  SDL_GLContext glctx, SDL_Window *sdlw,
+  ::pxcrt::pxcvarray< ::pxcrt::bt_uchar > const& ttfimg, ::pxcrt::bt_uint fnsz)
+{
+  imgui_check_initialized();
+  ImGuiIO& io = ImGui::GetIO();
+  if (!ttfimg.empty()) {
+    const char *p = reinterpret_cast<const char *>(ttfimg.rawarr());
+    imgui.ttf_image = std::string(p, p + ttfimg.size());
+    ImFontConfig font_cfg { };
+    font_cfg.FontDataOwnedByAtlas = false;
+      // ttf_image must not be freed by imgui
+    io.Fonts->AddFontFromMemoryTTF(&imgui.ttf_image[0],
+      static_cast<int>(imgui.ttf_image.size()),
+      static_cast<float>(fnsz), &font_cfg);
+  }
+  ImGui::StyleColorsDark();
+  ImGui::GetStyle().FrameBorderSize = 1.0f;
+  ImGui_ImplSDL2_InitForOpenGL(sdlw, glctx);
+  const char *glsl_version = "#version 410 core";
+  ImGui_ImplOpenGL3_Init(glsl_version);
+}
+
+void StartFrame()
+{
+  imgui_check_initialized();
+  ImGui_ImplOpenGL3_NewFrame();
+  ImGui_ImplSDL2_NewFrame();
+  ImGui::NewFrame();
+}
+
+void Render()
+{
+  imgui_check_initialized();
+  ImGui::Render();
+  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+::pxcrt::bt_bool ProcessEvent(SDL_Event const *ev)
+{
+  imgui_check_initialized();
+  return ImGui_ImplSDL2_ProcessEvent(ev);
+}
+
+};
+};
+};
+
+;

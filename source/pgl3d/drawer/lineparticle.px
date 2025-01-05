@@ -158,7 +158,7 @@ init_lineparticle_shader(shader_config const& g)
   f += "}\n";
   return make_glshader_ptr{lineparticle_uniforms,
     lineparticle_instance_attributes, lineparticle_vertex_attributes}
-    (v, f, "", g.debug_level, "lineparticle");
+    (v, f, "", "", g.debug_level, "lineparticle");
 }
 
 private pure function void prepare_instance_data_lineparticle(

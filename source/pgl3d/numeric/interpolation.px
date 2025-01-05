@@ -20,12 +20,12 @@ float cubic_b_spline_prime(
   cubic_b_spline const& spl, float x);
 
 extern "types" inline
-#include <boost/math/interpolators/cubic_b_spline.hpp>
+#include <boost/math/interpolators/cardinal_cubic_b_spline.hpp>
 
 namespace pgl3d$n { namespace numeric$n { namespace interpolation$n {
 
 struct cubic_b_spline {
-  boost::math::cubic_b_spline<float> spl;
+  boost::math::interpolators::cardinal_cubic_b_spline<float> spl;
   cubic_b_spline(::pxcrt::bt_cslice<float> const& points, float t0, float h);
 };
 
@@ -58,7 +58,8 @@ void test_spline()
   std::vector<double> f{0.01, -0.02, 0.3, 0.8, 1.9, -8.78, -22.6};
   double t0 = 0;
   double h = 0.01;
-  boost::math::cubic_b_spline<double> sp(f.begin(), f.end(), t0, h);
+  boost::math::interpolators::cardinal_cubic_b_spline<double>
+    sp(f.begin(), f.end(), t0, h);
   printf("test_spline done\n");
 }
 

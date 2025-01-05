@@ -2,8 +2,8 @@ public namespace pgl3d::physics::grid_broadphase "use-unsafe";
 public import core::common -;
 public import glm -;
 public import core::numeric::fpmath -;
-public import core::pointer::raw -;
 public import core::meta m;
+private import core::pointer::raw -;
 
 public metafunction col_id_type uint;
 public metafunction filling_index_type uint;

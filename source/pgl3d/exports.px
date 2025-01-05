@@ -9,6 +9,7 @@ public import pgl3d::engine::platform *;
 public import pgl3d::engine::input_control *;
 public import pgl3d::engine::pglconfig *;
 public import pgl3d::engine::scene_node *;
+public import pgl3d::engine::minibench *;
 public import pgl3d::opengl::glvertex *;
 public import pgl3d::opengl::shader_config *;
 public import pgl3d::texture::texture *;

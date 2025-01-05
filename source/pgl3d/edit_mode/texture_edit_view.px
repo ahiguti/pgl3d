@@ -5,7 +5,7 @@ private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::update_dist -;
 private import pgl3d::edit_mode::vecutil -;
 
-public struct texture_edit_view(tptr{texture_edit} const edit)
+public pure threaded struct texture_edit_view(tptr{texture_edit} const edit)
 {
   /* texture_edit_viewはtexture_editに加えて、カーソルの表示と、
    * カーソルより大きなz位置を非表示にする機能を追加したもの
@@ -272,7 +272,7 @@ public struct texture_edit_view(tptr{texture_edit} const edit)
   }
 }
 
-private function varray{texture_reshaped}
+private pure function varray{texture_reshaped}
 copy_miplevel0(tptr{texture_edit} const& edit)
 {
   varray{texture_reshaped} r;

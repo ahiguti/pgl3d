@@ -2,7 +2,6 @@ public namespace app::app_drawstep;
 public import core::common -;
 public import core::exception -;
 public import core::numeric::fpmath -;
-public import core::pointer::raw -;
 public import core::text::positional -;
 public import core::io::time -;
 public import core::fundamental::mainloop -;
@@ -14,6 +13,19 @@ public import glm;
 public import app::app_data -;
 public import app::app_scene -;
 public import app::texture::triangles_texture -;
+
+private threaded struct background_thread_make_sample_texture(
+  string const& datadir, texture_config const& conf, bool save_file,
+  tptr{pgl::tiled_voxel_texture} const& vox)
+<background_thread>
+{
+  public function bool finished() {
+    return p->finished();
+  }
+  private ptr{thread{make_sample_raycasting_texture_data}} const p
+    = make_ptr{thread{make_sample_raycasting_texture_data}}(datadir, conf,
+      save_file, vox);
+}
 
 public function varray{pgl::drawer_cond} init_drawsteps(
   app_data mutable& app, pgl::shader_config const& sconf,
@@ -31,9 +43,18 @@ public function varray{pgl::drawer_cond} init_drawsteps(
   downcast_mutable{app_scene_shared}(*app.scene_shared).raycast_layer
     = app.raycast_layer;
 
-  prepare_triangles_texture_data(sconf.conf, app.datadir, app.txs, app.tvt);
+  const p = load_triangles_texture_data(sconf.conf, app.datadir,
+    app.txs, app.tiledvox);
+  app.tex_conf = p.first;
+  if (!p.second) {
+    // 非同期生成
+    app.make_texture_async_vox.some = make_tptr(pgl::tiled_voxel_texture());
+    app.make_texture_async.some =
+      make_ptr{background_thread_make_sample_texture}(app.datadir,
+        app.tex_conf, true, app.make_texture_async_vox.some);
+  }
   *ds.textures = *app.txs;
-  *ds.tvt = *app.tvt;
+  *ds.tiledvox = *app.tiledvox;
 
   // レンダリングパスを組み立てる
   const ctrue = make_ptr{bool}(true);
@@ -46,11 +67,6 @@ public function varray{pgl::drawer_cond} init_drawsteps(
   const shadowmap_name = "sm";
   {
     const num_shadowmaps = sconf.num_shadowmaps;
-    /*
-    pgl::make_drawstep_triangles_surface(ctrue, sconf, app.datadir, ds,
-      app.proj_df, shadowmap_name, num_shadowmaps, app.atl, dr_solid,
-      dr_shadow, dr_zpre);
-    */
     pgl::make_drawstep_triangles_parallax(ctrue, sconf, app.datadir, ds,
       app.proj_df, shadowmap_name, num_shadowmaps, app.atl, app.raycast_layer,
       dr_solid, dr_shadow, dr_zpre);
@@ -101,6 +117,15 @@ public function varray{pgl::drawer_cond} init_drawsteps(
   dr_r.push_back(pgl::make_drawstep_fxaa(ctrue, sconf, ds, app.dp_fxaa,
     "col0"));
     // col0からcol1へfxaaフィルタ実行
+  if (sconf.conf.get("glsl_comp_test", 0, 0, 1) != 0) {
+    // compute shaderのテスト: col1の色を変化させる
+    pgl::glslcomp_image cim;
+    cim.fbname = "col1";
+    cim.access = pgl::GL_READ_WRITE;
+    cim.format = pgl::GL_RGBA8;
+    dr_r.push_back(pgl::make_drawstep_glslcomp(ctrue, sconf, "comptest.csh",
+      app.pviewport_main3, ds, make_farray{pgl::glslcomp_image}(cim), true));
+  }
   if (sconf.conf.get("capture_filter", 0, 0, 1) != 0) {
     // TODO: blur_h反映
     debug_log("enable capture filter");
@@ -144,8 +169,9 @@ public function varray{pgl::drawer_cond} init_drawsteps(
       dr_r.push_back(pgl::make_drawstep_setfb(cblur, sconf, ds,
         app.pviewport_main, app.pviewport_main,
         "col3", true, make_varray{string}("GL_RGBA"), "",
-        app.virt_scale != 1.0));
+        true /* app.virt_scale != 1.0 */));
         // (blur_h有りのとき) col3, virt_scale==1.0ならnearest
+        //   性能変わらないように見えるので常にtrueにしておく
       dr_r.push_back(pgl::make_drawstep_blur_h(cblur, sconf, ds, app.dp_blur_h,
         app.white_count_ptr, false, "col2", ""));
         // (blur_h有りのとき) blur_h (direction_h) col2 -> col3

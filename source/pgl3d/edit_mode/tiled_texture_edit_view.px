@@ -15,7 +15,7 @@ public metafunction absmax_tile_scale_log2 6;
 private metafunction dbg_cursor{f} no_operation;
 private metafunction dbg_paste{f} no_operation;
 
-public struct
+public threaded struct
 tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
 {
   private ptr{edit_mode_texture} const emt = emt0;
@@ -31,10 +31,11 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
     emt->vox.tmap_edit);
   private texture_edit_view tev_tpat = texture_edit_view(
     emt->vox.tpat_edit);
-  private ptr{gl_texture} const gl_tmap = emt->glt_voxtmap;
-  private ptr{gl_texture} const gl_tmap_sec = emt->glt_voxtmax;
-  private ptr{gl_texture} const gl_tpat = emt->glt_voxtpat;
-  private ptr{gl_texture} const gl_tpat_sec = emt->glt_voxtpax;
+  public function void update_edit_texture()
+  {
+    tev_tmap = texture_edit_view(emt->vox.tmap_edit);
+    tev_tpat = texture_edit_view(emt->vox.tpat_edit);
+  }
   private ttev_state state;
   init();
   private function void init()
@@ -331,20 +332,20 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
       // debug_log("sync tmmod", tmmod);
       texture_data_mip_sync_gl(tev_tmap.tview[0],
         tev_tmap.current_edit->data[0], tmmod.first,
-        tmmod.second, gl_tmap);
+        tmmod.second, emt->glt_voxtmap0);
       texture_data_mip_sync_gl(tev_tmap.tview[1],
         tev_tmap.current_edit->data[1], tmmod.first,
-        tmmod.second, gl_tmap_sec);
+        tmmod.second, emt->glt_voxtmap1);
     }
     pair{uvec3, uvec3} tpmod = tev_tpat.get_view_modified(true);
     if (tpmod.second.x != 0u) {
       // debug_log("sync tpmod", tmmod);
       texture_data_mip_sync_gl(tev_tpat.tview[0],
         tev_tpat.current_edit->data[0], tpmod.first,
-        tpmod.second, gl_tpat);
+        tpmod.second, emt->glt_voxtpat0);
       texture_data_mip_sync_gl(tev_tpat.tview[1],
         tev_tpat.current_edit->data[1], tpmod.first,
-        tpmod.second, gl_tpat_sec);
+        tpmod.second, emt->glt_voxtpat1);
     }
   }
   public function filling get_filling(uvec3 const& p) const {
@@ -367,7 +368,7 @@ tiled_texture_edit_view(ptr{edit_mode_texture} const& emt0)
   }
 }
 
-public struct ttev_state() {
+public pure threaded struct ttev_state() {
   public int cursor_flick;
   public uint cursor_color_0;
   public uint cursor_color_1;

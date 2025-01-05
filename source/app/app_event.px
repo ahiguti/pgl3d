@@ -2,7 +2,6 @@ public namespace app::app_event;
 public import core::common -;
 public import core::exception -;
 public import core::numeric::fpmath -;
-public import core::pointer::raw -;
 public import core::text::positional -;
 public import core::io::time -;
 public import core::fundamental::mainloop -;
@@ -22,7 +21,7 @@ public function void handle_event(app_data mutable& app,
   if (etype == SDL_WINDOWEVENT) {
     //if (ev.window.event == SDL_WINDOWEVENT_RESIZED) {
       if (update_window_geometry(app, actrl.get_drawable_size(),
-        actrl.get_window_size())) {
+        actrl.get_window_size(), false)) {
         actrl.geometry_changed();
         debug_log("WINDOWEVENT");
       }
@@ -106,6 +105,18 @@ public function void handle_event(app_data mutable& app,
         return;
       }
     }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+      if (app.modmask == 0) {
+        actrl.set_param("toggle_imgui", "1");
+        return;
+      }
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_DELETE) {
+      if (app.modmask == 0) {
+        actrl.set_param("restart_app", "1");
+        return;
+      }
+    }
     if (ev.key.keysym.scancode == SDL_SCANCODE_TAB) {
       if ((app.modmask & 1) == 1) {
         app.scene_next = -1;
@@ -129,15 +140,34 @@ public function void handle_event(app_data mutable& app,
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F7) {
+      if ((app.modmask & 4) == 4) {
+        app.user_miplevel_bias = 0.0f;
+      } else if ((app.modmask & 1) == 1) {
+        app.user_miplevel_bias -= 0.2f;
+      } else {
+        app.user_miplevel_bias += 0.2f;
+      }
+      debug_log("user_miplevel_bias", app.user_miplevel_bias);
+      return;
+    }
+    /*
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F7) {
       actrl.set_param("dummy_flip", "1");
       return;
     }
+    */
+    /*
     if (ev.key.keysym.scancode == SDL_SCANCODE_F8) {
       app.exposure *= 0.5;
       return;
     }
+    */
     if (ev.key.keysym.scancode == SDL_SCANCODE_F9) {
-      app.exposure *= 2.0;
+      if ((app.modmask & 1u) == 1u) {
+        app.exposure *= 0.5;
+      } else {
+        app.exposure *= 2.0;
+      }
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F10) {
@@ -170,16 +200,32 @@ public function void handle_event(app_data mutable& app,
       if ((app.modmask & 1) != 0) {
         app.option_value2 = -1;
       } else {
-        app.option_value2 = ((app.option_value2) + 2) % 10 - 1;
+        app.option_value2 = ((app.option_value2) + 2) % 14 - 1;
       }
       app.proj_pm->option_value2 = static_cast{float}(app.option_value2);
         // app.option_value2は不要では？
       const ov2 = app.option_value2;
       debug_log("option_value2", ov2);
       // messageを反映させるためにもう一度on_key_pressedを呼ぶ
+      // 効いてない？
       glm::vec3 cursor_move;
       app.edit_mode.some->on_key_pressed(0, 0, cursor_move,
         app.app_status_message);
+      return;
+    }
+    if (ev.key.keysym.scancode == SDL_SCANCODE_F6) {
+      if ((app.modmask & 4) != 0) {
+        app.virt_scale = 1.0;
+      } else if ((app.modmask & 1) != 0) {
+        app.virt_scale /= 1.1;
+      } else {
+        app.virt_scale *= 1.1;
+      }
+      debug_log("virt_scale", app.virt_scale);
+      if (update_window_geometry(app, actrl.get_drawable_size(),
+        actrl.get_window_size(), true)) {
+        actrl.geometry_changed();
+      }
       return;
     }
     if (ev.key.keysym.scancode == SDL_SCANCODE_F12) {
@@ -217,6 +263,17 @@ public function void handle_event(app_data mutable& app,
   const virt_sz = glm::make_uvec2(static_cast{uint}(proj.virt_width),
     static_cast{uint}(proj.virt_height));
   app.ictl.handle_event(ev, frame_speed, virt_sz, app.app_commands);
+}
+
+private function float screen_miplevel_bias(glm::uvec2 const& viewport_size)
+{
+  // uint const sz = map_fold{glm::uvec2, max}(viewport_size);
+  uint const sz = max(viewport_size.x, viewport_size.y);
+  double const szl2 = core::numeric::fpmath::log(static_cast{double}(sz))
+    / core::numeric::fpmath::log(2.0);
+  const r = 11.0f - static_cast{float}(szl2);
+  // debug_log("screen_miplevel_bias", r);
+  return r;
 }
 
 public function void handle_keys(app_data mutable& app,
@@ -264,6 +321,8 @@ public function void handle_keys(app_data mutable& app,
     ss.option_value = app.option_value;
     ss.option_value2 = app.option_value2;
     ss.option_value3 = app.option_value3;
+    ss.miplevel_bias = app.user_miplevel_bias
+      + screen_miplevel_bias(*app.pviewport_main);
     ss.scene_next = app.scene_next;
     ss.posang.position = app.player.position;
     ss.posang.angle = app.player.angle * mctrl_angle * camera_rel;
@@ -288,17 +347,18 @@ function void save_state(app_data const& app)
   pgl::sdl_save_file(app.datadir + "/camera_state.raw", s);
 }
 
-function bool update_window_geometry(app_data mutable& app,
-  glm::uvec2 const& drsz, glm::uvec2 const& wsz)
+public function bool update_window_geometry(app_data mutable& app,
+  glm::uvec2 const& drsz, glm::uvec2 const& wsz, bool force)
 {
   const& glc = *app.sconf.some;
   mutable& cam = *app.proj_df;
-  if (
+  if (!force &&
     cam.display_width == static_cast{int}(drsz.x) &&
     cam.display_height == static_cast{int}(drsz.y) &&
     cam.window_width == static_cast{int}(wsz.x) &&
     cam.window_height == static_cast{int}(wsz.y))
   {
+    // debug_log("display geometry not changed");
     return false;
   }
   debug_log("display geometry changed");
@@ -319,6 +379,10 @@ function bool update_window_geometry(app_data mutable& app,
   *app.pviewport_main = glm::make_uvec2(
     static_cast{uint}(cam.virt_width),
     static_cast{uint}(cam.virt_height));
+  *app.pviewport_main3 = glm::make_uvec3(
+    static_cast{uint}(cam.virt_width),
+    static_cast{uint}(cam.virt_height),
+    1u);
   *app.pviewport_disp = glm::make_uvec2(
     static_cast{uint}(cam.display_width),
     static_cast{uint}(cam.display_height));

@@ -4,7 +4,7 @@ private import core::meta m;
 private import pgl3d::edit_mode::common -;
 private import pgl3d::edit_mode::vecutil -;
 
-public function {t} void
+public pure function {t} void
 texture_data_clear_range_recalc_distance_quick(t mutable& dest,
   uvec3 const& dpos, uvec3 const& sz)
 {
@@ -78,7 +78,7 @@ texture_data_fill_range_recalc_distance_quick(t mutable& dest,
   return pair{ivec3, ivec3}(mi, mx);
 }
 
-public function {t} void
+public pure function {t} void
 texture_data_copy_range_merge_distance(t mutable& dest,
   uvec3 const& dpos, t const& src, uvec3 const& spos,
   uvec3 const& sz)
