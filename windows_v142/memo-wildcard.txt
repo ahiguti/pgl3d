@@ -1,0 +1,7 @@
+vcxprojでソースファイルをワイルドカード指定するために、
+Directory.Build.targetsにワイルドカード展開するよう仕込んである。
+ただしvisual studioで開いたときにSolution Explorerにそれらの
+ファイルは見えない。
+
+https://learn.microsoft.com/en-us/cpp/build/reference/vcxproj-files-and-wildcards?view=msvc-170
+

@@ -1,6 +1,7 @@
 public namespace pgl3d::ext::debug_helper "use-unsafe";
 public import core::common -;
 public import core::meta m;
+private import core::io::standard;
 private import pgl3d::engine::pxc_backtrace;
 
 public function extern "::pxcrt::dump_modules" void dump_modules();
@@ -56,7 +57,9 @@ void dump_backtrace()
   char buf[1024] = { };
   unsigned short num_frames = CaptureStackBackTrace(0, 512, addr, NULL);
   sprintf_s(buf, "c_backtrace %i\n", num_frames);
-  _write(debug_log_file, buf, (unsigned)strlen(buf));
+  ::core$n::io$n::standard$n::debug_log_string$f(
+    ::pxcrt::bt_cslice< ::pxcrt::bt_uchar>(( ::pxcrt::bt_uchar *)buf,
+    ( ::pxcrt::bt_size_t)strlen(buf)));
   for (unsigned short i = 0; i < num_frames; ++i) {
     DWORD_PTR a = (DWORD_PTR)(addr[i]);
     char symbol_info_buf[sizeof(SYMBOL_INFO) + 1024] = { };
@@ -72,7 +75,9 @@ void dump_backtrace()
     sprintf_s(buf, "%u %p %s +%llx %s:%d +%llx\n", (unsigned)i,
       (void *)a, sinfo->Name, (unsigned long long)offset, line.FileName,
       (int)line.LineNumber, (unsigned long long)dis);
-    _write(debug_log_file, buf, (unsigned)strlen(buf));
+    ::core$n::io$n::standard$n::debug_log_string$f(
+      ::pxcrt::bt_cslice< ::pxcrt::bt_uchar>(( ::pxcrt::bt_uchar *)buf,
+      ( ::pxcrt::bt_size_t)strlen(buf)));
   }
 #endif
 }
@@ -108,7 +113,9 @@ LONG unhandled_exception_handler(PEXCEPTION_POINTERS einfo)
   SetErrorMode(SEM_NOGPFAULTERRORBOX | SEM_FAILCRITICALERRORS);
   sprintf_s(buf, "unhandled exception: %x\n",
     einfo->ExceptionRecord->ExceptionCode);
-  _write(debug_log_file, buf, (unsigned)strlen(buf));
+  ::core$n::io$n::standard$n::debug_log_string$f(
+    ::pxcrt::bt_cslice< ::pxcrt::bt_uchar>(( ::pxcrt::bt_uchar *)buf,
+    ( ::pxcrt::bt_size_t)strlen(buf)));
   dump_backtrace();
   std::_Exit(4);
 }

@@ -3,7 +3,6 @@
 cd `dirname $0`
 ./android/clean_all.sh
 ./windows_v142/clean_all.sh
-./windows_v143/clean_all.sh
 ./unix/clean_all.sh
 rm -rf ./ios/gen/*
 rm -rf ./emscripten/gen/*

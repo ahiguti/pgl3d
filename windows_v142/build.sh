@@ -21,6 +21,7 @@ echo "$0: conf_arch = $bconf|$barch"
 rm -f ./$barch/$bconf/pgl3d_app.log
 time ./pxc2cc-windows.sh && \
 time "$drive/Program Files (x86)/Microsoft Visual Studio/2019/Professional/Common7/IDE/devenv.exe" pgl3d_app.sln /Build "$bconf|$barch"
+#time "$drive/Program Files (x86)/Microsoft Visual Studio/2019/Professional/MSBuild/Current/Bin/MSBuild.exe" pgl3d_app.sln /m /p:Configuration=Release /p:Platform=x64
 ret=$?
 if [ -f ./$barch/$bconf/pgl3d_app.log ]; then
   cat ./$barch/$bconf/pgl3d_app.log

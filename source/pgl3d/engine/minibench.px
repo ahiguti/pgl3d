@@ -76,7 +76,7 @@ public threaded function void minibench()
     const v = rng.generate();
     const t1 = thread_io().high_resolution_timer_double();
     debug_log("minibench", loop, v, t1 - t0);
-    if (t1 - t0 > 1.0f) {
+    if (t1 - t0 > 0.1f) {
       break;
     }
   }

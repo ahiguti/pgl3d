@@ -1,0 +1,8 @@
+<Project>
+  <Target Name="AddWildCardItems"
+      AfterTargets="BuildGenerateSources">
+    <ItemGroup>
+      <ClCompile Include="@(_WildCardClCompile)" />
+    </ItemGroup>
+  </Target>
+</Project>

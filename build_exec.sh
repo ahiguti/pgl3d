@@ -47,7 +47,7 @@ echo "$0: args=$*"
 
 newer_files=`find ./source -name "*.px" -and -newercc \
         "$build_target" 2> /dev/null`
-files_0=`find ./source -name "*.px"`;
+files_0=`find ./source -name "*.px" -o -name "*.pxi"`;
 stat_str_0=`stat -c "%z" $files_0 2> /dev/null`;
 if [ -e "$build_target" -a -z "$newer_files" ]; then
         echo "$build_target" is up to date 1>&2

@@ -16,11 +16,12 @@ public import app::app_data -;
 public import app::app_drawstep -;
 public import app::app_event -;
 
+
 load_filesystem_async{app_main}("/persist"); // emscripten
 
 public function void app_main()
 {
-  set_debug_log_file("var/app.log");
+  set_debug_log_file("./var/app.log");
   set_debug_timestamp(true);
   // pgl::debug_helper::dump_modules();
   // pgl::debug_helper::dump_backtrace();
@@ -29,7 +30,7 @@ public function void app_main()
   if (argv.empty()) {
     argv.push_back("res/pgl3d.cnf");
   }
-  pgl3d::engine::minibench::minibench(); // TODO: remove
+  pgl3d::engine::minibench::minibench();
   pgl3d::engine::mainloop::mainloop{app_application_factory}(argv);
 }
 

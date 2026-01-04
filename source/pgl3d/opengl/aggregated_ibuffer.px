@@ -70,7 +70,7 @@ aggregated_ibuffer_frame_begin(aggregated_ibuffer mutable& aibuf,
       const size_t total_size_float = offset_float;
       offset_float = 0;
       //debug_log("ibuffer_frame_begin begin3");
-      cur_buf.client_wait_sync(1000000000 * 10);
+      cur_buf.client_wait_sync(1000000000);
       //debug_log("ibuffer_frame_begin begin4");
       cur_buf.map_buffer(total_size_float * 4U);
       //debug_log("ibuffer_frame_begin begin5");
